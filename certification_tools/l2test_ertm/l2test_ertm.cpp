@@ -215,7 +215,7 @@ btl2cap_interface_t* get_l2cap_interface(void);
 
 
 
-static void l2test_l2c_connect_ind_cb(BD_ADDR bd_addr, uint16_t lcid, uint16_t psm, uint8_t id)
+static void l2test_l2c_connect_ind_cb(const RawAddress &bd_addr, uint16_t lcid, uint16_t psm, uint8_t id)
 {
 
     if((L2CAP_FCR_ERTM_MODE == g_Fcr_Mode) || (L2CAP_FCR_STREAM_MODE == g_Fcr_Mode)) {
@@ -302,7 +302,7 @@ static void l2test_l2c_disconnect_cfm_cb(uint16_t lcid, uint16_t result)
     g_ConnectionState = DISCONNECT;
     g_lcid = 0;
 }
-static void l2test_l2c_QoSViolationInd(BD_ADDR bd_addr)
+static void l2test_l2c_QoSViolationInd(const RawAddress &bd_addr)
 {
     printf("l2test_l2c_QoSViolationInd\n");
 }
@@ -555,7 +555,7 @@ static void discovery_state_changed(bt_discovery_state_t state)
 }
 
 #if 0
-static void pin_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name, uint32_t cod)
+static void pin_request_cb(RawAddress *remote_bd_addr, bt_bdname_t *bd_name, uint32_t cod)
 {
 
     int ret = 0;
@@ -566,7 +566,7 @@ static void pin_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name, ui
     }
 }
 #endif
-static void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
+static void ssp_request_cb(RawAddress *remote_bd_addr, bt_bdname_t *bd_name,
                            uint32_t cod, bt_ssp_variant_t pairing_variant, uint32_t pass_key)
 {
     if(BT_STATUS_SUCCESS != sBtInterface->ssp_reply(remote_bd_addr, pairing_variant, TRUE, pass_key)) {
@@ -574,13 +574,13 @@ static void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
     }
 }
 
-static void bond_state_changed_cb(bt_status_t status, bt_bdaddr_t *remote_bd_addr, bt_bond_state_t state)
+static void bond_state_changed_cb(bt_status_t status, RawAddress *remote_bd_addr, bt_bond_state_t state)
 {
 
     g_PairState = state;
 }
 
-static void acl_state_changed(bt_status_t status, bt_bdaddr_t *remote_bd_addr, bt_acl_state_t state)
+static void acl_state_changed(bt_status_t status, RawAddress *remote_bd_addr, bt_acl_state_t state)
 {
 }
 
@@ -742,36 +742,6 @@ void do_cleanup(char *p)
    // bdt_cleanup();
 }
 
-int GetBdAddr(char *p, bt_bdaddr_t *pbd_addr)
-{
-    char Arr[13] = {0};
-    uint8_t k1 = 0;
-    uint8_t k2 = 0;
-    int i;
-
-    if(12 != strlen(p))
-    {
-        printf("\nInvalid Bd Address. Format[112233445566]\n");
-        return FALSE;
-    }
-    strlcpy(Arr, p, sizeof(Arr));
-    for(i=0; i<12; i++)
-    {
-        Arr[i] = tolower(Arr[i]);
-    }
-    for(i=0; i<6; i++)
-    {
-        k1 = (uint8_t) ( (Arr[i*2] >= 'a') ? ( 10 + (uint8_t)( Arr[i*2] - 'a' )) : (Arr[i*2] - '0') );
-        k2 = (uint8_t) ( (Arr[i*2+1] >= 'a') ? ( 10 + (uint8_t)( Arr[i*2+1] - 'a' )) : (Arr[i*2+1] - '0') );
-        if ( (k1>15)||(k2>15) )
-        {
-            return FALSE;
-        }
-        pbd_addr->address[i] = (k1<<4 | k2);
-    }
-    return TRUE;
-}
-
 void do_l2cap_init(char *p)
 {
 
@@ -821,12 +791,11 @@ void do_l2cap_deregister(char *p)
 
 uint16_t do_l2cap_connect(char *p)
 {
-
-    bt_bdaddr_t bd_addr = {{0}};
-    GetBdAddr(p, &bd_addr);
+    RawAddress bd_addr;
+    RawAddress::FromString(p, bd_addr);
 
     if((L2CAP_FCR_STREAM_MODE == g_Fcr_Mode) || (L2CAP_FCR_ERTM_MODE == g_Fcr_Mode)) {
-        return sL2capInterface->ErtmConnectReq(g_PSM,(uint8_t *)&bd_addr.address, &t_ertm_info);
+        return sL2capInterface->ErtmConnectReq(g_PSM, bd_addr, &t_ertm_info);
     } else {
         return sL2capInterface->Connect(g_PSM, &bd_addr);
     }
@@ -835,9 +804,9 @@ uint16_t do_l2cap_connect(char *p)
 bool do_l2cap_ping(char *p)
 {
 
-    bt_bdaddr_t bd_addr = {{0}};
-    GetBdAddr(p, &bd_addr);
-    if(FALSE == sL2capInterface->Ping(bd_addr.address, l2c_echo_rsp_cb)) {
+    RawAddress bd_addr;
+    RawAddress::FromString(p, bd_addr);
+    if(FALSE == sL2capInterface->Ping(bd_addr, l2c_echo_rsp_cb)) {
         printf("Failed to send Ping Request \n");
         return FALSE;
     }
@@ -1012,8 +981,8 @@ static void l2c_send(char *p)
 
 static int l2c_pair(char *p)
 {
-    bt_bdaddr_t bd_addr = {{0}};
-    GetBdAddr(p, &bd_addr);
+    RawAddress bd_addr;
+    RawAddress::FromString(p, bd_addr);
     if(BT_STATUS_SUCCESS != sBtInterface->create_bond(&bd_addr,TRANSPORT_BREDR))
     {
         printf("Failed to Initiate Pairing \n");

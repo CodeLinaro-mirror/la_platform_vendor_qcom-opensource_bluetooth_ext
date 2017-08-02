@@ -19,6 +19,6 @@ cc_library_static {
         "liblog",
     ],
     static_libs: [
+        "libbluetooth-types",
     ],
-
 }

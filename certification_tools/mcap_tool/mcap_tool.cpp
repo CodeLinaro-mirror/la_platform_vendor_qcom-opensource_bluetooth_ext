@@ -482,18 +482,6 @@ uint32_t get_hex_byte(char **p, int DefaultValue)
    return (get_hex_any(p, DefaultValue, 2));
 }
 
-void get_bdaddr(const char *str, bt_bdaddr_t *bd) {
-    char *d = ((char *)bd), *endp;
-    int i;
-    for(i = 0; i < 6; i++) {
-        *d++ = strtol(str, &endp, 16);
-        if (*endp != ':' && i != 5) {
-            memset(bd, 0, sizeof(bt_bdaddr_t));
-            return;
-        }
-        str = endp + 1;
-    }
-}
 
 #define is_cmd(str) ((strlen(str) == strlen(cmd)) && strncmp((const char *)&cmd, str, strlen(str)) == 0)
 #define if_cmd(str)  if (is_cmd(str))

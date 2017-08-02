@@ -23,10 +23,17 @@ cc_library_static {
     ],
     shared_libs: [
         "libcutils",
+        "libchrome",
+        "libbase",
         "libutils",
         "libhardware",
     ],
     static_libs: [
+        "libbluetooth-types",
     ],
-    cflags: ["-DBUILDCFG"],
+    cflags: [
+        "-DBUILDCFG",
+        "-DHAS_NO_BDROID_BUILDCFG",
+    ],
+    
 }

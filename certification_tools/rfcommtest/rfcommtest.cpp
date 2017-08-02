@@ -50,7 +50,7 @@
 
 #include "bt_target.h"
 #include "bt_testapp.h"
-
+#include "raw_address.h"
 /* vendor  */
 extern btvendor_interface_t *btif_vendor_get_interface();
 
@@ -125,17 +125,6 @@ static void bdt_shutdown(void)
 ** Android's init.rc does not yet support applying linux capabilities
 *****************************************************************************/
 
-static int str2bd(char *str, bt_bdaddr_t *addr)
-{
-    int32_t i = 0;
-
-    for (i = 0; i < 6; i++)
-    {
-        addr->address[i] = (uint8_t) strtoul(str, (char **)&str, 16);
-        str++;
-    }
-    return 0;
-}
 static void config_permissions(void)
 {
     struct __user_cap_header_struct header;
@@ -173,7 +162,7 @@ static void config_permissions(void)
 }
 #if 0
 /*Pin_Request_cb */
-static void pin_remote_request_callback (bt_bdaddr_t *remote_bd_addr,
+static void pin_remote_request_callback (RawAddress *remote_bd_addr,
                              bt_bdname_t *bd_name, uint32_t cod)
 {
     bt_pin_code_t    pin_code;
@@ -189,7 +178,7 @@ static void pin_remote_request_callback (bt_bdaddr_t *remote_bd_addr,
 #endif
 
 /* Pairing in Case of SSP */
-static void ssp_remote_requst_callback(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
+static void ssp_remote_requst_callback(RawAddress *remote_bd_addr, bt_bdname_t *bd_name,
                              uint32_t cod, bt_ssp_variant_t pairing_variant, uint32_t pass_key)
 {
     if (pairing_variant == BT_SSP_VARIANT_PASSKEY_ENTRY)
@@ -392,19 +381,6 @@ uint32_t get_hex(char **p, int DefaultValue)
     return DefaultValue;
   else
     return Value;
-}
-
-void get_bdaddr(const char *str, bt_bdaddr_t *bd) {
-    char *d = ((char *)bd), *endp;
-    int i;
-    for(i = 0; i < 6; i++) {
-        *d++ = strtol(str, &endp, 16);
-        if (*endp != ':' && i != 5) {
-            memset(bd, 0, sizeof(bt_bdaddr_t));
-            return;
-        }
-        str = endp + 1;
-    }
 }
 
 #define is_cmd(str) ((strlen(str) == strlen(cmd)) && strncmp((const char *)&cmd, str, strlen(str)) == 0)
@@ -916,7 +892,7 @@ void do_rfc_con( char *p)
     memset(buf, 0, 64);
     /*Enter BD address */
     get_str(&p, buf);
-    str2bd(buf, &conn_param.data.conn.bdadd);
+    RawAddress::FromString(buf, conn_param.data.conn.bdadd);
     memset(buf ,0 , 64);
     get_str(&p, buf);
     conn_param.data.conn.scn = atoi(buf);
@@ -947,7 +923,7 @@ void do_rfc_con_for_test_msc_data(char *p)
     memset(buf, 0, 64);
     /*Enter BD address */
     get_str(&p, buf);
-    str2bd(buf, &conn_param.data.conn.bdadd);
+    RawAddress::FromString(buf, conn_param.data.conn.bdadd);
     memset(buf ,0 , 64);
     get_str(&p, buf);
     conn_param.data.conn.scn = atoi(buf);
@@ -978,7 +954,7 @@ void do_role_switch(char *p)
     memset(buf ,0 , 64);
     /* Bluetooth Device address */
     get_str(&p, buf);
-    str2bd(buf, &conn_param.data.role_switch.bdadd);
+    RawAddress::FromString(buf, conn_param.data.conn.bdadd);
     memset(buf ,0 , 64);
     get_str(&p, buf);
     conn_param.data.role_switch.role = atoi(buf);

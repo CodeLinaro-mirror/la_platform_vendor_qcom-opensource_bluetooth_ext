@@ -38,7 +38,6 @@
 #include "osi/include/list.h"
 #include "device/include/interop_database.h"
 #include "interop_config.h"
-#include "btcore/include/bdaddr.h"
 #include "osi/include/allocator.h"
 #include "device/include/interop.h"
 #include "btcore/include/module.h"
@@ -92,7 +91,7 @@ typedef struct {
 } interop_section_t;
 
 typedef struct {
-  bt_bdaddr_t addr;
+  RawAddress addr;
   size_t length;
   uint16_t max_lat;
   interop_feature_t feature;
@@ -143,7 +142,7 @@ static void interop_config_write(UNUSED_ATTR UINT16 event, UNUSED_ATTR char *p_p
 // Interface functions
 
 bool interop_match_addr(const interop_feature_t feature,
-                const bt_bdaddr_t *addr)
+                const RawAddress *addr)
 {
   assert(addr);
   return (interop_database_match_addr(feature, addr));
@@ -169,17 +168,17 @@ bool interop_match_vendor_product_ids(const interop_feature_t feature,
 }
 
 bool interop_match_addr_get_max_lat(const interop_feature_t feature,
-    const bt_bdaddr_t *addr, uint16_t *max_lat)
+    const RawAddress *addr, uint16_t *max_lat)
 {
   return interop_database_match_addr_get_max_lat(feature, addr, max_lat);
 }
 
-void interop_database_add(const uint16_t feature, const bt_bdaddr_t *addr,
+void interop_database_add(const uint16_t feature, const RawAddress *addr,
                               size_t length)
 {
   assert(addr);
   assert(length > 0);
-  assert(length < sizeof(bt_bdaddr_t));
+  assert(length < sizeof(RawAddress));
   interop_database_add_addr(feature, addr,length);
 }
 
@@ -248,7 +247,7 @@ static future_t *interop_clean_up(void)
   return future_new_immediate(FUTURE_SUCCESS);
 }
 
-EXPORT_SYMBOL module_t interop_module = {
+module_t interop_module = {
   .name = INTEROP_MODULE,
   .init = interop_init,
   .start_up = NULL,
@@ -391,10 +390,8 @@ static void interop_database_add_( interop_db_entry_t *db_entry,
       {
         interop_feature_t feature =
               db_entry->entry_type.addr_entry.feature;
-        bdstr_t bdstr = { '\0' };
-        bdaddr_to_string(&db_entry->entry_type.addr_entry.addr,
-                    bdstr, sizeof(bdstr));
-        bdstr[(db_entry->entry_type.addr_entry.length * 3) - 1] = '\0';
+        std::string addrstr = db_entry->entry_type.addr_entry.addr.ToString();
+        const char* bdstr = addrstr.c_str();
         interop_config_set_str(interop_feature_string_(feature),
                   bdstr, ADDR_BASED);
         interop_config_flush();
@@ -439,10 +436,8 @@ static void interop_database_add_( interop_db_entry_t *db_entry,
         interop_feature_t feature =
           db_entry->entry_type.ssr_max_lat_entry.feature;
         char m_vendor[KEY_MAX_LENGTH] = { '\0' };
-        bdstr_t bdstr = { '\0' };
-        bdaddr_to_string(&db_entry->entry_type.addr_entry.addr,
-                    bdstr, sizeof(bdstr));
-        bdstr[(db_entry->entry_type.addr_entry.length * 3) - 1] = '\0';
+        std::string addrstr = db_entry->entry_type.addr_entry.addr.ToString();
+        const char* bdstr = addrstr.c_str();
         snprintf(m_vendor, sizeof(m_vendor), "%s-0x%04x",
             bdstr, db_entry->entry_type.ssr_max_lat_entry.max_lat);
         interop_config_set_str(interop_feature_string_(feature),
@@ -590,9 +585,8 @@ static bool interop_database_remove_( interop_db_entry_t *entry)
         interop_addr_entry_t *src = &entry->entry_type.addr_entry;
 
         interop_feature_t feature = src->feature;
-        bdstr_t bdstr = { '\0' };
-        bdaddr_to_string(&src->addr, bdstr, sizeof(bdstr));
-        bdstr[(src->length * 3) - 1] = '\0';
+        std::string addrstr = src->addr.ToString();
+        const char* bdstr = addrstr.c_str();
         interop_config_remove(interop_feature_string_(feature), bdstr);
         interop_config_flush();
         break;
@@ -637,9 +631,8 @@ static bool interop_database_remove_( interop_db_entry_t *entry)
 
         interop_feature_t feature = src->feature;
         char m_vendor[KEY_MAX_LENGTH] = { '\0' };
-        bdstr_t bdstr = { '\0' };
-        bdaddr_to_string(&src->addr, bdstr, sizeof(bdstr));
-        bdstr[(src->length * 3) - 1] = '\0';
+        std::string addrstr = src->addr.ToString();
+        const char* bdstr = addrstr.c_str();
         snprintf(m_vendor, sizeof(m_vendor), "%s-0x%04x",
             bdstr, src->max_lat);
         interop_config_remove(interop_feature_string_(feature),
@@ -725,8 +718,8 @@ static bool get_addr_maxlat(char *str, char *bdaddrstr,
 bool load_to_database(int feature, char *key, char *value, interop_entry_type entry_type)
 {
   if ( !strncasecmp( value, ADDR_BASED, strlen(ADDR_BASED)) ) {
-    bdstr_t bdstr = { '\0' };
-    bt_bdaddr_t addr;
+    char bdstr[17] = { '\0' };
+    RawAddress addr;
     int len = 0;
     char append_str[] = ":00";
 
@@ -739,20 +732,21 @@ bool load_to_database(int feature, char *key, char *value, interop_entry_type en
 
     snprintf(bdstr, sizeof(bdstr), "%s", key);
     for ( int i = 6;  i > len; i-- )
-      strlcat(bdstr, append_str, sizeof(bdstr_t));
+      strlcat(bdstr, append_str, sizeof(bdstr));
 
-    if (!string_is_bdaddr(bdstr)) {
+    RawAddress::FromString(bdstr, addr);
+    
+    if (!RawAddress::IsValidAddress(bdstr)) {
       LOG_WARN(LOG_TAG,
       "%s Bluetooth Address %s is invalid, not added to interop list",
       __func__, key);
       return false;
     }
-    string_to_bdaddr(bdstr, &addr);
 
     interop_db_entry_t *entry = (interop_db_entry_t *)osi_calloc(sizeof(interop_db_entry_t));
     entry->bl_type = INTEROP_BL_TYPE_ADDR;
     entry->bl_entry_type = entry_type;
-    bdaddr_copy(&entry->entry_type.addr_entry.addr, &addr);
+    entry->entry_type.addr_entry.addr = addr;
     entry->entry_type.addr_entry.feature = (interop_feature_t)feature;
     entry->entry_type.addr_entry.length = len;
     interop_database_add_(entry, false);
@@ -835,8 +829,8 @@ bool load_to_database(int feature, char *key, char *value, interop_entry_type en
       return false;
     }
 
-    bdstr_t bdstr = { '\0' };
-    bt_bdaddr_t addr;
+    char bdstr[17] = { '\0' };
+    RawAddress addr;
     int len = 0;
     char append_str[] = ":00";
 
@@ -849,20 +843,22 @@ bool load_to_database(int feature, char *key, char *value, interop_entry_type en
 
     snprintf(bdstr, sizeof(bdstr), "%s", bdaddr_str);
     for ( int i = 6;  i > len; i-- )
-      strlcat(bdstr, append_str, sizeof(bdstr_t));
+      strlcat(bdstr, append_str, sizeof(bdstr));
 
-    if (!string_is_bdaddr(bdstr)) {
+    RawAddress::FromString(bdstr, addr);
+    
+    if (!RawAddress::IsValidAddress(bdstr)) {
       LOG_WARN(LOG_TAG,
       "%s Bluetooth Address %s is invalid, not added to interop list",
       __func__, key);
       return false;
     }
-    string_to_bdaddr(bdstr, &addr);
+
     interop_db_entry_t *entry = (interop_db_entry_t *)osi_calloc(sizeof(interop_db_entry_t));
     entry->bl_type = INTEROP_BL_TYPE_SSR_MAX_LAT;
     entry->bl_entry_type = entry_type;
     entry->entry_type.ssr_max_lat_entry.feature = (interop_feature_t)feature;
-    bdaddr_copy(&entry->entry_type.ssr_max_lat_entry.addr, &addr);
+    entry->entry_type.ssr_max_lat_entry.addr = addr;
     entry->entry_type.ssr_max_lat_entry.length = len;
     entry->entry_type.ssr_max_lat_entry.max_lat = max_lat;
     interop_database_add_(entry, false);
@@ -937,12 +933,12 @@ static void interop_config_cleanup(void)
   pthread_mutex_destroy(&file_lock);
 }
 
-void interop_database_add_addr(const uint16_t feature, const bt_bdaddr_t *addr,
+void interop_database_add_addr(const uint16_t feature, const RawAddress *addr,
                                 size_t length)
 {
   assert(addr);
   assert(length > 0);
-  assert(length < sizeof(bt_bdaddr_t));
+  assert(length < sizeof(RawAddress));
 
   interop_db_entry_t *entry = (interop_db_entry_t *)osi_calloc(sizeof(interop_db_entry_t));
   entry->bl_type = INTEROP_BL_TYPE_ADDR;
@@ -991,12 +987,12 @@ void interop_database_add_vndr_prdt(const interop_feature_t feature,
 }
 
 void interop_database_add_addr_max_lat(const interop_feature_t feature,
-                  const bt_bdaddr_t *addr, size_t length, uint16_t max_lat)
+                  const RawAddress *addr, size_t length, uint16_t max_lat)
 {
 
   assert(addr);
   assert(length > 0);
-  assert(length < sizeof(bt_bdaddr_t));
+  assert(length < sizeof(RawAddress));
 
   interop_db_entry_t *entry = (interop_db_entry_t *)osi_calloc(sizeof(interop_db_entry_t));
   entry->bl_type = INTEROP_BL_TYPE_SSR_MAX_LAT;
@@ -1050,7 +1046,7 @@ bool interop_database_match_name( const interop_feature_t feature, const char *n
   return false;
 }
 
-bool interop_database_match_addr(const interop_feature_t feature, const bt_bdaddr_t *addr)
+bool interop_database_match_addr(const interop_feature_t feature, const RawAddress *addr)
 {
   assert(addr);
 
@@ -1058,14 +1054,13 @@ bool interop_database_match_addr(const interop_feature_t feature, const bt_bdadd
   interop_db_entry_t *ret_entry = NULL;
 
   entry.bl_type = INTEROP_BL_TYPE_ADDR;
-  memcpy(&entry.entry_type.addr_entry.addr, addr, sizeof(bt_bdaddr_t));
+  memcpy(&entry.entry_type.addr_entry.addr, addr, sizeof(RawAddress));
   entry.entry_type.addr_entry.feature = (interop_feature_t)feature;
-  entry.entry_type.addr_entry.length = sizeof(bt_bdaddr_t);
+  entry.entry_type.addr_entry.length = sizeof(RawAddress);
 
   if (interop_database_match_(&entry, &ret_entry, (interop_entry_type)(INTEROP_ENTRY_TYPE_STATIC  | INTEROP_ENTRY_TYPE_DYNAMIC))) {
-    bdstr_t bdstr = { '\0' };
     LOG_WARN(LOG_TAG, "%s() Device %s is a match for interop workaround %s.",
-      __func__, bdaddr_to_string(addr, bdstr, sizeof(bdstr)),
+      __func__, addr->ToString().c_str(),
       interop_feature_string_(feature));
     return true;
   }
@@ -1097,7 +1092,7 @@ bool interop_database_match_vndr_prdt(const interop_feature_t feature,
 }
 
 bool interop_database_match_addr_get_max_lat(const interop_feature_t feature,
-                   const bt_bdaddr_t *addr, uint16_t *max_lat)
+                   const RawAddress *addr, uint16_t *max_lat)
 {
 
   interop_db_entry_t entry;
@@ -1106,13 +1101,12 @@ bool interop_database_match_addr_get_max_lat(const interop_feature_t feature,
   entry.bl_type = INTEROP_BL_TYPE_SSR_MAX_LAT;
 
   entry.entry_type.ssr_max_lat_entry.feature = feature;
-  memcpy(&entry.entry_type.ssr_max_lat_entry.addr, addr, sizeof(bt_bdaddr_t));
+  memcpy(&entry.entry_type.ssr_max_lat_entry.addr, addr, sizeof(RawAddress));
   entry.entry_type.ssr_max_lat_entry.feature = feature;
-  entry.entry_type.ssr_max_lat_entry.length = sizeof(bt_bdaddr_t);
+  entry.entry_type.ssr_max_lat_entry.length = sizeof(RawAddress);
   if (interop_database_match_(&entry, &ret_entry, (interop_entry_type)(INTEROP_ENTRY_TYPE_STATIC  | INTEROP_ENTRY_TYPE_DYNAMIC))) {
-      bdstr_t bdstr = { '\0' };
       LOG_WARN(LOG_TAG, "%s() Device %s is a match for interop workaround %s.",
-        __func__, bdaddr_to_string(addr, bdstr, sizeof(bdstr)),
+        __func__, addr->ToString().c_str(),
         interop_feature_string_(feature));
       *max_lat = ret_entry->entry_type.ssr_max_lat_entry.max_lat;
     return true;
@@ -1165,7 +1159,7 @@ bool interop_database_remove_manufacturer( const interop_feature_t feature,
 
 
 bool interop_database_remove_addr(const interop_feature_t feature,
-                    const bt_bdaddr_t *addr)
+                    const RawAddress *addr)
 {
   assert(addr);
 
@@ -1173,14 +1167,13 @@ bool interop_database_remove_addr(const interop_feature_t feature,
 
   entry.bl_type = INTEROP_BL_TYPE_ADDR;
   entry.bl_entry_type = INTEROP_ENTRY_TYPE_DYNAMIC;
-  memcpy(&entry.entry_type.addr_entry.addr, addr, sizeof(bt_bdaddr_t));
+  memcpy(&entry.entry_type.addr_entry.addr, addr, sizeof(RawAddress));
   entry.entry_type.addr_entry.feature = (interop_feature_t)feature;
-  entry.entry_type.addr_entry.length = sizeof(bt_bdaddr_t);
+  entry.entry_type.addr_entry.length = sizeof(RawAddress);
   if (interop_database_remove_(&entry)) {
-    bdstr_t bdstr = { '\0' };
     LOG_WARN(LOG_TAG,
       "%s() Device %s is a removed from interop workaround %s.",
-      __func__, bdaddr_to_string(addr, bdstr, sizeof(bdstr)),
+      __func__, addr->ToString().c_str(),
       interop_feature_string_(feature));
     return true;
   }
@@ -1212,7 +1205,7 @@ bool interop_database_remove_vndr_prdt(const interop_feature_t feature,
 }
 
 bool interop_database_remove_addr_max_lat(const interop_feature_t feature,
-          const bt_bdaddr_t *addr, size_t length, uint16_t max_lat)
+          const RawAddress *addr, size_t length, uint16_t max_lat)
 {
 
   interop_db_entry_t entry;
@@ -1220,16 +1213,15 @@ bool interop_database_remove_addr_max_lat(const interop_feature_t feature,
   entry.bl_type = INTEROP_BL_TYPE_SSR_MAX_LAT;
   entry.bl_entry_type = INTEROP_ENTRY_TYPE_DYNAMIC;
 
-  memcpy(&entry.entry_type.ssr_max_lat_entry.addr, addr, sizeof(bt_bdaddr_t));
+  memcpy(&entry.entry_type.ssr_max_lat_entry.addr, addr, sizeof(RawAddress));
   entry.entry_type.ssr_max_lat_entry.feature = feature;
-  entry.entry_type.ssr_max_lat_entry.length = sizeof(bt_bdaddr_t);
+  entry.entry_type.ssr_max_lat_entry.length = sizeof(RawAddress);
   entry.entry_type.ssr_max_lat_entry.max_lat = max_lat;
 
   if (interop_database_remove_(&entry)) {
-      bdstr_t bdstr = { '\0' };
       LOG_WARN(LOG_TAG,
         "%s() Device %s is a removed from interop workaround %s.",
-        __func__, bdaddr_to_string(addr, bdstr, sizeof(bdstr)),
+        __func__, addr->ToString().c_str(),
         interop_feature_string_(feature));
     return true;
   }
