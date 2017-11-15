@@ -39,6 +39,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.os.UserManager;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
@@ -49,10 +50,13 @@ import android.util.Log;
 import com.android.bluetooth.ObexServerSockets;
 import com.android.bluetooth.pbap.BluetoothPbapVcardManager.VCardFilter;
 import com.android.bluetooth.R;
+import com.android.bluetooth.opp.BTOppUtils;
 import com.android.bluetooth.sdp.SdpManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
+
+import javax.obex.ServerSession;
 
 public class BluetoothPbapFixes {
 
@@ -259,6 +263,36 @@ public class BluetoothPbapFixes {
                 -1, BluetoothPbapFixes.SDP_PBAP_LEGACY_SERVER_VERSION,
                 supportedRepository,
                 BluetoothPbapFixes.SDP_PBAP_LEGACY_SUPPORTED_FEATURES);
+        }
+    }
+
+    /* To close Handler thread with looper */
+    protected static void closeHandler(BluetoothPbapService service) {
+        Handler mSessionStatusHandler = service.getHandler();
+        if (mSessionStatusHandler != null) {
+            //Perform cleanup in Handler running on worker Thread
+            mSessionStatusHandler.removeCallbacksAndMessages(null);
+            Looper looper = mSessionStatusHandler.getLooper();
+            if (looper != null) {
+                looper.quit();
+                Log.d(TAG, "Quit looper");
+            }
+            mSessionStatusHandler = null;
+            Log.d(TAG, "Removed Handler..");
+        }
+    }
+
+    protected static void updateMtu(ServerSession serverSession, boolean isSrmSupported,
+            int rfcommMaxMTU) {
+        String offload_cap = SystemProperties.get("persist.bt.a2dp_offload_cap");
+        if (DEBUG) Log.d(TAG, "offload_cap :" + offload_cap + " isSrmSupported :" +
+                isSrmSupported + " isA2DPConnected :" + BTOppUtils.isA2DPConnected +
+                " rfcommMaxMTU :" + rfcommMaxMTU);
+        if (offload_cap.isEmpty() || "false".equals(offload_cap)) {
+            offload_cap = null;
+        } else if (offload_cap != null && !isSrmSupported && BTOppUtils.isA2DPConnected
+                && rfcommMaxMTU > 0) {
+            serverSession.updateMTU(rfcommMaxMTU);
         }
     }
 }
