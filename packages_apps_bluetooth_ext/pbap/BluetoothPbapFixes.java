@@ -294,4 +294,29 @@ public class BluetoothPbapFixes {
             }
         }
     }
+
+    public static MatrixCursor filterOutSimContacts(Cursor contactCursor) {
+        if (contactCursor == null)
+            return null;
+
+        MatrixCursor mCursor = new MatrixCursor(new String[]{
+                    Phone.CONTACT_ID
+        });
+        final int contactIdColumn = contactCursor.getColumnIndex(Data.CONTACT_ID);
+        final int account_col_id = contactCursor.getColumnIndex(Phone.ACCOUNT_TYPE_AND_DATA_SET);
+        long previousContactId = -1;
+        contactCursor.moveToPosition(-1);
+        while (contactCursor.moveToNext()) {
+            long currentContactId = contactCursor.getLong(contactIdColumn);
+            String accType = contactCursor.getString(account_col_id);
+            if (previousContactId != currentContactId &&
+                    !(accType != null && accType.startsWith("com.android.sim"))) {
+                if (VERBOSE)
+                    Log.v(TAG, "currentContactId = " + currentContactId);
+                previousContactId = currentContactId;
+                mCursor.addRow(new Long[]{currentContactId});
+            }
+        }
+        return mCursor;
+    }
 }
