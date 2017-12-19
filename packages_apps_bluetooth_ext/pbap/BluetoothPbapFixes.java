@@ -35,6 +35,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.CursorWindowAllocationException;
 import android.database.MatrixCursor;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -51,6 +52,7 @@ import com.android.bluetooth.ObexServerSockets;
 import com.android.bluetooth.pbap.BluetoothPbapVcardManager.VCardFilter;
 import com.android.bluetooth.R;
 import com.android.bluetooth.opp.BTOppUtils;
+import com.android.bluetooth.util.DevicePolicyUtils;
 import com.android.bluetooth.sdp.SdpManager;
 
 import java.util.ArrayList;
@@ -83,6 +85,8 @@ public class BluetoothPbapFixes {
     protected static boolean isSimSupported = true;
 
     protected static boolean isSupportedPbap12 = true;
+
+    protected static Context sContext;
 
     /* To get feature support from config file */
     protected static void getFeatureSupport(Context context) {
@@ -228,6 +232,7 @@ public class BluetoothPbapFixes {
 
     /* To check if device is unlocked in Direct Boot Mode */
     public static boolean isUserUnlocked(Context context) {
+        sContext = context;
         UserManager manager = UserManager.get(context);
         return (manager == null || manager.isUserUnlocked());
     }
@@ -318,5 +323,27 @@ public class BluetoothPbapFixes {
             }
         }
         return mCursor;
+    }
+
+    /* Get account type for given contact*/
+    public static String getAccount(long contactId) {
+        String account = null;
+        Uri uri = DevicePolicyUtils.getEnterprisePhoneUri(sContext);
+        String whereClause = Phone.CONTACT_ID + "=?";
+        String [] selectionArgs = {String.valueOf(contactId)};
+        Cursor cursor = sContext.getContentResolver().query(uri,
+                BluetoothPbapVcardManager.PHONES_CONTACTS_PROJECTION,
+                whereClause, selectionArgs, Phone.CONTACT_ID);
+        if (cursor != null) {
+            cursor.moveToPosition(-1);
+            while (cursor.moveToNext()) {
+                long cid = cursor.getLong(cursor.getColumnIndex(Phone.CONTACT_ID));
+                account = cursor.getString(cursor.getColumnIndex(Phone.ACCOUNT_TYPE_AND_DATA_SET));
+                if (VERBOSE)
+                    Log.v(TAG, "For cid = " + cid + ", account = " + account);
+            }
+            cursor = null;
+        }
+        return account;
     }
 }
