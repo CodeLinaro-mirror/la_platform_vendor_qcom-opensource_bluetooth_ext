@@ -23,4 +23,7 @@ cc_library_static {
     static_libs: [
         "libbluetooth-types",
     ],
+    cflags: [
+        "-DHAS_NO_BDROID_BUILDCFG"
+    ],
 }
