@@ -723,7 +723,7 @@ static bool get_addr_maxlat(char *str, char *bdaddrstr,
 bool load_to_database(int feature, char *key, char *value, interop_entry_type entry_type)
 {
   if ( !strncasecmp( value, ADDR_BASED, strlen(ADDR_BASED)) ) {
-    char bdstr[17] = { '\0' };
+    char bdstr[18] = { '\0' };
     RawAddress addr;
     int len = 0;
     char append_str[] = ":00";
@@ -743,8 +743,8 @@ bool load_to_database(int feature, char *key, char *value, interop_entry_type en
     
     if (!RawAddress::IsValidAddress(bdstr)) {
       LOG_WARN(LOG_TAG,
-      "%s Bluetooth Address %s is invalid, not added to interop list",
-      __func__, key);
+      "%s key %s or Bluetooth Address %s is invalid, not added to interop list",
+      __func__, key, bdstr);
       return false;
     }
 
@@ -834,7 +834,7 @@ bool load_to_database(int feature, char *key, char *value, interop_entry_type en
       return false;
     }
 
-    char bdstr[17] = { '\0' };
+    char bdstr[18] = { '\0' };
     RawAddress addr;
     int len = 0;
     char append_str[] = ":00";
@@ -854,8 +854,8 @@ bool load_to_database(int feature, char *key, char *value, interop_entry_type en
     
     if (!RawAddress::IsValidAddress(bdstr)) {
       LOG_WARN(LOG_TAG,
-      "%s Bluetooth Address %s is invalid, not added to interop list",
-      __func__, key);
+      "%s key %s or Bluetooth Address %s is invalid, not added to interop list",
+      __func__, key, bdstr);
       return false;
     }
 
