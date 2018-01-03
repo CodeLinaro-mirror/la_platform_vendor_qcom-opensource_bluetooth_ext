@@ -243,7 +243,7 @@ public class BluetoothMapbMessageExtEmail extends BluetoothMapbMessageMime {
             // Attachment fetaure not supported . Append below MIME Headers.
             sb.append("Mime-Version: 1.0").append("\r\n");
             sb.append(
-                  "Content-Type: multipart/mixed; boundary=\""+ getBoundary() + "\"")
+                  "Content-Type: text/plain")
                    .append("\r\n");
             sb.append("Content-Transfer-Encoding: 8bit").append("\r\n");
         }
@@ -258,8 +258,6 @@ public class BluetoothMapbMessageExtEmail extends BluetoothMapbMessageMime {
        int count = 0;
        String emailBody;
        encodeEmailHeaders(sb);
-       sb.append("MIME Message").append("\r\n");
-       sb.append("--" + getBoundary()).append("\r\n");
        Log.v(TAG, "after encode header sb is "+ sb.toString());
        if (parts != null) {
            if (getIncludeAttachments() == false) {
@@ -267,7 +265,6 @@ public class BluetoothMapbMessageExtEmail extends BluetoothMapbMessageMime {
                   /* We call encode on all parts, to include a tag,
                    * where an attachment is missing. */
                   part.encodePlainText(sb);
-                  sb.append("--" + getBoundary() + "--").append("\r\n");
               }
           } else {
               for (MimePart part : parts) {
