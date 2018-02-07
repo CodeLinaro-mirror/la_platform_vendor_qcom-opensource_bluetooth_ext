@@ -359,8 +359,7 @@ static int get_feature(char *section)
 
   for ( feature = BEGINING_OF_INTEROP_LIST;
         feature < END_OF_INTEROP_LIST; feature++ ) {
-    if (!strncmp( section, interop_feature_string_((interop_feature_t)feature),
-                      strlen(section)))
+    if (!strcmp( section, interop_feature_string_((interop_feature_t)feature)))
       return feature;
   }
   return -1;
