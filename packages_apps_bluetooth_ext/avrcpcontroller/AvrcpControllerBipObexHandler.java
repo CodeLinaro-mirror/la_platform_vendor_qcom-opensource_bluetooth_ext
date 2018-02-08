@@ -161,7 +161,7 @@ class AvrcpControllerBipObexHandler extends Handler {
                 long height =  AvrcpControllerBipStateMachine.mSupportedCovertArtHeight;
                 long width = AvrcpControllerBipStateMachine.mSupportedCoverArtWidth;
                 StringBuffer pixel = new StringBuffer();
-                     pixel.append(height); pixel.append("*"); pixel.append(width);
+                     pixel.append(width); pixel.append("*"); pixel.append(height);
                 String encoding =  AvrcpControllerBipStateMachine.mSupportedCoverArtMimetype;
                 long maxSize =  AvrcpControllerBipStateMachine.mSupportedCoverArtMaxSize;
                 imageData = getImage(imgHandle, encoding, pixel.toString(), maxSize);

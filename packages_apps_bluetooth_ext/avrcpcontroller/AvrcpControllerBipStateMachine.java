@@ -33,6 +33,8 @@ import android.bluetooth.BluetoothAvrcpController;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
+import android.content.Intent;
+import android.media.MediaMetadata;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -46,6 +48,7 @@ import com.android.bluetooth.R;
 import com.android.internal.util.IState;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
+import com.android.bluetooth.btservice.ProfileService;
 /**
  * Bluetooth AVRCP CONTROLLER BIP StateMachine * @hide
  */
@@ -91,6 +94,8 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
     private final Context mContext;
     /* device associated with BIP client */
     private BluetoothDevice mDevice;
+
+    protected static final String EXTRA_METADATA_IS_INVALID_HANDLE = "is_invalid_handle";
 
     private AvrcpControllerBipStateMachine(AvrcpControllerStateMachine mStateMachine,
                                            Handler handler, Context context) {
@@ -473,5 +478,16 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
             }
             return HANDLED;
         }
+    }
+
+    public static  void broadcastInValidHandle(Context ctx , MediaMetadata metadata) {
+        Intent intent = new Intent(AvrcpControllerService.ACTION_TRACK_EVENT);
+        intent.putExtra(AvrcpControllerService.EXTRA_METADATA, metadata);
+        intent.putExtra(EXTRA_METADATA_IS_INVALID_HANDLE, true);
+        if (DBG) {
+            Log.d(TAG, " broadcastInValidHandle = " + metadata.getDescription());
+        }
+        intent.addFlags(intent.FLAG_RECEIVER_FOREGROUND);
+        ctx.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
     }
 }
