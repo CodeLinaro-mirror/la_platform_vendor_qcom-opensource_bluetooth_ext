@@ -43,7 +43,8 @@
 #include "stack_config.h"
 #include "btm_api.h"
 #include "profile_config.h"
-
+#include "interop_config.h"
+#include "device/include/interop.h"
 #if TEST_APP_INTERFACE == TRUE
 #include <bt_testapp.h>
 #endif
@@ -238,6 +239,24 @@ static void bredrcleanup(void)
                           NULL, 0, NULL);
 }
 
+typedef enum {
+    INTEROP_BL_TYPE_ADDR = 0,
+    INTEROP_BL_TYPE_NAME,
+    INTEROP_BL_TYPE_MANUFACTURE,
+    INTEROP_BL_TYPE_VNDR_PRDT,
+    INTEROP_BL_TYPE_SSR_MAX_LAT,
+
+} bl_type;
+
+// API's to match entries with in dynamic interop database
+static bool interop_db_match(int feature, int type, void *value) {
+    if ( type == INTEROP_BL_TYPE_ADDR)
+        return interop_database_match_addr((interop_feature_t)feature, (RawAddress *)value);
+    else if ( type == INTEROP_BL_TYPE_NAME)
+        return interop_database_match_name((interop_feature_t)feature, (char *)value);
+    return false;
+}
+
 static void set_wifi_state(bool status)
 {
     LOG_INFO(LOG_TAG,"setWifiState :%d", status);
@@ -299,6 +318,7 @@ static const btvendor_interface_t btvendorInterface = {
     set_wifi_state,
     get_profile_info,
     cleanup,
+    interop_db_match,
 };
 
 /*******************************************************************************
