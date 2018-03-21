@@ -137,7 +137,7 @@ static void interop_database_add_( interop_db_entry_t *db_entry, bool persist);
 static bool interop_database_remove_( interop_db_entry_t *entry);
 static bool interop_database_match_( interop_db_entry_t *entry, interop_db_entry_t **ret_entry, interop_entry_type entry_type);
 static void interop_config_write(UNUSED_ATTR UINT16 event, UNUSED_ATTR char *p_param);
-
+static char* interop_trim_name(char* str);
 
 // Interface functions
 
@@ -395,8 +395,17 @@ static void interop_database_add_( interop_db_entry_t *db_entry,
       {
         interop_feature_t feature =
               db_entry->entry_type.addr_entry.feature;
-        std::string addrstr = db_entry->entry_type.addr_entry.addr.ToString();
-        const char* bdstr = addrstr.c_str();
+        interop_addr_entry_t addr_entry =
+              db_entry->entry_type.addr_entry;
+        char bdstr[18] = {'\0'};
+        snprintf(bdstr, sizeof(bdstr), "%02x:%02x:%02x:%02x:%02x:%02x",
+                                            addr_entry.addr.address[0],
+                                            addr_entry.addr.address[1],
+                                            addr_entry.addr.address[2],
+                                            addr_entry.addr.address[3],
+                                            addr_entry.addr.address[4],
+                                            addr_entry.addr.address[5]);
+        bdstr[addr_entry.length*3-1] = {'\0'};
         interop_config_set_str(interop_feature_string_(feature),
                   bdstr, ADDR_BASED);
         interop_config_flush();
@@ -720,6 +729,17 @@ static bool get_addr_maxlat(char *str, char *bdaddrstr,
   return ret_value;
 }
 
+static char* interop_trim_name(char* str) {
+  while (isspace(*str)) ++str;
+  if (!*str) return str;
+
+  char* end_str = str + strlen(str) - 1;
+  while (end_str > str && isspace(*end_str)) --end_str;
+
+  end_str[1] = '\0';
+  return str;
+}
+
 bool load_to_database(int feature, char *key, char *value, interop_entry_type entry_type)
 {
   if ( !strncasecmp( value, ADDR_BASED, strlen(ADDR_BASED)) ) {
@@ -1031,13 +1051,15 @@ bool interop_database_match_manufacturer(const interop_feature_t feature,
 
 bool interop_database_match_name( const interop_feature_t feature, const char *name)
 {
+  char trim_name[KEY_MAX_LENGTH] = { '\0' };
   assert(name);
 
+  strlcpy(trim_name, name ,KEY_MAX_LENGTH);
   interop_db_entry_t entry;
   interop_db_entry_t *ret_entry = NULL;
 
   entry.bl_type = INTEROP_BL_TYPE_NAME;
-  strlcpy(entry.entry_type.name_entry.name, name, KEY_MAX_LENGTH);
+  strlcpy(entry.entry_type.name_entry.name, interop_trim_name(trim_name), KEY_MAX_LENGTH);
   entry.entry_type.name_entry.feature = (interop_feature_t)feature;
   entry.entry_type.name_entry.length = strlen(entry.entry_type.name_entry.name);
 
