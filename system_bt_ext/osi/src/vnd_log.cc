@@ -34,6 +34,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <dlfcn.h>
 #include <sys/socket.h>
 #include <cutils/sockets.h>
+#include <stdint.h>
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "osi/include/properties.h"
@@ -55,26 +56,26 @@ void init_vnd_Logger(void)
 
   if(!bt_logger_enabled)
   {
-    LOG_ERROR(LOG_TAG, "%s, Logger Not enabled from config file",  __func__);
+    LOG_ERROR("bt_vnd_log: %s, Logger Not enabled from config file",  __func__);
     return;
   }
 
   if(logger_interface)
   {
-    LOG_ERROR(LOG_TAG, "%s, Vendor Logger is already initialized",  __func__);
+    LOG_ERROR("bt_vnd_log: %s, Vendor Logger is already initialized",  __func__);
     return;
   }
 
   lib_handle = dlopen(LOGGER_LIBRARY_NAME, RTLD_NOW);
 
   if (!lib_handle) {
-    LOG_ERROR(LOG_TAG, "%s unable to open %s: %s", __func__, LOGGER_LIBRARY_NAME, dlerror());
+    LOG_ERROR("bt_vnd_log: %s unable to open %s: %s", __func__, LOGGER_LIBRARY_NAME, dlerror());
     return;
   }
 
   logger_interface = (bt_logger_interface_t *)dlsym(lib_handle, LOGGER_LIBRARY_SYMBOL_NAME);
   if (!logger_interface) {
-    LOG_ERROR(LOG_TAG, "%s unable to find symbol %s in %s: %s", __func__, LOGGER_LIBRARY_SYMBOL_NAME, LOGGER_LIBRARY_NAME, dlerror());
+    LOG_ERROR("bt_vnd_log: %s unable to find symbol %s in %s: %s", __func__, LOGGER_LIBRARY_SYMBOL_NAME, LOGGER_LIBRARY_NAME, dlerror());
     return;
   }
 
@@ -82,7 +83,7 @@ void init_vnd_Logger(void)
   if(init_ret > 0) {
     vendor_logging_level = init_ret;
   } else {
-    LOG_ERROR(LOG_TAG, "%s failed to start logger process, setting snoop logging level to default", __func__);
+    LOG_ERROR("bt_vnd_log: %s failed to start logger process, setting snoop logging level to default", __func__);
   }
 }
 
@@ -100,13 +101,13 @@ void clean_vnd_logger()
     dlclose(lib_handle);
 
   lib_handle = NULL;
-  property_set("bluetooth.startbtlogger", "false");
+  osi_property_set("bluetooth.startbtlogger", "false");
 }
 
 static bool is_logging_enable()
 {
   char logger_enabled[PROPERTY_VALUE_MAX] = {0};
-  osi_property_get(BTLOGGER_ENABLE_PROPERTY, logger_enabled, "false");
+  osi_property_get(BTLOGGER_ENABLE_PROPERTY, logger_enabled, "true");
   bt_logger_enabled = (strncmp(logger_enabled, "true", 4) == 0);
   return bt_logger_enabled;
 }
@@ -114,7 +115,7 @@ static bool is_logging_enable()
 void start_bt_logger()
 {
   if(is_logging_enable())
-    property_set("bluetooth.startbtlogger", "true");
+    osi_property_set("bluetooth.startbtlogger", "true");
 }
 
 int local_snoop_socket_create(void) {
@@ -126,12 +127,12 @@ int local_snoop_socket_create(void) {
 
   if(socket_local_server_bind(listen_socket_local, LOCAL_SOCKET_NAME,
       ANDROID_SOCKET_NAMESPACE_ABSTRACT) < 0) {
-    LOG_ERROR(LOG_TAG, "Failed to create Local Socket (%s)", strerror(errno));
+    LOG_ERROR("bt_vnd_log: Failed to create Local Socket (%s)", strerror(errno));
     return -1;
   }
 
   if (listen(listen_socket_local, 1) < 0) {
-    LOG_ERROR(LOG_TAG, "Local socket listen failed (%s)", strerror(errno));
+    LOG_ERROR("bt_vnd_log: Local socket listen failed (%s)", strerror(errno));
     close(listen_socket_local);
     return -1;
   }

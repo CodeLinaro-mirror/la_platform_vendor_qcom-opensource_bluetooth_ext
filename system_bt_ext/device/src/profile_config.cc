@@ -154,6 +154,9 @@ static future_t *profile_conf_clean_up(void)
   return future_new_immediate(FUTURE_SUCCESS);
 }
 
+#ifndef ANDROID
+#define EXPORT_SYMBOL   __attribute__((visibility("default")))
+#endif
 EXPORT_SYMBOL module_t profile_config_module = {
   .name = PROFILE_CONFIG_MODULE,
   .init = profile_conf_init,

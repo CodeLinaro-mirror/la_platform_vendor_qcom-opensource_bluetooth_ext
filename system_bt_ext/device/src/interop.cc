@@ -254,6 +254,9 @@ static future_t *interop_clean_up(void)
   return future_new_immediate(FUTURE_SUCCESS);
 }
 
+#ifndef ANDROID
+#define EXPORT_SYMBOL   __attribute__((visibility("default")))
+#endif
  EXPORT_SYMBOL module_t interop_module = {
   .name = INTEROP_MODULE,
   .init = interop_init,
