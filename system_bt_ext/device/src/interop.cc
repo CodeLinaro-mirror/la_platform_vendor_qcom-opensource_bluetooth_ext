@@ -201,6 +201,7 @@ static const char* interop_feature_string_(const interop_feature_t feature)
     CASE_RETURN_STR(INTEROP_DISABLE_LE_CONN_PREFERRED_PARAMS)
     CASE_RETURN_STR(INTEROP_ADV_AVRCP_VER_1_3)
     CASE_RETURN_STR(INTEROP_DISABLE_AAC_CODEC)
+    CASE_RETURN_STR(INTEROP_ENABLE_AAC_CODEC)
     CASE_RETURN_STR(INTEROP_DYNAMIC_ROLE_SWITCH)
     CASE_RETURN_STR(INTEROP_DISABLE_ROLE_SWITCH)
     CASE_RETURN_STR(INTEROP_DISABLE_ROLE_SWITCH_POLICY)
@@ -217,6 +218,7 @@ static const char* interop_feature_string_(const interop_feature_t feature)
     CASE_RETURN_STR(INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS)
     CASE_RETURN_STR(END_OF_INTEROP_LIST)
     CASE_RETURN_STR(INTEROP_DISABLE_CONNECTION_AFTER_COLLISION)
+    CASE_RETURN_STR(INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION)
   }
   return "UNKNOWN";
 }
@@ -599,8 +601,16 @@ static bool interop_database_remove_( interop_db_entry_t *entry)
         interop_addr_entry_t *src = &entry->entry_type.addr_entry;
 
         interop_feature_t feature = src->feature;
-        std::string addrstr = src->addr.ToString();
-        const char* bdstr = addrstr.c_str();
+
+        char bdstr[18] = {'\0'};
+        snprintf(bdstr, sizeof(bdstr), "%02x:%02x:%02x:%02x:%02x:%02x",
+                                src->addr.address[0],
+                                src->addr.address[1],
+                                src->addr.address[2],
+                                src->addr.address[3],
+                                src->addr.address[4],
+                                src->addr.address[5]);
+        bdstr[src->length*3-1] = {'\0'};
         interop_config_remove(interop_feature_string_(feature), bdstr);
         interop_config_flush();
         break;
