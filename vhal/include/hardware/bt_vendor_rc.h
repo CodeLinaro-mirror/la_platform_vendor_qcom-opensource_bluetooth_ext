@@ -47,12 +47,17 @@ typedef void (* btrc_vendor_ctrl_get_media_element_attr_rsp_callback)(RawAddress
                                                                   uint8_t num_attr,
                                                                   btrc_element_attr_val_t *p_attrs);
 
+typedef void (* btrc_ctrl_uids_changed_callback)(RawAddress *bd_addr, uint16_t uid_counter);
+
+
+
 /** BT-RC Controller callback structure. */
 typedef struct {
     /** set to sizeof(BtRcCallbacks) */
     size_t      size;
     btrc_vendor_ctrl_getrcfeatures_callback               getrcfeatures_cb;
-    btrc_vendor_ctrl_get_media_element_attr_rsp_callback   media_element_attr_rsp_cb;
+    btrc_vendor_ctrl_get_media_element_attr_rsp_callback  media_element_attr_rsp_cb;
+    btrc_ctrl_uids_changed_callback                       uids_changed_cb;
 } btrc_vendor_ctrl_callbacks_t;
 
 /** Represents the standard BT-RC AVRCP Controller interface. */
