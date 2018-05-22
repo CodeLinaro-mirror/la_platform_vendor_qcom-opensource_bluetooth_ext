@@ -15,6 +15,8 @@ cc_library_static {
         "vendor/qcom/opensource/system/bt/stack/l2cap/",
         "vendor/qcom/opensource/bluetooth_ext/system_bt_ext/include/",
         "vendor/qcom/opensource/bluetooth_ext/system_bt_ext/device/include/",
+        "vendor/qcom/opensource/bluetooth_ext/system_bt_ext/btif/include/",
+        "vendor/qcom/opensource/bluetooth_ext/system_bt_ext/bta/include/",
         "vendor/qcom/opensource/bluetooth_ext/vhal/include/",
     ],
     srcs: [
@@ -26,6 +28,7 @@ cc_library_static {
         "src/btif_gap.cc",
         "src/btif_gatt_qual.cc",
         "src/btif_smp.cc",
+        "src/btif_tws_plus.cc",
     ],
     shared_libs: [
         "libcutils",
