@@ -659,46 +659,53 @@ typedef struct {
 #define BT_PROFILE_AV_RC_VENDOR_CTRL_ID "vendor_avrcp_ctrl"
 
 typedef enum {
- BTRC_FEAT_COVER_ART = 0x08,    /* cover art support */
+    BTRC_FEAT_COVER_ART = 0x08,    /* cover art support */
 } btrc_vendor_remote_features_t;
 
-typedef void (* btrc_vendor_ctrl_getrcfeatures_callback) (RawAddress *bd_addr, int features,
-                                                       uint16_t cover_art_psm);
+typedef void (* btrc_vendor_ctrl_getrcfeatures_callback)(RawAddress *bd_addr, int features,
+                                                         uint16_t cover_art_psm);
 
 typedef void (* btrc_vendor_ctrl_get_media_element_attr_rsp_callback)(RawAddress *bd_addr,
-                                                                  uint8_t num_attr,
-                                                                  btrc_element_attr_val_t *p_attrs);
+                                                                      uint8_t num_attr,
+                                                                      btrc_element_attr_val_t *p_attrs);
 
 typedef void (* btrc_ctrl_uids_changed_callback)(RawAddress *bd_addr, uint16_t uid_counter);
+
+typedef void (* btrc_ctrl_search_rsp_callback)(RawAddress *bd_addr, uint8_t status,
+                                               uint16_t uid_counter, uint32_t num_items);
 
 
 /** BT-RC Controller callback structure. */
 typedef struct {
-    /** set to sizeof(BtRcCallbacks) */
+    /** set to sizeof(btrc_vendor_ctrl_callbacks_t) */
     size_t      size;
     btrc_vendor_ctrl_getrcfeatures_callback               getrcfeatures_cb;
     btrc_vendor_ctrl_get_media_element_attr_rsp_callback  media_element_attr_rsp_cb;
     btrc_ctrl_uids_changed_callback                       uids_changed_cb;
+    btrc_ctrl_search_rsp_callback                         search_rsp_cb;
 } btrc_vendor_ctrl_callbacks_t;
 
 /** Represents the standard BT-RC AVRCP Controller interface. */
 
 typedef struct {
-    /** set to sizeof(BtRcInterface) */
+    /** set to sizeof(btrc_vendor_ctrl_interface_t) */
     size_t          size;
-    /**
-     * Register the BtRc callbacks
-     */
-    bt_status_t (*init_vendor)( btrc_vendor_ctrl_callbacks_t* callbacks);
+    /** Register the BtRc callbacks */
+    bt_status_t (*init_vendor)(btrc_vendor_ctrl_callbacks_t* callbacks);
 
     /** Get Media Element interface. */
-    bt_status_t (*get_media_element_attributes_vendor) (RawAddress *bd_addr, uint8_t num_attrib,
-                    uint32_t *p_attr_ids);
+    bt_status_t (*get_media_element_attributes_vendor)(RawAddress *bd_addr, uint8_t num_attrib,
+                                                       uint32_t *p_attr_ids);
+
+    /** Search */
+    bt_status_t (*search_cmd)(RawAddress *bd_addr, uint16_t charset_id, uint16_t length, uint8_t *str);
+
+    /** Get the search list */
+    bt_status_t (*get_search_list_cmd)(RawAddress *bd_addr, uint8_t start, uint8_t items);
 
     /** Closes the interface. */
     void  (*cleanup_vendor)( void );
-
-    } btrc_vendor_ctrl_interface_t;
+} btrc_vendor_ctrl_interface_t;
 
 __END_DECLS
 
