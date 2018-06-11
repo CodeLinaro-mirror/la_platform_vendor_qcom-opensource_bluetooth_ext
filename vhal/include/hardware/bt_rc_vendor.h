@@ -665,24 +665,24 @@ typedef enum {
 typedef void (* btrc_vendor_ctrl_getrcfeatures_callback)(RawAddress *bd_addr, int features,
                                                          uint16_t cover_art_psm);
 
-typedef void (* btrc_vendor_ctrl_get_media_element_attr_rsp_callback)(RawAddress *bd_addr,
-                                                                      uint8_t num_attr,
-                                                                      btrc_element_attr_val_t *p_attrs);
+typedef btrc_ctrl_track_changed_callback    btrc_ctrl_element_attr_rsp_callback;
 
 typedef void (* btrc_ctrl_uids_changed_callback)(RawAddress *bd_addr, uint16_t uid_counter);
 
 typedef void (* btrc_ctrl_search_rsp_callback)(RawAddress *bd_addr, uint8_t status,
                                                uint16_t uid_counter, uint32_t num_items);
 
+typedef btrc_ctrl_track_changed_callback    btrc_ctrl_item_attr_rsp_callback;
 
 /** BT-RC Controller callback structure. */
 typedef struct {
     /** set to sizeof(btrc_vendor_ctrl_callbacks_t) */
     size_t      size;
-    btrc_vendor_ctrl_getrcfeatures_callback               getrcfeatures_cb;
-    btrc_vendor_ctrl_get_media_element_attr_rsp_callback  media_element_attr_rsp_cb;
-    btrc_ctrl_uids_changed_callback                       uids_changed_cb;
-    btrc_ctrl_search_rsp_callback                         search_rsp_cb;
+    btrc_vendor_ctrl_getrcfeatures_callback     getrcfeatures_cb;
+    btrc_ctrl_element_attr_rsp_callback         element_attr_rsp_cb;
+    btrc_ctrl_uids_changed_callback             uids_changed_cb;
+    btrc_ctrl_search_rsp_callback               search_rsp_cb;
+    btrc_ctrl_item_attr_rsp_callback            item_attr_rsp_cb;
 } btrc_vendor_ctrl_callbacks_t;
 
 /** Represents the standard BT-RC AVRCP Controller interface. */
@@ -702,6 +702,10 @@ typedef struct {
 
     /** Get the search list */
     bt_status_t (*get_search_list_cmd)(RawAddress *bd_addr, uint8_t start, uint8_t items);
+
+    /** Get item attributes */
+    bt_status_t (*get_item_attr_cmd)(RawAddress *bd_addr, uint8_t scope, uint8_t *uid, uint16_t uid_counter,
+                                     uint8_t num_attr, uint32_t *attr_id);
 
     /** Closes the interface. */
     void  (*cleanup_vendor)( void );
