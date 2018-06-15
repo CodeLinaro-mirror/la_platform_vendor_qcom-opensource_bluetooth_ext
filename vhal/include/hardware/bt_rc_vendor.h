@@ -680,9 +680,12 @@ typedef void (* btrc_ctrl_num_of_items_rsp_callback)(RawAddress *bd_addr, uint8_
                                                      uint16_t uid_counter, uint32_t num_items);
 
 typedef void (* btrc_ctrl_addressed_player_update_callback)(RawAddress *bd_addr,
-                                                                uint16_t player_id, uint16_t uid_counter);
+                                                            uint16_t player_id, uint16_t uid_counter);
 
 typedef void (* btrc_ctrl_available_player_changed_callback)(RawAddress *bd_addr);
+
+typedef void (* btrc_ctrl_add_to_now_playing_rsp_callback)(RawAddress *bd_addr, uint8_t status);
+
 
 /** BT-RC Controller callback structure. */
 typedef struct {
@@ -696,6 +699,7 @@ typedef struct {
     btrc_ctrl_num_of_items_rsp_callback         num_of_items_rsp_cb;
     btrc_ctrl_addressed_player_update_callback  addressed_player_update_cb;
     btrc_ctrl_available_player_changed_callback available_player_changed_cb;
+    btrc_ctrl_add_to_now_playing_rsp_callback   add_to_now_playing_cb;
 } btrc_vendor_ctrl_callbacks_t;
 
 /** Represents the standard BT-RC AVRCP Controller interface. */
@@ -715,6 +719,10 @@ typedef struct {
 
     /** Get the search list */
     bt_status_t (*get_search_list_cmd)(RawAddress *bd_addr, uint8_t start, uint8_t items);
+
+    /** Get item attributes */
+    bt_status_t (*add_to_now_playing_cmd)(RawAddress *bd_addr, uint8_t scope,
+                                          uint8_t *uid, uint16_t uid_counter);
 
     /** Get item attributes */
     bt_status_t (*get_item_attr_cmd)(RawAddress *bd_addr, uint8_t scope, uint8_t *uid, uint16_t uid_counter,
