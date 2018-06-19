@@ -684,6 +684,8 @@ typedef void (* btrc_ctrl_addressed_player_update_callback)(RawAddress *bd_addr,
 
 typedef void (* btrc_ctrl_available_player_changed_callback)(RawAddress *bd_addr);
 
+typedef void (* btrc_ctrl_now_playing_changed_callback)(RawAddress *bd_addr);
+
 typedef void (* btrc_ctrl_add_to_now_playing_rsp_callback)(RawAddress *bd_addr, uint8_t status);
 
 
@@ -699,6 +701,7 @@ typedef struct {
     btrc_ctrl_num_of_items_rsp_callback         num_of_items_rsp_cb;
     btrc_ctrl_addressed_player_update_callback  addressed_player_update_cb;
     btrc_ctrl_available_player_changed_callback available_player_changed_cb;
+    btrc_ctrl_now_playing_changed_callback      now_playing_changed_cb;
     btrc_ctrl_add_to_now_playing_rsp_callback   add_to_now_playing_cb;
 } btrc_vendor_ctrl_callbacks_t;
 
