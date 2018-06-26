@@ -639,7 +639,8 @@ typedef struct {
     bt_status_t (*get_player_list_cmd) (RawAddress *bd_addr, uint8_t start, uint8_t items);
 
     /** get the folder list */
-    bt_status_t (*change_folder_path_cmd) (RawAddress *bd_addr, uint8_t direction, uint8_t * uid);
+    bt_status_t (*change_folder_path_cmd) (RawAddress *bd_addr, uint16_t uid_counter,
+            uint8_t direction, uint8_t * uid);
 
     /** set browsed player */
     bt_status_t (*set_browsed_player_cmd) (RawAddress *bd_addr, uint16_t player_id);
