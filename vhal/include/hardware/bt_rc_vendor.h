@@ -744,6 +744,9 @@ typedef struct {
     /** Abort continuing response */
     bt_status_t (*abort_continuing_response_cmd)(RawAddress *bd_addr, uint8_t pdu_id);
 
+    /** Disconnect */
+    bt_status_t (*disconnect)(RawAddress *bd_addr);
+
     /** Closes the interface. */
     void  (*cleanup_vendor)( void );
 } btrc_vendor_ctrl_interface_t;
