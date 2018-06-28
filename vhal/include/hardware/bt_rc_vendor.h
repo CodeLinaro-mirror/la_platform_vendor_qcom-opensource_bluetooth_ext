@@ -738,6 +738,12 @@ typedef struct {
     /** fetch the player application setting, including supported pas values and current pas values */
     bt_status_t (*fetch_player_app_setting)(RawAddress *bd_addr);
 
+    /** Request for continuing response */
+    bt_status_t (*request_continuing_response_cmd)(RawAddress *bd_addr, uint8_t pdu_id);
+
+    /** Abort continuing response */
+    bt_status_t (*abort_continuing_response_cmd)(RawAddress *bd_addr, uint8_t pdu_id);
+
     /** Closes the interface. */
     void  (*cleanup_vendor)( void );
 } btrc_vendor_ctrl_interface_t;
