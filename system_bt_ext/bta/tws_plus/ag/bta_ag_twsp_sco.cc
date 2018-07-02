@@ -71,6 +71,10 @@ bool is_rfc_connected (tBTA_AG_SCB* p_scb) {
     return (p_scb && p_scb->conn_handle);
 }
 
+bool is_svc_connected (tBTA_AG_SCB* p_scb) {
+    return (p_scb && p_scb->svc_conn);
+}
+
 tBTA_AG_SCB* get_scb(const RawAddress& addr) {
     uint16_t handle;
     tBTA_AG_SCB* p_scb;
@@ -138,7 +142,7 @@ bool twsp_sco_active(tBTA_AG_SCB* p_scb) {
 void  dispatch_event_twsp_peer_device(tBTA_AG_SCB *p_scb, uint8_t event) {
     tBTA_AG_SCB *other_scb = get_other_twsp_scb((p_scb->peer_addr));
     if (other_scb) {
-        if (is_rfc_connected(other_scb)) {
+        if (is_svc_connected(other_scb)) {
            bta_ag_twsp_sco_event(other_scb, event);
         } else {
            APPL_TRACE_WARNING("%s: RFC is not up yet", __func__);
@@ -152,7 +156,7 @@ void  dispatch_event_primary_peer_device(tBTA_AG_SCB *p_scb, uint8_t event) {
     tBTA_AG_SCB *other_scb = get_other_twsp_scb((p_scb->peer_addr));
     APPL_TRACE_DEBUG("%s: other_scb: %x", other_scb);
     if (other_scb) {
-        if (is_rfc_connected(other_scb)) {
+        if (is_svc_connected(other_scb)) {
            bta_ag_sco_event(other_scb, event);
         } else {
            APPL_TRACE_WARNING("%s: RFC is not up yet", __func__);
@@ -167,16 +171,16 @@ void bta_ag_twsp_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
 
     switch (p_result->result) {
         case BTA_AG_TWS_QES_RES: {
-                bta_ag_send_result(p_scb, BTA_AG_TWS_QES_RES, NULL, 0);
+                bta_ag_send_result(p_scb, BTA_AG_TWS_QES_RES, nullptr, 0);
             } break;
         case BTA_AG_TWS_QMQ_RES: {
-                bta_ag_send_result(p_scb, BTA_AG_TWS_QMQ_RES, NULL, 0);
+                bta_ag_send_result(p_scb, BTA_AG_TWS_QMQ_RES, nullptr, 0);
             } break;
         case BTA_AG_TWS_QBC_RES: {
-                bta_ag_send_result(p_scb, BTA_AG_TWS_QBC_RES, NULL, 0);
+                bta_ag_send_result(p_scb, BTA_AG_TWS_QBC_RES, nullptr, 0);
            } break;
         case BTA_AG_TWS_QDSP_RES: {
-                bta_ag_send_result(p_scb, BTA_AG_TWS_QDSP_RES, NULL, 0);
+                bta_ag_send_result(p_scb, BTA_AG_TWS_QDSP_RES, nullptr, 0);
            } break;
    }
 }
@@ -225,16 +229,10 @@ void bta_ag_twsp_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
                   bta_ag_codec_negotiate(p_scb);
               break;
               case BTA_AG_SCO_SHUTDOWN_E:
-                   bta_ag_remove_sco(p_scb, false);
-                   p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
-                  //If this is because of remote closure (OFF or battery dies)
-                  //Close the other SCO as well, so that HSM brings back the other earbud
-                  //as part of making an active device
-                  if (bta_ag_sco_is_active_device(p_scb->peer_addr)) {
-                      APPL_TRACE_WARNING("Calling SCO close");
-                      dispatch_event_primary_peer_device(p_scb, BTA_AG_SCO_CLOSE_E);
-                  }
+                  bta_ag_remove_sco(p_scb, false);
+                  p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
                   bta_ag_cb.sec_sm_scb = NULL;
+
               break;
               case BTA_AG_SCO_CONN_CLOSE_E:
                   /* sco failed; create sco listen connection */
@@ -573,7 +571,7 @@ void twsp_update_microphone_selection(tBTA_AG_SCB *curr_scb,
        }
     }
 
-    bta_ag_send_result(selected_scb, BTA_AG_MIC_RES, NULL, MIC_ENABLE);
+    bta_ag_send_result(selected_scb, BTA_AG_MIC_RES, nullptr, MIC_ENABLE);
     //Have a timer for MIC_PATH_ENABLE_DELAY
     usleep(MIC_PATH_ENABLE_DELAY*1000);
     int  role = get_twsp_role(selected_scb);
@@ -585,7 +583,7 @@ void twsp_update_microphone_selection(tBTA_AG_SCB *curr_scb,
     send_twsp_esco_setup(left_eb_addr, right_eb_addr, role);
 
     if (curr_scb != NULL) {
-        bta_ag_send_result(curr_scb, BTA_AG_MIC_RES, NULL, MIC_DISABLE);
+        bta_ag_send_result(curr_scb, BTA_AG_MIC_RES, nullptr, MIC_DISABLE);
         APPL_TRACE_DEBUG("%s: Disabling Mic path for %x", __func__, curr_scb);
     }
 }

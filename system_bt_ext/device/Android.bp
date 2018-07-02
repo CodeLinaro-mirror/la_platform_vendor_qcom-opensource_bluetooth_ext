@@ -7,12 +7,12 @@ cc_library_static {
         "include",
     ],
     include_dirs: [
-        "vendor/qcom/opensource/system/bt",
-        "vendor/qcom/opensource/system/bt/btcore/include",
-        "vendor/qcom/opensource/system/bt/hci/include",
-        "vendor/qcom/opensource/system/bt/internal_include",
-        "vendor/qcom/opensource/system/bt/stack/include",
-        "vendor/qcom/opensource/bluetooth_ext/vhal/include",
+        "vendor/qcom/opensource/commonsys/system/bt",
+        "vendor/qcom/opensource/commonsys/system/bt/btcore/include",
+        "vendor/qcom/opensource/commonsys/system/bt/hci/include",
+        "vendor/qcom/opensource/commonsys/system/bt/internal_include",
+        "vendor/qcom/opensource/commonsys/system/bt/stack/include",
+        "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
     ],
     srcs: [
         "src/interop.cc",
@@ -24,6 +24,9 @@ cc_library_static {
     static_libs: [
         "libosi_qti",
         "libbluetooth-types",
+    ],
+    cflags: [
+        "-DHAS_NO_BDROID_BUILDCFG"
     ],
 
 }
