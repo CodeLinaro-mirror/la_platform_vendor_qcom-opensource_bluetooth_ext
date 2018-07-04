@@ -157,7 +157,11 @@ tBTA_AG_SCB* twsp_get_best_mic_scb () {
         }
     }
     APPL_TRACE_DEBUG("%s: selected idx is : %d", __func__, selected_idx);
-    return twsp_devices[selected_idx].p_scb;
+    if (selected_idx == -1) {
+        return nullptr;
+    } else {
+        return twsp_devices[selected_idx].p_scb;
+    }
 }
 
 int get_best_mic_quality_eb_role () {
@@ -195,8 +199,10 @@ void select_microphone_path(tBTA_AG_SCB *best_scb) {
     twsp_update_microphone_selection(peer_scb, best_scb);
 
     int idx = twsp_get_idx_by_scb(best_scb);
-    //Update the earbud role
-    g_latest_selected_eb_role = twsp_devices[idx].role;
+    if (idx != -1) {
+        //Update the earbud role
+        g_latest_selected_eb_role = twsp_devices[idx].role;
+    }
 
     APPL_TRACE_DEBUG("%s: g_latest_selected_eb_role : %d\n", __func__, g_latest_selected_eb_role);
 }
@@ -329,7 +335,7 @@ void process_twsp_role_change (int eb_idx, uint8_t role) {
 }
 
 bool set_twsp_state(int eb_idx, uint8_t state) {
-    APPL_TRACE_DEBUG("%s: state : %d\n", __func__, state);
+    APPL_TRACE_DEBUG("%s: current state: %d new state : %d\n", __func__, twsp_devices[eb_idx].state, state);
 
     if (eb_idx < PRIMARY_EB_IDX || eb_idx > SECONDARY_EB_IDX) {
         APPL_TRACE_WARNING("%s: Invalid eb_idx: %d\n", __func__, eb_idx);
@@ -341,6 +347,12 @@ bool set_twsp_state(int eb_idx, uint8_t state) {
         return false;
     }
 
+    if (twsp_devices[eb_idx].state == TWSPLUS_EB_STATE_INEAR &&
+        state != TWSPLUS_EB_STATE_INEAR) {
+        //If It is tranistioning away from InEar,
+        //Clear the ring_set flag
+        twsp_devices[eb_idx].ring_sent = false;
+    }
     twsp_devices[eb_idx].state = state;
     process_twsp_state_change(eb_idx, state);
     return true;
@@ -444,24 +456,40 @@ bool twsp_set_ring_sent(tBTA_AG_SCB *p_scb, bool ring_sent) {
 bool twsp_ring_needed(tBTA_AG_SCB *p_scb) {
     int sel_idx = -1;
     bool ring_already_sent = false;
+    int prev_sent_idx = -1;
     bool ret = false;
     for (int i=0; i<=SECONDARY_EB_IDX; i++) {
         if (twsp_devices[i].ring_sent) {
             ring_already_sent = true;
+            if (twsp_devices[i].p_scb == p_scb) {
+                //If ring was send to same scb before
+                //should send it to same scb again
+                prev_sent_idx = i;
+            }
         }
-        if (twsp_devices[i].p_scb == p_scb) {
+        else if (twsp_devices[i].p_scb == p_scb) {
             sel_idx = i;
         }
     }
     if (ring_already_sent) {
-        ret = false;
-    } else {
-        //If ring is not sent to any of them
-        //check if it is in ear
-        if (twsp_devices[sel_idx].state == TWSPLUS_EB_STATE_INEAR) {
-           ret = true;
+        if (prev_sent_idx == -1) {
+            ret = false;
         } else {
-           ret = false;
+            APPL_TRACE_DEBUG("%s: resent timer to same scb", __func__);
+            ret = true;
+        }
+    } else {
+        if (sel_idx == -1) {
+            APPL_TRACE_ERROR("%s: Invalid sel_idx: %d", __func__, sel_idx);
+            ret = false;
+        } else {
+            //If ring is not sent to any of them
+            //check if it is in ear
+            if (twsp_devices[sel_idx].state == TWSPLUS_EB_STATE_INEAR) {
+                ret = true;
+            } else {
+                ret = false;
+            }
         }
     }
 

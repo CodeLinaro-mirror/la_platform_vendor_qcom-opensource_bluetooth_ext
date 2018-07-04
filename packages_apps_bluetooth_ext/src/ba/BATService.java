@@ -126,15 +126,14 @@ public class BATService extends ProfileService {
     private BluetoothBAEncryptionKey mCurrEncryptionKey;
     private BluetoothBAStreamServiceRecord mServiceRecord;
     private BATMessageHandler mMsgHandler;
-    private static BATService sBATService = null;
+    private static BATService sBATService;
     private BluetoothAdapter mAdapter;
     // we need pending state only during transition from enable/disable.
     // no need for statemachine, at this point. Can be manager with a variable.
 
-    // TODO Enable after KS chagnes are merged
-    /*static {
+    static {
         classInitNative();
-    }*/
+    }
 
     protected IProfileServiceBinder initBinder() {
         return new BluetoothBATBinder(this);
@@ -457,10 +456,10 @@ public class BATService extends ProfileService {
                 Log.d(TAG," updating AudioManager: Disconnect for A2dp ");
                 mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
                     a2dpActiveDevice, BluetoothProfile.STATE_DISCONNECTED, BluetoothProfile.A2DP,
-                    true);
+                    true, -1);
             }
             mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
-                mBADevice, BluetoothProfile.STATE_CONNECTED,BluetoothProfile.A2DP, true);
+                mBADevice, BluetoothProfile.STATE_CONNECTED,BluetoothProfile.A2DP, true, -1);
             //BA audio works on the principal of absVol
             //Currently mm-audio tracks value of last updated absVol support,
             //and does not use address.Even if avrcp has updated support as true,
@@ -479,11 +478,11 @@ public class BATService extends ProfileService {
                 Log.d(TAG," updating AudioManager: DisConnected for BA ");
                 mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
                         mBADevice, BluetoothProfile.STATE_DISCONNECTED,BluetoothProfile.A2DP,
-                        true);
+                        true, -1);
                 Log.d(TAG," updating AudioManager: Connected for A2DP ");
                 mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
                     a2dpActiveDevice, BluetoothProfile.STATE_CONNECTED,BluetoothProfile.A2DP,
-                    true);
+                    true, -1);
             } else {// a2dp active device is null.
                 // inform BA device as disconnected. we have to send noisy intent
                 // because BA seems to be last device.
@@ -568,13 +567,12 @@ public class BATService extends ProfileService {
             Log.d(TAG," isA2dpPlaying = false no connected devices ");
             return false;
         }
-        // TODO: Enable after merge
-        /*for (BluetoothDevice dev: devList) {
+        for (BluetoothDevice dev: devList) {
             if (a2dpService.isA2dpPlaying(dev)) {
                 Log.d(TAG," isA2dpPlaying = true playing dev =  " + dev);
                 return true;
             }
-        }*/
+        }
         Log.d(TAG," isA2dpPlaying = false  dev connected but not playing ");
         return false;
     }
@@ -586,9 +584,8 @@ public class BATService extends ProfileService {
             return false;
         }
         boolean callActive = headsetService.isInCall()||
-                             headsetService.isRinging();
-                             //TODO: Enable after merge
-                            /* ||headsetService.isAudioOn(); */
+                             headsetService.isRinging()
+                             ||headsetService.isAudioOn();
         Log.d(TAG," isCallActive: " + callActive);
         return callActive;
     }
