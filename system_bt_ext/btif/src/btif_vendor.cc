@@ -1,6 +1,39 @@
 /*
  * Copyright (C) 2016 The Linux Foundation. All rights reserved
  * Not a Contribution.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ * * Neither the name of The Linux Foundation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,6 +76,7 @@
 #include "stack_config.h"
 #include "btm_api.h"
 #include "profile_config.h"
+#include "btif_tws_plus.h"
 
 #if TEST_APP_INTERFACE == TRUE
 #include <bt_testapp.h>
@@ -74,7 +108,7 @@ extern tBTM_STATUS BTM_ReadRemoteVersion(const RawAddress& addr, uint8_t* lmp_ve
                                   uint16_t* manufacturer,
                                   uint16_t* lmp_sub_version);
 extern bool interface_ready(void);
-extern void set_prop_callouts(bt_property_callout_t *callouts);
+//extern void set_prop_callouts(bt_property_callout_t *callouts);
 void btif_vendor_cleanup_iot_broadcast_timer(void);
 
 btvendor_callbacks_t *bt_vendor_callbacks = NULL;
@@ -86,7 +120,11 @@ BTIF_VND_IOT_INFO_CB_DATA broadcast_cb_data;
 extern const btl2cap_interface_t *btif_l2cap_get_interface(void);
 extern const btrfcomm_interface_t *btif_rfcomm_get_interface(void);
 extern const btmcap_interface_t *btif_mcap_get_interface(void);
+extern const btgatt_test_interface_t *btif_gatt_test_get_interface(void);
+extern const btsmp_interface_t *btif_smp_get_interface(void);
+extern const btgap_interface_t *btif_gap_get_interface(void);
 #endif
+
 /*******************************************************************************
 ** VENDOR INTERFACE FUNCTIONS
 *******************************************************************************/
@@ -104,6 +142,8 @@ static bt_status_t init( btvendor_callbacks_t* callbacks)
 {
     bt_vendor_callbacks = callbacks;
     broadcast_cb_timer = alarm_new("btif_vnd.cb_timer");
+    LOG_INFO(LOG_TAG,"init");
+    LOG_INFO(LOG_TAG,"init done");
     return BT_STATUS_SUCCESS;
 }
 
@@ -211,10 +251,10 @@ static bool get_profile_info(profile_t profile, profile_info_t feature_name)
     return profile_feature_fetch(profile,feature_name);
 }
 
-static void set_property_callouts(bt_property_callout_t* property_callouts)
+/*atic void set_property_callouts(bt_property_callout_t* property_callouts)
 {
     set_prop_callouts(property_callouts);
-}
+}*/
 
 static void cleanup(void)
 {
@@ -223,6 +263,54 @@ static void cleanup(void)
         bt_vendor_callbacks = NULL;
 }
 
+static void set_voip_network_type_wifi_hci_cmd_complete(tBTM_VSC_CMPL* p_data)
+{
+    LOG_INFO(LOG_TAG,"In set_voip_network_type_wifi_hci_cmd_complete");
+    uint8_t         *stream,  status, subcmd;
+    uint16_t        opcode, length;
+
+    if (p_data && (stream = (uint8_t*)p_data->p_param_buf))
+    {
+        opcode = p_data->opcode;
+        length = p_data->param_len;
+        STREAM_TO_UINT8(status, stream);
+        STREAM_TO_UINT8(subcmd, stream);
+        BTIF_TRACE_DEBUG("%s opcode = 0x%04X, length = %d, status = %d, subcmd = %d",
+                __FUNCTION__, opcode, length, status, subcmd);
+        if (status == HCI_SUCCESS)
+        {
+            BTIF_TRACE_DEBUG("btm_SetVoipNetworkTypeWifi status success");
+        }
+    }
+}
+
+/*******************************************************************************
+**
+** Function         voip_network_type_wifi
+**
+** Description      BT app updates the connectivity network used for VOIP as Wifi
+**
+** Returns          bt_status_t
+**
+*******************************************************************************/
+bt_status_t voip_network_type_wifi(bthf_voip_state_t isVoipStarted,
+                                           bthf_voip_call_network_type_t isNetworkWifi)
+{
+    LOG_INFO(LOG_TAG,"In voip_network_type_wifi");
+    uint8_t           cmd[3], *p_cursor;
+    uint8_t           sub_cmd = HCI_VSC_SUBCODE_VOIP_NETWORK_WIFI;
+
+    p_cursor = cmd;
+    memset(cmd, 0, 3);
+
+    *p_cursor++ = sub_cmd;
+    *p_cursor++ = isVoipStarted;
+    *p_cursor++ = isNetworkWifi;
+
+    BTM_VendorSpecificCommand(HCI_VSC_VOIP_NETWORK_WIFI_OCF, sizeof(cmd),
+            cmd, set_voip_network_type_wifi_hci_cmd_complete);
+    return BT_STATUS_SUCCESS;
+}
 
 /*******************************************************************************
 **
@@ -247,6 +335,12 @@ static const void* get_testapp_interface(int test_app_profile)
             return btif_rfcomm_get_interface();
         case TEST_APP_MCAP:
            return btif_mcap_get_interface();
+        case TEST_APP_GATT:
+           return btif_gatt_test_get_interface();
+        case TEST_APP_SMP:
+           return btif_smp_get_interface();
+        case TEST_APP_GAP:
+           return btif_gap_get_interface();
         default:
             return NULL;
     }
@@ -265,8 +359,9 @@ static const btvendor_interface_t btvendorInterface = {
     bredrcleanup,
     set_wifi_state,
     get_profile_info,
-    set_property_callouts,
+    NULL,//set_property_callouts,
     cleanup,
+    voip_network_type_wifi,
 };
 
 /*******************************************************************************

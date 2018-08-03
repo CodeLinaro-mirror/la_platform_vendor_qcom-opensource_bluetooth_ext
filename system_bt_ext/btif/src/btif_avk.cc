@@ -2164,6 +2164,7 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
                              int a2dp_multicast_state, uint8_t streaming_prarm)
 {
     bt_status_t status = BT_STATUS_FAIL;
+    char value[PROPERTY_VALUE_MAX] = {'\0'};
 
     BTIF_TRACE_IMP("%s max = %d", __FUNCTION__, max);
 
@@ -2180,7 +2181,9 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
 
     enable_stack_sbc_decoding = streaming_prarm & A2DP_SINK_ENABLE_SBC_DECODING;
     retreive_rtp_header = streaming_prarm & A2DP_SINK_RETREIVE_RTP_HEADER;
-    enable_delay_reporting = streaming_prarm & A2DP_SINK_ENABLE_DELAY_REPORTING;
+    //enable_delay_reporting = streaming_prarm & A2DP_SINK_ENABLE_DELAY_REPORTING;
+    property_get("persist.bluetooth.disabledelayreports", value, "false");
+    enable_delay_reporting = (strcmp(value, "false") == 0);
     enable_notification_cb = streaming_prarm & A2DP_SINK_ENABLE_NOTIFICATION_CB;
 
     BTIF_TRACE_IMP(" ~~ enable_sbc_decoding = %d, retreive RTP header = %d, enable_delay_reporting = %d",
@@ -3493,6 +3496,7 @@ bt_status_t btif_avk_sink_execute_service(bool b_enable)
          /* Added BTA_AVK_FEAT_NO_SCO_SSPD - this ensures that the BTA does not
           * auto-suspend av streaming on AG events(SCO or Call). The suspend shall
           * be initiated by the app/audioflinger layers */
+
         if(enable_delay_reporting) {
          BTA_AvkEnable(BTA_SEC_AUTHENTICATE, BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
                                             BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|BTA_AVK_FEAT_BROWSE|
@@ -3989,4 +3993,21 @@ bool btif_avk_get_ongoing_multicast()
     {
         return FALSE;
     }
+}
+
+int btif_avk_get_rendering_delay() {
+    BTIF_TRACE_ERROR("rendering delay : %d",rendering_delay);
+    return rendering_delay;
+}
+
+/*******************************************************************************
+**
+** Function         btif_avk_get_average_delay
+**
+** Description      Returns average of instantaneous delay values
+**
+** Returns          uint64_t
+*******************************************************************************/
+uint64_t btif_avk_get_average_delay() {
+    return average_delay;
 }

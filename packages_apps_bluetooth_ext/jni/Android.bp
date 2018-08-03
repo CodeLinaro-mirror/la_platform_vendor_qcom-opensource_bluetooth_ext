@@ -5,7 +5,7 @@ cc_defaults {
         "libnativehelper/include/nativehelper",
         "system/bt/types",
         "packages/apps/Bluetooth/jni",
-        "vendor/qcom/opensource/bluetooth_ext/vhal/include",
+        "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
     ],
     shared_libs: [
         "libandroid_runtime",
@@ -20,5 +20,7 @@ cc_library_static {
     srcs: [
         "com_android_bluetooth_btservice_vendor.cpp",
         "com_android_bluetooth_btservice_vendor_socket.cpp",
+        "com_android_bluetooth_avrcp_ext.cpp",
+        "com_android_bluetooth_ba.cpp",
     ],
 }

@@ -43,6 +43,7 @@
 #include "bta_ar_api.h"
 #endif
 
+#include "stack/a2dp/a2dp_int.h"
 #include "a2d_aptx.h"
 #include "bta_avk_api.h"
 
@@ -712,6 +713,8 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
             {
                 APPL_TRACE_DEBUG(" %s ~~ AVDTP v1.3 : cs.cfg.psc_mask |= AVDT_PSC_DELAY_RPT ",__func__);
                 cs.cfg.psc_mask |= AVDT_PSC_DELAY_RPT;
+                a2dp_set_avdt_sdp_ver(AVDT_VERSION_SYNC);
+                a2dp_set_a2dp_sdp_ver(A2DP_VERSION_SYNC);
             }
 
             if (profile_initialized == UUID_SERVCLASS_AUDIO_SINK)

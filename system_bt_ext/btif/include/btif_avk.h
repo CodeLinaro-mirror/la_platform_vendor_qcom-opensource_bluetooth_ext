@@ -220,5 +220,16 @@ void btif_avk_clear_remote_suspend_flag(void);
 *******************************************************************************/
 bool btif_avk_peer_supports_3mbps(void);
 
+int btif_avk_get_rendering_delay();
+
+/*******************************************************************************
+**
+** Function         btif_avk_get_average_delay
+**
+** Description      Returns average of instantaneous delay values
+**
+** Returns          uint64_t
+*******************************************************************************/
+uint64_t btif_avk_get_average_delay();
 
 #endif /* BTIF_AVK_H */
