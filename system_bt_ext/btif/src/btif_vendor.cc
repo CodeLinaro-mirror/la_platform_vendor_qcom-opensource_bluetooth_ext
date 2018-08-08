@@ -77,6 +77,7 @@
 #include "btm_api.h"
 #include "profile_config.h"
 #include "btif_tws_plus.h"
+#include "btif_api.h"
 
 #if TEST_APP_INTERFACE == TRUE
 #include <bt_testapp.h>
@@ -240,6 +241,27 @@ static void bredrcleanup(void)
                           NULL, 0, NULL);
 }
 
+#if HCI_RAW_CMD_INCLUDED == TRUE
+// Callback invoked on receiving HCI event
+static void btif_vendor_hci_event_callback ( tBTM_RAW_CMPL *p)
+{
+  BTIF_TRACE_DEBUG("btif_vendor_hci_event_callback");
+  if((p != NULL) && (bt_vendor_callbacks!= NULL)
+      && (bt_vendor_callbacks->hci_event_recv_cb != NULL)) {
+
+    BTIF_TRACE_DEBUG("btif_vendor_hci_event_callback-sending HAL_CBACK");
+    HAL_CBACK(bt_vendor_callbacks, hci_event_recv_cb, p->event_code, p->p_param_buf,
+                                                                p->param_len);
+  }
+}
+#endif
+
+int hci_cmd_send(uint16_t opcode, uint8_t* buf, uint8_t len)
+{
+    BTIF_TRACE_DEBUG("hci_cmd_send");
+    return BTA_DmHciRawCommand(opcode, len, buf, btif_vendor_hci_event_callback);
+}
+
 static void set_wifi_state(bool status)
 {
     LOG_INFO(LOG_TAG,"setWifiState :%d", status);
@@ -352,6 +374,7 @@ static const void* get_testapp_interface(int test_app_profile)
 static const btvendor_interface_t btvendorInterface = {
     sizeof(btvendorInterface),
     init,
+    hci_cmd_send,
 #if TEST_APP_INTERFACE == TRUE
     get_testapp_interface,
 #else
