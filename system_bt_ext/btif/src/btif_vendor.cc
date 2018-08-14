@@ -42,6 +42,7 @@
 #include "l2c_api.h"
 #include "stack_config.h"
 #include "btm_api.h"
+#include "btif_api.h"
 #include "profile_config.h"
 
 #if TEST_APP_INTERFACE == TRUE
@@ -210,6 +211,13 @@ static bool get_profile_info(profile_t profile, profile_info_t feature_name)
     LOG_INFO(LOG_TAG,"get_profile_info :%d", profile);
     return profile_feature_fetch(profile,feature_name);
 }
+
+static int add_out_of_band_bond_device(const RawAddress *bd_addr, LINK_KEY link_key,
+                                       uint8_t key_type, uint8_t pin_len)
+{
+    LOG_INFO(LOG_TAG, "add_out_of_band_bond_device");
+    return btif_dm_add_oob_bond_device(bd_addr, link_key, key_type, pin_len);
+}
 static void cleanup(void)
 {
     LOG_INFO(LOG_TAG,"cleanup");
@@ -259,6 +267,7 @@ static const btvendor_interface_t btvendorInterface = {
     bredrcleanup,
     set_wifi_state,
     get_profile_info,
+    add_out_of_band_bond_device,
     cleanup,
 };
 

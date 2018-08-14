@@ -85,6 +85,10 @@ typedef struct {
     /** get profile info */
     bool (*get_profile_info)(profile_t, profile_info_t);
 
+    /** Add out of band bond device */
+    int (*add_out_of_band_bond_device)(const RawAddress *bd_addr, LINK_KEY link_key,
+                                       uint8_t key_type, uint8_t pin_len);
+
     /** Closes the interface. */
     void  (*cleanup)( void );
 
