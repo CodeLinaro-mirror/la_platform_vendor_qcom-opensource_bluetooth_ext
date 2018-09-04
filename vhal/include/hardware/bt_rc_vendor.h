@@ -732,6 +732,13 @@ typedef struct {
     bt_status_t (*get_item_attr_cmd)(RawAddress *bd_addr, uint8_t scope, uint8_t *uid, uint16_t uid_counter,
                                      uint8_t num_attr, uint32_t *attr_id);
 
+    /** Get item attributes */
+    bt_status_t (*get_element_attributes_cmd)(RawAddress *bd_addr, uint8_t numAttr, uint32_t *attr);
+
+    /** Get folder items */
+    bt_status_t (*get_folder_items_vendor_cmd)(RawAddress* bd_addr, uint8_t scope, uint8_t start, uint8_t end,
+                                               uint8_t numAttr, uint32_t *attr);
+
     /** Get total number of items */
     bt_status_t (*get_num_of_items_cmd)(RawAddress *bd_addr, uint8_t scope);
 
