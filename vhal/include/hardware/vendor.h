@@ -26,6 +26,9 @@ __BEGIN_DECLS
 #define BT_PROFILE_VENDOR_ID "vendor"
 #define BT_PROFILE_WIPOWER_VENDOR_ID "wipower"
 
+#define LINK_KEY_LEN 16
+typedef uint8_t LINK_KEY[LINK_KEY_LEN]; /* Link Key */
+
 // Profile related Enums & function
 typedef enum {
   AVRCP_ID = 1,
