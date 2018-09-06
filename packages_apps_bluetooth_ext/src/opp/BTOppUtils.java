@@ -255,7 +255,6 @@ public class BTOppUtils {
                 if (D)
                     Log.d(TAG, "Delete aborted inbound share, number = " + delNum);
             }
-            cursorToFile.close();
         }
     }
 

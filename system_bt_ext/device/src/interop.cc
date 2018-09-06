@@ -41,12 +41,11 @@
 #include "osi/include/allocator.h"
 #include "device/include/interop.h"
 #include "btcore/include/module.h"
-#include "btif/include/btif_storage.h"
 
 #if defined(OS_GENERIC)
 static const char *INTEROP_FILE_PATH = "interop_database.conf";
 #else  // !defined(OS_GENERIC)
-static const char *INTEROP_DYNAMIC_FILE_PATH = "/data/misc/bluetooth/interop_database_dynamic.conf";
+static const char *INTEROP_DYNAMIC_FILE_PATH = "/data/misc/bluedroid/interop_database_dynamic.conf";
 static const char *INTEROP_STATIC_FILE_PATH = "/etc/bluetooth/interop_database.conf";
 #endif  // defined(OS_GENERIC)
 
@@ -156,29 +155,6 @@ bool interop_match_name(const interop_feature_t feature,
   return (interop_database_match_name(feature, name));
 }
 
-bool interop_match_addr_or_name(const interop_feature_t feature,
-                const RawAddress *addr)
-{
-  assert(addr);
-
-  bt_bdname_t bdname;
-  bt_property_t prop_name;
-
-  if (interop_match_addr(feature, addr))
-    return true;
-
-  BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
-      sizeof(bt_bdname_t), bdname.name);
-
-  if (btif_storage_get_remote_device_property(const_cast<RawAddress *>(addr),
-      &prop_name) != BT_STATUS_SUCCESS)
-    return false;
-  if (strlen((const char *)bdname.name) == 0)
-    return false;
-
-  return interop_match_name(feature, (const char *)bdname.name);
-}
-
 bool interop_match_manufacturer(const interop_feature_t feature,
                     uint16_t manufacturer)
 {
@@ -234,15 +210,14 @@ static const char* interop_feature_string_(const interop_feature_t feature)
     CASE_RETURN_STR(INTEROP_UPDATE_HID_SSR_MAX_LAT)
     CASE_RETURN_STR(INTEROP_DISABLE_AVDTP_RECONFIGURE)
     CASE_RETURN_STR(INTEROP_DISABLE_HF_INDICATOR)
+    CASE_RETURN_STR(INTEROP_INCREASE_COLL_DETECT_TIMEOUT)
     CASE_RETURN_STR(INTEROP_DISABLE_LE_CONN_UPDATES)
     CASE_RETURN_STR(INTEROP_DELAY_SCO_FOR_MT_CALL)
     CASE_RETURN_STR(INTEROP_DISABLE_CODEC_NEGOTIATION)
     CASE_RETURN_STR(INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS)
     CASE_RETURN_STR(INTEROP_ENABLE_AAC_CODEC)
     CASE_RETURN_STR(INTEROP_DISABLE_CONNECTION_AFTER_COLLISION)
-    CASE_RETURN_STR(INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION)
     CASE_RETURN_STR(END_OF_INTEROP_LIST)
-    CASE_RETURN_STR(INTEROP_ADV_PBAP_VER_1_2)
   }
   return "UNKNOWN";
 }
@@ -542,7 +517,8 @@ static bool interop_database_match_( interop_db_entry_t *entry,
           interop_name_entry_t *cur = &db_entry->entry_type.name_entry;
 
           if ((src->feature == cur->feature) &&
-              (strcasestr(src->name, cur->name) != NULL)) {
+              (strlen(src->name) == cur->length) &&
+              (strncasecmp(src->name, cur->name, cur->length) == 0)) {
             if (ret_entry) {
               *ret_entry = db_entry;
             }
@@ -751,7 +727,7 @@ static bool get_addr_maxlat(char *str, char *bdaddrstr,
                   &saveptr)) != NULL) {
     trim(token);
     errno = 0;
-    strlcpy(bdaddrstr, token, KEY_MAX_LENGTH);
+    strlcpy(bdaddrstr, token, strlen(token) + 1);
     if ( errno == EINVAL || errno == ERANGE )
       return false;
   }

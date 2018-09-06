@@ -28,7 +28,6 @@ import com.android.vcard.VCardConfig;
 import com.android.vcard.VCardConstants;
 import com.android.vcard.VCardUtils;
 
-import android.content.ContentValues;
 import android.provider.CallLog;
 import android.provider.CallLog.Calls;
 import android.text.TextUtils;
@@ -37,7 +36,6 @@ import android.util.Log;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
-import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -169,12 +167,8 @@ public class BluetoothPbapSimVcardManager {
             name = mCursor.getString(NUMBER_COLUMN_INDEX);
         }
         final boolean needCharset = !(VCardUtils.containsOnlyPrintableAscii(name));
-        // Create ContentValues for making name as Structured name
-        List<ContentValues> contentValuesList = new ArrayList<ContentValues>();
-        ContentValues nameContentValues = new ContentValues();
-        nameContentValues.put(StructuredName.DISPLAY_NAME, name);
-        contentValuesList.add(nameContentValues);
-        builder.appendNameProperties(contentValuesList);
+        builder.appendLine(VCardConstants.PROPERTY_FN, name, needCharset, false);
+        builder.appendLine(VCardConstants.PROPERTY_N, name, needCharset, false);
 
         String number = mCursor.getString(NUMBER_COLUMN_INDEX);
         if (TextUtils.isEmpty(number)) {
@@ -186,11 +180,8 @@ public class BluetoothPbapSimVcardManager {
         }
 
         // checkpoint Figure out what are the type and label
-        int type = mCursor.getInt(NUMBERTYPE_COLUMN_INDEX);
+        final int type = mCursor.getInt(NUMBERTYPE_COLUMN_INDEX);
         String label = mCursor.getString(NUMBERLABEL_COLUMN_INDEX);
-        if (type == 0) { // value for type is not present in db
-            type = Phone.TYPE_MOBILE;
-        }
         if (TextUtils.isEmpty(label)) {
             label = Integer.toString(type);
         }
