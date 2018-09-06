@@ -63,7 +63,7 @@ void btm_hci_csb_timeout_evt(uint8_t* p) {
   STREAM_TO_BDADDR(bda, p);
   STREAM_TO_UINT8(lt_addr, p);
 
-  bta_ba_handle_hci_event(BTA_BA_HCI_EVT_CSB_TIMEOUT, status, NULL, 0);
+  //bta_ba_handle_hci_event(BTA_BA_HCI_EVT_CSB_TIMEOUT, status, NULL, 0);
 }
 
 /*******************************************************************************
@@ -82,7 +82,7 @@ void btm_hci_start_sync_train_complete(uint8_t* p) {
   BTM_TRACE_DEBUG("BTM Event: btm_hci_start_sync_train_complete");
   STREAM_TO_UINT8 (status, p);
 
-  bta_ba_handle_hci_event(BTA_BA_RSP_START_SYNC_TRAIN, status, NULL, 0);
+  //bta_ba_handle_hci_event(BTA_BA_RSP_START_SYNC_TRAIN, status, NULL, 0);
 }
 
 /*******************************************************************************
@@ -100,7 +100,7 @@ void btm_hci_set_reserved_lt_addr_complete(uint8_t* p) {
 
   STREAM_TO_UINT8(status, p);
 
-  bta_ba_handle_hci_event(BTA_BA_RSP_SET_LT_ADDR, status, NULL, 0);
+  //bta_ba_handle_hci_event(BTA_BA_RSP_SET_LT_ADDR, status, NULL, 0);
 }
 
 /*******************************************************************************
@@ -118,7 +118,7 @@ void btm_hci_delete_reserved_lt_addr_complete(uint8_t* p) {
 
   STREAM_TO_UINT8(status, p);
 
-  bta_ba_handle_hci_event(BTA_BA_RSP_DELETE_LT_ADDR, status, NULL, 0);
+  //bta_ba_handle_hci_event(BTA_BA_RSP_DELETE_LT_ADDR, status, NULL, 0);
 }
 
 
@@ -138,7 +138,7 @@ void btm_hci_delete_reserved_lt_addr_complete(uint8_t* p) {
   BTM_TRACE_DEBUG("BTM Event: btm_hci_write_sync_train_param_complete");
   STREAM_TO_UINT8 (status, p);
 
-  bta_ba_handle_hci_event(BTA_BA_RSP_SEND_SYNC_TRAIN_PARAM, status, NULL, 0);
+  //bta_ba_handle_hci_event(BTA_BA_RSP_SEND_SYNC_TRAIN_PARAM, status, NULL, 0);
 }
 
 /*******************************************************************************
@@ -157,5 +157,5 @@ void btm_hci_set_csb_complete(uint8_t* p) {
   BTM_TRACE_DEBUG("BTM Event: btm_hci_set_csb_complete");
   STREAM_TO_UINT8 (status, p);
 
-  bta_ba_handle_hci_event(BTA_BA_RSP_ENABLE_CSB, status, (p), 3);
+  //bta_ba_handle_hci_event(BTA_BA_RSP_ENABLE_CSB, status, (p), 3);
 }

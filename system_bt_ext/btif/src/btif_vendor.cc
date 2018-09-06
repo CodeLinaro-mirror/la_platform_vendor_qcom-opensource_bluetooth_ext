@@ -108,7 +108,7 @@ extern tBTM_STATUS BTM_ReadRemoteVersion(const RawAddress& addr, uint8_t* lmp_ve
                                   uint16_t* manufacturer,
                                   uint16_t* lmp_sub_version);
 extern bool interface_ready(void);
-extern void set_prop_callouts(bt_property_callout_t *callouts);
+//extern void set_prop_callouts(bt_property_callout_t *callouts);
 void btif_vendor_cleanup_iot_broadcast_timer(void);
 
 btvendor_callbacks_t *bt_vendor_callbacks = NULL;
@@ -161,7 +161,7 @@ static void btif_vendor_bredr_cleanup_event(uint16_t event, char *p_param)
         }
     }
     btif_queue_release();
-    btif_dm_bredr_disable();
+    //btif_dm_bredr_disable();
     HAL_CBACK(bt_vendor_callbacks, bredr_cleanup_cb, true);
 }
 
@@ -252,10 +252,10 @@ static bool get_profile_info(profile_t profile, profile_info_t feature_name)
     return profile_feature_fetch(profile,feature_name);
 }
 
-static void set_property_callouts(bt_property_callout_t* property_callouts)
+/*static void set_property_callouts(bt_property_callout_t* property_callouts)
 {
     set_prop_callouts(property_callouts);
-}
+}*/
 
 static void cleanup(void)
 {
@@ -360,7 +360,7 @@ static const btvendor_interface_t btvendorInterface = {
     bredrcleanup,
     set_wifi_state,
     get_profile_info,
-    set_property_callouts,
+    NULL,//set_property_callouts,
     cleanup,
     voip_network_type_wifi,
 };
