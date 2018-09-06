@@ -108,28 +108,8 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
         addState(mDisconnecting);
         setInitialState(mDisconnected);
 
-        mImageType = SystemProperties.get("persist.service.bt.avrcpct.imgtype");
-        if (TextUtils.isEmpty(mImageType)) {
-            mImageType = mContext.getResources().getString
-                (R.string.avrcp_cover_art_default_image_type);
-        }
-        mSupportedCoverArtMimetype = SystemProperties.get("persist.service.bt.avrcpct.imgencode");
-        if (TextUtils.isEmpty(mSupportedCoverArtMimetype)) {
-            mSupportedCoverArtMimetype = mContext.getResources().getString(
-                R.string.avrcp_cover_art_default_mimetype);
-        }
-        mSupportedCovertArtHeight = SystemProperties.getInt("persist.service.bt.avrcpct.imgheight",
-                mContext.getResources().getInteger(R.integer.avrcp_cover_art_default_height));
-        mSupportedCoverArtWidth = SystemProperties.getInt("persist.service.bt.avrcpct.imgwidth",
-                mContext.getResources().getInteger(R.integer.avrcp_cover_art_default_width));
+        updateRequiredImageProperties();
 
-        mSupportedCoverArtMaxSize = SystemProperties.getInt("persist.service.bt.avrcpct.imgsize",
-                mContext.getResources().getInteger(R.integer.avrcp_cover_art_default_maxsize));
-        if (DBG) {
-            Log.d(TAG, " Type :" + mImageType + ", Mime :" + mSupportedCoverArtMimetype + " Height:"
-                + mSupportedCovertArtHeight + ", width :" + mSupportedCoverArtWidth + ", Max size:"
-                    + mSupportedCoverArtMaxSize);
-        }
         mHandlerThread = new HandlerThread("AvrcpControllerBipObexHandler",
                     Process.THREAD_PRIORITY_DISPLAY);
         mHandlerThread.start();
@@ -168,6 +148,30 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
         if (getCurrentState() == mConnecting)
             return BluetoothProfile.STATE_CONNECTING;
         return BluetoothProfile.STATE_DISCONNECTED;
+    }
+
+    protected void updateRequiredImageProperties() {
+         mImageType = SystemProperties.get("persist.service.bt.avrcpct.imgtype");
+         if (TextUtils.isEmpty(mImageType)) {
+             mImageType = mContext.getResources().getString
+                 (R.string.avrcp_cover_art_default_image_type);
+         }
+         mSupportedCoverArtMimetype = SystemProperties.get("persist.service.bt.avrcpct.imgencode");
+         if (TextUtils.isEmpty(mSupportedCoverArtMimetype)) {
+             mSupportedCoverArtMimetype = mContext.getResources().getString(
+                 R.string.avrcp_cover_art_default_mimetype);
+         }
+         mSupportedCovertArtHeight = SystemProperties.getInt("persist.service.bt.avrcpct.imgheight",
+         mContext.getResources().getInteger(R.integer.avrcp_cover_art_default_height));
+         mSupportedCoverArtWidth = SystemProperties.getInt("persist.service.bt.avrcpct.imgwidth",
+         mContext.getResources().getInteger(R.integer.avrcp_cover_art_default_width));
+         mSupportedCoverArtMaxSize = SystemProperties.getInt("persist.service.bt.avrcpct.imgsize",
+         mContext.getResources().getInteger(R.integer.avrcp_cover_art_default_maxsize));
+         if (DBG) {
+             Log.d(TAG, " Type :" + mImageType + ", Mime :" + mSupportedCoverArtMimetype + " Height:"
+                 + mSupportedCovertArtHeight + ", width :" + mSupportedCoverArtWidth + ", Max size:"
+                     + mSupportedCoverArtMaxSize);
+         }
     }
 
     public static String dumpMessageString(int message) {
