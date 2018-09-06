@@ -101,7 +101,7 @@ void clean_vnd_logger()
     dlclose(lib_handle);
 
   lib_handle = NULL;
-  osi_property_set("bluetooth.startbtlogger", "false");
+  osi_property_set("vendor.bluetooth.startbtlogger", "false");
 }
 
 static bool is_logging_enable()
@@ -115,7 +115,7 @@ static bool is_logging_enable()
 void start_bt_logger()
 {
   if(is_logging_enable())
-    osi_property_set("bluetooth.startbtlogger", "true");
+    osi_property_set("vendor.bluetooth.startbtlogger", "true");
 }
 
 int local_snoop_socket_create(void) {
