@@ -544,6 +544,10 @@ static void bta_avk_proc_stream_evt(uint8_t handle, const RawAddress* bd_addr, u
                 memcpy(p_msg->msg.security_ind.p_data, p_data->security_ind.p_data, sec_len);
                 break;
 
+            case AVDT_DELAY_REPORT_CFM_EVT:
+                APPL_TRACE_DEBUG("%s: AVDT_DELAY_REPORT_CFM_EVT", __func__);
+                return;
+
             case AVDT_SECURITY_CFM_EVT:
                 p_msg->msg.security_cfm.p_data = (uint8_t *) (p_msg + 1);
                 if (p_data->hdr.err_code == 0)
