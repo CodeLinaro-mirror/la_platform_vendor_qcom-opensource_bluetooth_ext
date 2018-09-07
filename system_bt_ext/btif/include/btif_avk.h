@@ -220,7 +220,15 @@ void btif_avk_clear_remote_suspend_flag(void);
 *******************************************************************************/
 bool btif_avk_peer_supports_3mbps(void);
 
-int btif_avk_get_rendering_delay();
+/*******************************************************************************
+**
+** Function         btif_avk_get_rendering_delay
+**
+** Description      Returns rendering_delay
+**
+** Returns          int
+*******************************************************************************/
+int btif_avk_get_rendering_delay(RawAddress bd_addr);
 
 /*******************************************************************************
 **
@@ -230,6 +238,15 @@ int btif_avk_get_rendering_delay();
 **
 ** Returns          uint64_t
 *******************************************************************************/
-uint64_t btif_avk_get_average_delay();
+uint64_t btif_avk_get_average_delay(RawAddress bd_addr);
 
+/*******************************************************************************
+**
+** Function         clear_delay_record
+**
+** Description      Clear delay record values
+**
+** Returns          void
+*******************************************************************************/
+void clear_delay_record(void);
 #endif /* BTIF_AVK_H */
