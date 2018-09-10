@@ -161,6 +161,7 @@ static void btif_vendor_bredr_cleanup_event(uint16_t event, char *p_param)
         }
     }
     btif_queue_release();
+    //btif_dm_bredr_disable();
     HAL_CBACK(bt_vendor_callbacks, bredr_cleanup_cb, true);
 }
 
@@ -251,7 +252,7 @@ static bool get_profile_info(profile_t profile, profile_info_t feature_name)
     return profile_feature_fetch(profile,feature_name);
 }
 
-/*atic void set_property_callouts(bt_property_callout_t* property_callouts)
+/*static void set_property_callouts(bt_property_callout_t* property_callouts)
 {
     set_prop_callouts(property_callouts);
 }*/
