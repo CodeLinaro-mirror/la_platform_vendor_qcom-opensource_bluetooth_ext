@@ -178,7 +178,8 @@ public final class Avrcp_ext {
          "BC:30:7E", //bc-30-7e-5e-f6-27, Name: Porsche BT 0310; bc-30-7e-8c-22-cb, Name: Audi MMI 1193
          "00:1E:43", //00-1e-43-14-f0-68, Name: Audi MMI 4365
          "9C:DF:03", //9C:DF:03:D3:C0:17, Name: Benz S600L
-         "00:0A:08"  //00:0A:08:51:1E:E7, Name: BMW530
+         "00:0A:08",  //00:0A:08:51:1E:E7, Name: BMW530
+         "00:04:79", //00-04-79-00-06-bc, Name: radius HP-BTL01
      };
     private static final String playerStateUpdateBlackListedNames[] = {
        "Audi",
@@ -492,7 +493,7 @@ public final class Avrcp_ext {
         bootFilter.addAction(Intent.ACTION_USER_UNLOCKED);
         context.registerReceiver(mBootReceiver, bootFilter);
         pts_test = SystemProperties.getBoolean("vendor.bluetooth.avrcpct-passthrough.pts", false);
-        avrcp_playstatus_blacklist = SystemProperties.getBoolean("bt.avrcp-playstatus.blacklist", false);
+        avrcp_playstatus_blacklist = SystemProperties.getBoolean("persist.vendor.btstack.avrcp-playstatus.blacklist", false);
 
         // create Notification channel.
         mNotificationManager = (NotificationManager)
@@ -3370,8 +3371,9 @@ public final class Avrcp_ext {
     private void setActiveMediaSession(MediaSession.Token token) {
         android.media.session.MediaController activeController =
                 new android.media.session.MediaController(mContext, token);
-        if (activeController.getPackageName().contains("telecom")) {
-            Log.d(TAG, "Ignore active media session change to telecom");
+        if ((activeController.getPackageName().contains("telecom")) ||
+           (activeController.getPackageName().contains("skype"))) {
+            Log.d(TAG, "Ignore active media session change to telecom/skype");
             return;
         }
 
@@ -3394,9 +3396,11 @@ public final class Avrcp_ext {
 
     private void setActiveMediaSession(android.media.session.MediaController mController) {
         HeadsetService mService = HeadsetService.getHeadsetService();
-        if (mService != null && mService.isScoOrCallActive()) {
-            Log.w(TAG, "Ignore media session during call");
-            return;
+        if (mController.getPackageName().contains("telecom")) {
+            if (mService != null && mService.isScoOrCallActive()) {
+                Log.w(TAG, "Ignore media session during call");
+                return;
+            }
         }
 
         addMediaPlayerController(mController);
@@ -3989,6 +3993,7 @@ public final class Avrcp_ext {
                 Log.w(TAG, "Remote requesting play item on uid which may not be recognized by" +
                         "current addressed player");
                 playItemRspNative(bdaddr, AvrcpConstants.RSP_INV_ITEM);
+                return;
             }
 
             if (mAvrcpBrowseManager.getBrowsedMediaPlayer(bdaddr) != null) {
@@ -4118,6 +4123,7 @@ public final class Avrcp_ext {
         deviceFeatures[index].mUidsChangedNT = AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
         deviceFeatures[index].mLastPassthroughcmd = KeyEvent.KEYCODE_UNKNOWN;
         deviceFeatures[index].isAbsoluteVolumeSupportingDevice = false;
+        deviceFeatures[index].keyPressState = AvrcpConstants.KEY_STATE_RELEASE; //Key release state
     }
 
     private synchronized void onConnectionStateChanged(
@@ -4747,8 +4753,6 @@ public final class Avrcp_ext {
         if ((deviceFeatures[deviceIndex].mLastPassthroughcmd == KeyEvent.KEYCODE_UNKNOWN) ||
                     deviceFeatures[deviceIndex].mLastPassthroughcmd == code) {
             if (isPlayingState(mCurrentPlayerState) &&
-                     mAudioManager.isMusicActive() &&
-                     (mA2dpState == BluetoothA2dp.STATE_PLAYING) &&
                      (code == KeyEvent.KEYCODE_MEDIA_PLAY)) {
                  Log.w(TAG, "Ignoring passthrough command play" + op + " state " + state +
                          "in music playing");
@@ -4790,17 +4794,29 @@ public final class Avrcp_ext {
             Log.w(TAG, "Passthrough non-media key " + op + " (code " + code + ") state " + state);
         } else {
             if (code == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD) {
+                if ((state == deviceFeatures[deviceIndex].keyPressState) &&
+                        (state == AvrcpConstants.KEY_STATE_RELEASE)) {
+                    Log.e(TAG, "Ignore fast forward key release event");
+                    return;
+                }
                 if (action == KeyEvent.ACTION_DOWN) {
                     mFastforward = true;
                 } else if (action == KeyEvent.ACTION_UP) {
                     mFastforward = false;
                 }
+                deviceFeatures[deviceIndex].keyPressState = state;
             } else if (code == KeyEvent.KEYCODE_MEDIA_REWIND) {
+                if ((state == deviceFeatures[deviceIndex].keyPressState) &&
+                        (state == AvrcpConstants.KEY_STATE_RELEASE)) {
+                    Log.e(TAG, "Ignore rewind key release event");
+                    return;
+                }
                 if (action == KeyEvent.ACTION_DOWN) {
                     mRewind = true;
                 } else if (action == KeyEvent.ACTION_UP) {
                     mRewind = false;
                 }
+                deviceFeatures[deviceIndex].keyPressState = state;
             } else {
                 mFastforward = false;
                 mRewind = false;
