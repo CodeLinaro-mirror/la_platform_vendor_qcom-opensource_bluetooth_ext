@@ -42,14 +42,24 @@ typedef enum {
     /* Reuse BTA_AVK_XXX_EVT - No need to redefine them here */
     BTIF_AVK_CONNECT_REQ_EVT = BTA_AVK_MAX_EVT,
     BTIF_AVK_DISCONNECT_REQ_EVT,
-    BTIF_AVK_START_STREAM_REQ_EVT,
-    BTIF_AVK_SINK_START_STREAM_REQ_EVT,
+    BTIF_AVK_START_STREAM_REQ_EVT, // this directly sends AVDTP_START
+    BTIF_AVK_SINK_START_STREAM_REQ_EVT, // if avrcp connection sends AVRCP_PLAY , othwewise AVDTP_START
     BTIF_AVK_STOP_STREAM_REQ_EVT,
     BTIF_AVK_SUSPEND_STREAM_REQ_EVT,
     BTIF_AVK_SINK_SUSPEND_STREAM_REQ_EVT,
     BTIF_AVK_SINK_CONFIG_REQ_EVT,
     BTIF_AVK_CLEANUP_REQ_EVT,
     BTIF_AVK_SINK_FOCUS_REQ_EVT,
+    BTIF_AVK_SPLIT_SINK_START_IND_RSP,
+    BTIF_AVK_SPLIT_SINK_SUSPEND_IND_RSP,
+    BTIF_AVK_SPLIT_SINK_START_CAPTURE,
+    BTIF_AVK_SPLIT_SINK_STOP_CAPTURE,
+    BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY,
+    BTIF_AVK_SPLIT_SINK_SETUP_COMPLETE,
+    BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_START,
+    BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_STOP,
+    BTIF_AVK_SPLIT_SINK_VSC_START_COMPLETE_EVT,
+    BTIF_AVK_SPLIT_SINK_VSC_STOP_COMPLETE_EVT,
     BTIF_AVK_INIT_REQ_EVT,
 } btif_avk_sm_event_t;
 
@@ -118,6 +128,17 @@ bool btif_avk_stream_started_ready(void);
 
 /* used to pass events to AV statemachine from other tasks */
 void btif_avk_dispatch_sm_event(btif_avk_sm_event_t event, void *p_data, int len);
+
+/*******************************************************************************
+**
+** Function         btif_avk_split_dispatch_sm_event
+**
+** Description      Send event to AV statemachine of a2dp split sink
+**
+** Returns          None
+**
+*******************************************************************************/
+void btif_avk_split_dispatch_sm_event(btif_avk_sm_event_t event, void *p_data, int len);
 
 /*******************************************************************************
 **
@@ -229,6 +250,16 @@ bool btif_avk_peer_supports_3mbps(void);
 ** Returns          int
 *******************************************************************************/
 int btif_avk_get_rendering_delay(RawAddress bd_addr);
+
+/*******************************************************************************
+**
+** Function         btif_avk_split_get_rendering_delay
+**
+** Description      Returns rendering_delay for split a2dp sink.
+**
+** Returns          int
+*******************************************************************************/
+int btif_avk_split_get_rendering_delay(RawAddress bd_addr);
 
 /*******************************************************************************
 **

@@ -38,6 +38,7 @@
 #include "bta_api.h"
 #include "btif_avk_api.h"
 #include "audio_a2dp_hw.h"
+#include "bthost_avk_ipc.h"
 
 /*******************************************************************************
  **  Constants
@@ -60,8 +61,6 @@
 #define BTIF_AVK_MEDIA_TRSCD_OFF             0
 #define BTIF_AVK_MEDIA_TRSCD_PCM_2_SBC       1  /* Tx */
 #define BTIF_AVK_MEDIA_TRSCD_PCM_2_APTX      2
-
-extern int btif_max_avk_clients;                      /* maximum number of AV clients supported */
 
 /*******************************************************************************
  **  Data types
@@ -163,11 +162,17 @@ extern bool btif_avk_media_task_aa_rx_flush_req(void);
  */
 
 bool btif_avk_a2dp_start_media_task(void);
+bool btif_avk_split_a2dp_start_media_task(void);
 void btif_avk_a2dp_stop_media_task(void);
+void btif_avk_split_a2dp_stop_media_task(void);
 bool btif_avk_a2dp_is_media_task_stopped(void);
+bool btif_avk_split_a2dp_is_media_task_stopped(void);
 void btif_avk_a2dp_on_init(void);
 void btif_avk_a2dp_on_idle(void);
+void btif_avk_split_a2dp_on_idle(void);
 void btif_avk_a2dp_on_open(void);
+
+void btif_update_cmd_status(uint8_t cmd,uint8_t status);
 
 void btif_avk_a2dp_ack_fail(void);
 void btif_a2dp_on_stop_req(void);
@@ -180,7 +185,9 @@ void btif_avk_media_check_iop_exceptions(uint8_t *peer_bda);
 void btif_avk_reset_decoder(uint8_t *p_av);
 
 int btif_avk_a2dp_get_sbc_track_frequency(uint8_t frequency);
+int btif_avk_split_a2dp_get_sbc_track_frequency(uint8_t frequency);
 int btif_avk_a2dp_get_sbc_track_channel_count(uint8_t channeltype);
+int btif_avk_split_a2dp_get_sbc_track_channel_count(uint8_t channeltype);
 #if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
 int btif_avk_a2dp_get_aac_track_frequency(uint16_t frequency);
 int btif_avk_a2dp_get_aac_track_channel_count(uint8_t channeltype);

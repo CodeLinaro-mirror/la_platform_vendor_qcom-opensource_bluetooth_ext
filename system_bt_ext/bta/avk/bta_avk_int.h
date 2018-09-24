@@ -94,6 +94,12 @@ enum
     BTA_AVK_ROLE_CHANGE_EVT,
     BTA_AVK_AVDT_DELAY_RPT_EVT,
     BTA_AVK_ACP_CONNECT_EVT,
+    BTA_AVK_API_OFFLOAD_START_EVT,
+    BTA_AVK_API_OFFLOAD_STOP_EVT,
+    BTA_AVK_API_PENDING_START_CNF_EVT,
+    BTA_AVK_API_PENDING_START_REJECT_EVT,
+    BTA_AVK_API_PENDING_SUSPEND_CNF_EVT,
+    BTA_AVK_API_PENDING_SUSPEND_REJECT_EVT,
 
     /* these events are handled outside of the state machine */
     BTA_AVK_API_ENABLE_EVT,
@@ -551,6 +557,7 @@ typedef struct
     bool             no_rtp_hdr;     /* TRUE if add no RTP header*/
     uint16_t              uuid_int;       /*intended UUID of Initiator to connect to */
     bool             skip_sdp;       /* Decides if sdp to be done prior to profile connection */
+    bool             sink_split_vsc_rsp_waiting; /* TRUE if we have sent VSC command and waiting for response*/
 } tBTA_AVK_SCB;
 
 #define BTA_AVK_RC_ROLE_MASK     0x10
@@ -767,6 +774,12 @@ extern void bta_avk_switch_role (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
 extern void bta_avk_role_res (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
 extern void bta_avk_delay_co (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
 extern void bta_avk_open_at_inc (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
+extern void bta_avk_offload_start_req(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
+extern void bta_avk_offload_stop_req(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
+extern void bta_avk_send_pending_start_cnf(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
+extern void bta_avk_send_pending_start_rej(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
+extern void bta_avk_send_pending_suspend_cnf(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
+extern void bta_avk_send_pending_suspend_rej(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
 
 /* ssm action functions - vdp specific */
 extern void bta_avk_do_disc_vdp (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);

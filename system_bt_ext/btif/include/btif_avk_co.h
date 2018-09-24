@@ -68,4 +68,9 @@ void bta_avk_co_init(void);
  *******************************************************************************/
 uint8_t bta_avk_get_current_codec();
 
+
+bool bta_avk_co_audio_get_aac_config(tA2D_AAC_CIE *p_aac_config);
+
+bool bta_avk_co_audio_get_sbc_config(tA2D_SBC_CIE *p_sbc_config);
+
 #endif

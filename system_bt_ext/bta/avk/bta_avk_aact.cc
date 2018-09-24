@@ -42,6 +42,7 @@
 #include "utl.h"
 #include "l2c_api.h"
 #include "l2cdefs.h"
+#include "a2d_sbc.h"
 #if( defined BTA_AR_INCLUDED ) && (BTA_AR_INCLUDED == TRUE)
 #include "bta_ar_api.h"
 #endif
@@ -70,6 +71,33 @@ static void bta_avk_st_rc_timer(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data);
 static const size_t SBC_MAX_BITPOOL_OFFSET = 6;
 
 static const size_t SBC_MAX_BITPOOL = 53;
+
+// for split a2dp sink
+
+#define VS_QCHCI_A2DP_SINK_START              0x20
+#define HCI_VSQC_CONTROLLER_A2DP_OPCODE       0x0A
+#define AVDT_HEADER_SBC                       0x0D
+#define AVDT_HEADER_NON_SBC                   0x0C
+#define VS_QCHCI_A2DP_SINK_STOP               0x21
+
+  typedef struct {
+    uint8_t stream_handle;
+    uint16_t connection_handle;
+    uint16_t lcid;
+    uint8_t codec_id;
+    uint32_t peak_bit_rate;// 3 octets
+    uint16_t l2cap_mtu;
+    uint8_t packet_header_size;
+    uint8_t cp_enable;//content protection enable
+}A2DP_SINK_OFFLOAD_PARAM;
+A2DP_SINK_OFFLOAD_PARAM offload_sink_start;
+
+typedef union {
+    tA2D_SBC_CIE sbc_caps;
+    tA2D_AAC_CIE aac_caps;
+    tA2D_MP3_CIE mp3_caps;
+    tA2D_APTX_CIE aptx_caps;
+} codec_cap_info;
 
 /* state machine states */
 enum
@@ -149,6 +177,12 @@ const tBTA_AVK_SACT bta_avk_a2d_action[] =
     bta_avk_role_res,        /* BTA_AVK_ROLE_RES */
     bta_avk_delay_co,        /* BTA_AVK_DELAY_CO */
     bta_avk_open_at_inc,     /* BTA_AVK_OPEN_AT_INC */
+    bta_avk_offload_start_req, /* BTA_AVK_OFFLOAD_START_REQ*/
+    bta_avk_offload_stop_req, /* BTA_AVK_OFFLOAD_STOP_REQ*/
+    bta_avk_send_pending_start_cnf, /* BTA_AVK_SEND_PENDING_START_CNF */
+    bta_avk_send_pending_start_rej, /* BTA_AVK_SEND_PENDING_START_REJ */
+    bta_avk_send_pending_suspend_cnf, /* BTA_AVK_SEND_PENDING_SUSPEND_CNF */
+    bta_avk_send_pending_suspend_rej, /* BTA_AVK_SEND_PENDING_SUSPEND_REJ */
     NULL
 };
 
@@ -206,6 +240,17 @@ static const uint16_t bta_avk_stream_evt_fail[] = {
     BTA_AVK_AVDT_DELAY_RPT_EVT,      /* AVDT_DELAY_REPORT_EVT */
     0                               /* AVDT_DELAY_REPORT_CFM_EVT */
 };
+
+void offload_vendor_callback(tBTM_VSC_CMPL *param);
+void sink_offload_vendor_callback(tBTM_VSC_CMPL *param);
+uint32_t calculate_sbc_bitrate(tA2D_SBC_CIE *p_ie);
+uint32_t get_sbc_sample_frequency(uint8_t frequency);
+uint32_t get_sbc_channel_count(uint8_t channeltype);
+uint32_t get_sbc_block_len(uint8_t blocktype);
+uint32_t get_sbc_subband(uint8_t subband_type);
+uint32_t calculate_aptx_bitrate(tA2D_APTX_CIE *p_ie);
+uint32_t get_aptx_sampling_frequency(uint8_t samp_freq);
+extern bool is_split_enabled();
 
 void bta_avk_stream_data_cback(uint8_t handle, BT_HDR *p_pkt, uint32_t time_stamp, uint8_t m_pt);
 static void bta_avk_stream0_cback(uint8_t handle, const RawAddress* bd_addr, uint8_t event, tAVDT_CTRL *p_data);
@@ -631,9 +676,11 @@ void bta_avk_stream_data_cback(uint8_t handle, BT_HDR *p_pkt, uint32_t time_stam
         osi_free(p_pkt);
         return;
     }
-    p_pkt->event = BTA_AVK_MEDIA_DATA_EVT;
-    p_scb->seps[p_scb->sep_idx].p_app_data_cback(BTA_AVK_MEDIA_DATA_EVT,
+    if (!is_split_enabled()) {
+        p_pkt->event = BTA_AVK_MEDIA_DATA_EVT;
+        p_scb->seps[p_scb->sep_idx].p_app_data_cback(BTA_AVK_MEDIA_DATA_EVT,
                                 (tBTA_AVK_MEDIA*)p_pkt, p_scb->peer_addr);
+    }
     osi_free(p_pkt);  /* a copy of packet had been delivered, we free this buffer */
 }
 
@@ -2288,6 +2335,189 @@ void bta_avk_str_stopped (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
 
 /*******************************************************************************
 **
+** Function         bta_avk_offload_start_req
+**
+** Description      Send VSC start offload cmd.
+**
+** Returns          void
+**
+*******************************************************************************/
+void bta_avk_offload_start_req(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
+{
+    tBTA_AVK_STATUS status = BTA_AV_SUCCESS;
+    uint16_t mtu;
+    uint8_t param[20];
+    uint16_t acl_hdl;
+    uint8_t param_len;
+
+    APPL_TRACE_DEBUG("%s", __func__);
+
+    /* Check if stream has already been started. */
+    /* Support offload if only one audio source stream is open. */
+
+    codec_cap_info codec_cap_data;
+    memset(&codec_cap_data,0,sizeof(codec_cap_info));
+
+    acl_hdl = BTM_GetHCIConnHandle(p_scb->peer_addr, BT_TRANSPORT_BR_EDR);
+    param_len = 14;
+    mtu = bta_avk_chk_mtu(p_scb, p_scb->stream_mtu);
+
+    offload_sink_start.stream_handle = 0;//stream handle is 0 always
+    offload_sink_start.connection_handle = acl_hdl;
+    offload_sink_start.l2cap_mtu = (mtu < p_scb->stream_mtu) ? mtu : p_scb->stream_mtu;
+    offload_sink_start.l2cap_mtu = BTA_AVK_MAX_A2DP_MTU;
+    offload_sink_start.lcid = p_scb->l2c_cid;
+    offload_sink_start.codec_id = p_scb->codec_type;
+    offload_sink_start.cp_enable = 0x0;
+    APPL_TRACE_DEBUG("%s codec_type = %04x",__func__,p_scb->codec_type);
+    switch(p_scb->codec_type)
+    {
+        case BTA_AVK_CODEC_SBC:
+        A2D_ParsSbcInfo((tA2D_SBC_CIE *)&codec_cap_data.sbc_caps,(uint8_t *)p_scb->cfg.codec_info,FALSE);
+        offload_sink_start.peak_bit_rate = calculate_sbc_bitrate((tA2D_SBC_CIE *)&codec_cap_data.sbc_caps);
+        offload_sink_start.packet_header_size = AVDT_HEADER_SBC;
+        break;
+#if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
+    case BTA_AVK_CODEC_M24:
+        A2D_ParsAacInfo((tA2D_AAC_CIE *)&codec_cap_data.aac_caps,(uint8_t *)p_scb->cfg.codec_info,FALSE);
+        offload_sink_start.peak_bit_rate = codec_cap_data.aac_caps.bit_rate;
+        offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC;
+        break;
+#endif
+#if defined(MP3_DECODER_INCLUDED) && (MP3_DECODER_INCLUDED == TRUE)
+    case BTA_AVK_CODEC_M12:
+        A2D_ParsMp3Info((tA2D_MP3_CIE *)&codec_cap_data.mp3_caps,(uint8_t *)p_scb->cfg.codec_info,FALSE);
+        offload_sink_start.peak_bit_rate = codec_cap_data.mp3_caps.bit_rate;
+        offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC;
+        break;
+#endif
+#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
+    case A2D_NON_A2DP_MEDIA_CT:
+        A2D_ParsAptxInfo((tA2D_APTX_CIE *)&codec_cap_data.aptx_caps,(uint8_t *)p_scb->cfg.codec_info,FALSE);
+        offload_sink_start.peak_bit_rate = calculate_aptx_bitrate((tA2D_APTX_CIE *)&codec_cap_data.aptx_caps);
+        offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC;
+        break;
+#endif
+    default:
+        APPL_TRACE_ERROR("Unsupported Codec_type");
+        return;
+        break;
+    }
+    uint8_t *p_param = param;
+    *p_param++ = VS_QCHCI_A2DP_SINK_START;
+    UINT8_TO_STREAM(p_param,offload_sink_start.stream_handle);
+    UINT16_TO_STREAM(p_param,offload_sink_start.connection_handle);
+    UINT16_TO_STREAM(p_param,offload_sink_start.lcid);
+    UINT8_TO_STREAM(p_param,offload_sink_start.codec_id);
+    UINT24_TO_STREAM(p_param,offload_sink_start.peak_bit_rate);
+    UINT16_TO_STREAM(p_param,offload_sink_start.l2cap_mtu);
+    UINT8_TO_STREAM(p_param,offload_sink_start.packet_header_size);
+    UINT8_TO_STREAM(p_param,offload_sink_start.cp_enable);
+    p_scb->sink_split_vsc_rsp_waiting = TRUE;
+
+    BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE,param_len,
+                               param, sink_offload_vendor_callback);
+    APPL_TRACE_DEBUG("%s Stream Handle = %d",__func__,offload_sink_start.stream_handle);
+    APPL_TRACE_DEBUG("%s Connection Handle = %d",__func__,offload_sink_start.connection_handle);
+    APPL_TRACE_DEBUG("%s LCID = %d",__func__,offload_sink_start.lcid);
+    APPL_TRACE_DEBUG("%s Codec_ID = %d",__func__,offload_sink_start.codec_id);
+    APPL_TRACE_DEBUG("%s Peak Bit Rate = %d",__func__,offload_sink_start.peak_bit_rate);
+    APPL_TRACE_DEBUG("%s L2CAP Mtu = %d",__func__,offload_sink_start.l2cap_mtu);
+    APPL_TRACE_DEBUG("%s Packet Header Size = %d",__func__,offload_sink_start.packet_header_size);
+    APPL_TRACE_DEBUG("%s CP enable = %d",__func__,offload_sink_start.cp_enable);
+
+}
+
+/*******************************************************************************
+**
+** Function         bta_avk_offload_stop_req
+**
+** Description      send VSC stop(split) req
+**
+** Returns          void
+**
+*******************************************************************************/
+
+void bta_avk_offload_stop_req (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
+{
+    uint8_t param[2];
+    uint8_t param_len = 2;
+    uint8_t *p_param = param;
+    *p_param++ = VS_QCHCI_A2DP_SINK_STOP;
+    UINT8_TO_STREAM(p_param,0);//stream handle is 0
+
+    BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE,param_len,
+                               param, sink_offload_vendor_callback);
+    p_scb->sink_split_vsc_rsp_waiting = TRUE;
+    APPL_TRACE_DEBUG("%s , vsc command sent",__func__);
+}
+
+/*******************************************************************************
+**
+** Function         bta_avk_send_pending_start_cnf
+**
+** Description      send start cnf for pending request
+**
+** Returns          void
+**
+*******************************************************************************/
+
+void bta_avk_send_pending_start_cnf (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
+{
+    APPL_TRACE_DEBUG(" %s handle %d",__func__,p_scb->avdt_handle);
+    AVDT_SndPendingSigStart_Rsp(p_scb->avdt_handle, TRUE);
+}
+
+/*******************************************************************************
+**
+** Function         bta_avk_send_pending_start_rej
+**
+** Description      send start cnf for pending request
+**
+** Returns          void
+**
+*******************************************************************************/
+
+void bta_avk_send_pending_start_rej (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
+{
+    APPL_TRACE_DEBUG(" %s ",__func__);
+    AVDT_SndPendingSigStart_Rsp(p_scb->avdt_handle, FALSE);
+}
+
+/*******************************************************************************
+**
+** Function         bta_avk_send_pending_suspend_cnf
+**
+** Description      send start cnf for pending request
+**
+** Returns          void
+**
+*******************************************************************************/
+
+void bta_avk_send_pending_suspend_cnf (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
+{
+    APPL_TRACE_DEBUG(" %s ",__func__);
+    AVDT_SndPendingSigSuspend_Rsp(p_scb->avdt_handle, TRUE);
+}
+
+/*******************************************************************************
+**
+** Function         bta_avk_send_pending_suspend_rej
+**
+** Description      send start cnf for pending request
+**
+** Returns          void
+**
+*******************************************************************************/
+
+void bta_avk_send_pending_suspend_rej (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
+{
+    APPL_TRACE_DEBUG(" %s ",__func__);
+    AVDT_SndPendingSigSuspend_Rsp(p_scb->avdt_handle, FALSE);
+}
+
+/*******************************************************************************
+**
 ** Function         bta_avk_reconfig
 **
 ** Description      process the reconfigure request.
@@ -3302,5 +3532,161 @@ void bta_avk_open_at_inc (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
         }
     }
 }
+void sink_offload_vendor_callback(tBTM_VSC_CMPL *param)
+{
+    unsigned char sub_opcode = 0;
+    uint8_t index = 0;
+    tBTA_AVK_OFFLOAD_RSP offload_rsp;
+    tBTA_AVK_STATUS status = BTA_AVK_FAIL_STREAM;
+    APPL_TRACE_DEBUG("offload_vendor_callback: param_len = %d subopcode = %d status = %d",
+                       param->param_len, param->p_param_buf[1], param->p_param_buf[0]);
+    for (index = 0; index < BTA_AVK_NUM_STRS; index++) {
+        APPL_TRACE_DEBUG(" %s VSC Resposnse pending", __func__,
+                         bta_avk_cb.p_scb[index]->sink_split_vsc_rsp_waiting);
+        if (bta_avk_cb.p_scb[index]->sink_split_vsc_rsp_waiting) {
+            break;
+        }
+    }
+    if (index == BTA_AVK_NUM_STRS) {
+        APPL_TRACE_DEBUG(" %s no matching scb found",__func__);
+        return;
+    }
+    // we have received response, now we make this variable as false.
+    bta_avk_cb.p_scb[index]->sink_split_vsc_rsp_waiting = FALSE;
+    if (param->param_len) {
+        status = param->p_param_buf[0];
+    }
+    sub_opcode =  param->p_param_buf[1];
+    APPL_TRACE_DEBUG(" %s: sub_opcode %d  status = %d",__func__, sub_opcode, status);
+    offload_rsp.status = status;
+    offload_rsp.hndl = bta_avk_cb.p_scb[index]->hndl;
+    if(sub_opcode == VS_QCHCI_A2DP_SINK_START) {
+        (*bta_avk_cb.p_cback)(BTA_AVK_OFFLOAD_START_RSP_EVT, (tBTA_AVK *)&offload_rsp);
+    }else if(sub_opcode == VS_QCHCI_A2DP_SINK_STOP) {
+        (*bta_avk_cb.p_cback)(BTA_AVK_OFFLOAD_STOP_RSP_EVT, (tBTA_AVK *)&offload_rsp);
+    }else {
+        APPL_TRACE_ERROR(" %s subopcode doesn't match", __func__);
+    }
+}
 
+uint32_t calculate_sbc_bitrate(tA2D_SBC_CIE *p_ie)
+{
+    uint32_t frame_length, peak_bit_rate;
+    uint32_t blocklen , subbands ,sampling_frequency , channel_count;
+
+    sampling_frequency = get_sbc_sample_frequency(p_ie->samp_freq);
+    channel_count = get_sbc_channel_count(p_ie->ch_mode);
+    blocklen = get_sbc_block_len(p_ie->block_len);
+    subbands = get_sbc_subband(p_ie->num_subbands);
+
+    frame_length = (4 * subbands)+(blocklen * p_ie->max_bitpool) * channel_count;
+    frame_length = frame_length/8;
+    frame_length += 4;
+
+    peak_bit_rate = 8 * frame_length * sampling_frequency;
+    peak_bit_rate = (peak_bit_rate / subbands) / blocklen;
+
+    APPL_TRACE_DEBUG("calculate_sbc_bitrate peak_bit_rate: %d", peak_bit_rate);
+    return peak_bit_rate;
+}
+
+uint32_t get_sbc_sample_frequency(uint8_t frequency) {
+    uint32_t freq = 48000;
+    switch (frequency) {
+        case A2D_SBC_IE_SAMP_FREQ_16:
+            freq = 16000;
+            break;
+        case A2D_SBC_IE_SAMP_FREQ_32:
+            freq = 32000;
+            break;
+        case A2D_SBC_IE_SAMP_FREQ_44:
+            freq = 44100;
+            break;
+        case A2D_SBC_IE_SAMP_FREQ_48:
+            freq = 48000;
+            break;
+    }
+    APPL_TRACE_DEBUG("get_sbc_sample_frequency sampling_frequency : %d",freq);
+    return freq;
+}
+
+uint32_t get_sbc_channel_count(uint8_t channeltype) {
+    uint32_t count = 1;
+    switch (channeltype) {
+        case A2D_SBC_IE_CH_MD_MONO:
+            count = 1;
+            break;
+        case A2D_SBC_IE_CH_MD_DUAL:
+        case A2D_SBC_IE_CH_MD_STEREO:
+        case A2D_SBC_IE_CH_MD_JOINT:
+            count = 2;
+            break;
+    }
+    APPL_TRACE_DEBUG("get_sbc_channel_count channel_count : %d", count);
+    return count;
+}
+
+uint32_t get_sbc_block_len(uint8_t blocktype)
+{
+    uint32_t block_len = 16;
+    switch (blocktype) {
+        case A2D_SBC_IE_BLOCKS_4:
+            block_len = 4;
+            break;
+        case A2D_SBC_IE_BLOCKS_8:
+            block_len = 8;
+            break;
+        case A2D_SBC_IE_BLOCKS_12:
+            block_len = 12;
+            break;
+        case A2D_SBC_IE_BLOCKS_16:
+            block_len = 16;
+            break;
+    }
+    APPL_TRACE_DEBUG("get_sbc_block_len block_len: %d", block_len);
+    return block_len;
+}
+
+uint32_t get_sbc_subband(uint8_t subband_type)
+{
+    uint32_t subbands = 8;
+    switch (subband_type) {
+        case A2D_SBC_IE_SUBBAND_4:
+            subbands = 4;
+            break;
+        case A2D_SBC_IE_SUBBAND_8:
+            subbands = 8;
+            break;
+    }
+    APPL_TRACE_DEBUG("get_sbc_subband subbands: %d", subbands);
+    return subbands;
+}
+
+uint32_t calculate_aptx_bitrate(tA2D_APTX_CIE *p_ie)
+{
+    uint32_t peak_bit_rate , sampling_frequency;
+
+    sampling_frequency = get_aptx_sampling_frequency(p_ie->sampleRate);
+
+    peak_bit_rate = sampling_frequency * p_ie->channelMode * 16;
+    peak_bit_rate = peak_bit_rate / 4;
+    APPL_TRACE_DEBUG("calculate_aptx_bitrate channels: %d",p_ie->channelMode);
+    APPL_TRACE_DEBUG("calculate_aptx_bitrate bitrate: %d",peak_bit_rate);
+    return peak_bit_rate;
+}
+
+uint32_t get_aptx_sampling_frequency(uint8_t samp_freq)
+{
+    uint32_t sampling_frequency = 48000;
+    switch (samp_freq) {
+        case A2D_APTX_SAMPLERATE_44100:
+            sampling_frequency = 44100;
+            break;
+        case A2D_APTX_SAMPLERATE_48000:
+            sampling_frequency = 48000;
+            break;
+    }
+    APPL_TRACE_DEBUG("get_aptx_sampling_frequency: %d", sampling_frequency);
+    return sampling_frequency;
+}
 #endif /* BTA_AV_INCLUDED */

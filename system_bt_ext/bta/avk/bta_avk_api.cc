@@ -680,4 +680,47 @@ void BTA_AvkUpdateCodecSupport(uint8_t *p_codec_type_list, uint8_t *p_vnd_list, 
         bta_sys_sendmsg(p_buf);
     }
 }
+
+void BTA_AvkOffloadStart(tBTA_AVK_HNDL  hndl) {
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+    p_buf->event = BTA_AVK_API_OFFLOAD_START_EVT;
+    p_buf->layer_specific = hndl;
+    bta_sys_sendmsg(p_buf);
+}
+
+void BTA_AvkOffloadStop(tBTA_AVK_HNDL  hndl) {
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+    p_buf->event = BTA_AVK_API_OFFLOAD_STOP_EVT;
+    p_buf->layer_specific = hndl;
+    bta_sys_sendmsg(p_buf);
+}
+
+void BTA_AvkSendPedingStartCnf(tBTA_AVK_HNDL  hndl) {
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+    p_buf->event = BTA_AVK_API_PENDING_START_CNF_EVT;
+    p_buf->layer_specific = hndl;
+    bta_sys_sendmsg(p_buf);
+}
+
+void BTA_AvkSendPedingStartRej(tBTA_AVK_HNDL  hndl) {
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+    p_buf->event = BTA_AVK_API_PENDING_START_REJECT_EVT;
+    p_buf->layer_specific = hndl;
+    bta_sys_sendmsg(p_buf);
+}
+
+void BTA_AvkSendPedingSuspendCnf(tBTA_AVK_HNDL  hndl) {
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+    p_buf->event = BTA_AVK_API_PENDING_SUSPEND_CNF_EVT;
+    p_buf->layer_specific = hndl;
+    bta_sys_sendmsg(p_buf);
+}
+
+void BTA_AvkSendPedingSuspendRej(tBTA_AVK_HNDL  hndl) {
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+    p_buf->event = BTA_AVK_API_PENDING_SUSPEND_REJECT_EVT;
+    p_buf->layer_specific = hndl;
+    bta_sys_sendmsg(p_buf);
+}
+
 #endif /* BTA_AV_INCLUDED */
