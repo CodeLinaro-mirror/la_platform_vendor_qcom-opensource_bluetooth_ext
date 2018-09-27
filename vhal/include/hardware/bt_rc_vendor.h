@@ -571,7 +571,7 @@ typedef void (* btrc_ctrl_get_folder_items_callback )(RawAddress *bd_addr,
                                                             const btrc_folder_items_t *folder_items,
                                                             uint8_t count);
 
-typedef void (* btrc_ctrl_change_path_callback)(RawAddress *bd_addr, uint8_t count);
+typedef void (* btrc_ctrl_change_path_callback)(RawAddress *bd_addr, uint32_t count);
 
 typedef void (* btrc_ctrl_set_browsed_player_callback )(
     RawAddress *bd_addr, uint8_t num_items, uint8_t depth);
@@ -630,15 +630,15 @@ typedef struct {
     bt_status_t (*get_playback_state_cmd) (RawAddress *bd_addr);
 
     /** get the now playing list */
-    bt_status_t (*get_now_playing_list_cmd) (RawAddress *bd_addr, uint8_t start, uint8_t items);
+    bt_status_t (*get_now_playing_list_cmd) (RawAddress *bd_addr, uint32_t start, uint32_t items);
 
     /** get the folder list */
-    bt_status_t (*get_folder_list_cmd) (RawAddress *bd_addr, uint8_t start, uint8_t items);
+    bt_status_t (*get_folder_list_cmd) (RawAddress *bd_addr, uint32_t start, uint32_t items);
 
     /** get the folder list */
-    bt_status_t (*get_player_list_cmd) (RawAddress *bd_addr, uint8_t start, uint8_t items);
+    bt_status_t (*get_player_list_cmd) (RawAddress *bd_addr, uint32_t start, uint32_t items);
 
-    /** get the folder list */
+    /** change the folder path */
     bt_status_t (*change_folder_path_cmd) (RawAddress *bd_addr, uint16_t uid_counter,
             uint8_t direction, uint8_t * uid);
 
@@ -722,7 +722,7 @@ typedef struct {
     bt_status_t (*search_cmd)(RawAddress *bd_addr, uint16_t charset_id, uint16_t length, uint8_t *str);
 
     /** Get the search list */
-    bt_status_t (*get_search_list_cmd)(RawAddress *bd_addr, uint8_t start, uint8_t items);
+    bt_status_t (*get_search_list_cmd)(RawAddress *bd_addr, uint32_t start, uint32_t items);
 
     /** Get item attributes */
     bt_status_t (*add_to_now_playing_cmd)(RawAddress *bd_addr, uint8_t scope,
@@ -736,7 +736,7 @@ typedef struct {
     bt_status_t (*get_element_attributes_cmd)(RawAddress *bd_addr, uint8_t numAttr, uint32_t *attr);
 
     /** Get folder items */
-    bt_status_t (*get_folder_items_vendor_cmd)(RawAddress* bd_addr, uint8_t scope, uint8_t start, uint8_t end,
+    bt_status_t (*get_folder_items_vendor_cmd)(RawAddress* bd_addr, uint8_t scope, uint32_t start, uint32_t end,
                                                uint8_t numAttr, uint32_t *attr);
 
     /** Get total number of items */
