@@ -44,6 +44,7 @@
 #include "btm_api.h"
 #include "btif_api.h"
 #include "profile_config.h"
+#include "btif_config.h"
 
 #if TEST_APP_INTERFACE == TRUE
 #include <bt_testapp.h>
@@ -52,6 +53,7 @@
 #define BTA_SERVICE_ID_TO_SERVICE_MASK(id)  (1 << (id))
 #define CALLBACK_TIMER_PERIOD_MS      (60000)
 #define BTIF_VENDOR_BREDR_CLEANUP 1
+#define BTIF_VENDOR_GET_LINK_KEY  1
 
 typedef struct {
   RawAddress bd_addr; /* BD address peer device. */
@@ -125,6 +127,29 @@ static void btif_vendor_bredr_cleanup_event(uint16_t event, char *p_param)
     HAL_CBACK(bt_vendor_callbacks, bredr_cleanup_cb, true);
 }
 
+static void btif_vendor_get_link_key_event(uint16_t event, char *p_param)
+{
+    bool bt_linkkey_file_found = false;
+    RawAddress *bd_addr = (RawAddress *)p_param;
+    LINK_KEY link_key;
+    int linkkey_type;
+    size_t size = sizeof(link_key);
+
+    /* Get linkkey from config file */
+    if (btif_config_get_bin(bd_addr->ToString().c_str(), "LinkKey", (uint8_t *)link_key, &size))
+    {
+        if (btif_config_get_int(bd_addr->ToString().c_str(), "LinkKeyType", &linkkey_type))
+        {
+            bt_linkkey_file_found = true;
+        }
+        else
+        {
+            bt_linkkey_file_found = false;
+        }
+    }
+
+    HAL_CBACK(bt_vendor_callbacks, get_link_key_cb, bd_addr, bt_linkkey_file_found, link_key, linkkey_type);
+}
 static void btif_vendor_send_iot_info_cb(uint16_t event, char *p_param)
 {
     broadcast_cb_data.is_valid = false;
@@ -218,6 +243,13 @@ static int add_out_of_band_bond_device(const RawAddress *bd_addr, LINK_KEY link_
     LOG_INFO(LOG_TAG, "add_out_of_band_bond_device");
     return btif_dm_add_oob_bond_device(bd_addr, link_key, key_type, pin_len);
 }
+
+static void get_link_key(const RawAddress *bd_addr)
+{
+    LOG_INFO(LOG_TAG, "get_link_key");
+    btif_transfer_context(btif_vendor_get_link_key_event, BTIF_VENDOR_GET_LINK_KEY,
+                          (char *)bd_addr, sizeof(RawAddress), NULL);
+}
 static void cleanup(void)
 {
     LOG_INFO(LOG_TAG,"cleanup");
@@ -268,6 +300,7 @@ static const btvendor_interface_t btvendorInterface = {
     set_wifi_state,
     get_profile_info,
     add_out_of_band_bond_device,
+    get_link_key,
     cleanup,
 };
 

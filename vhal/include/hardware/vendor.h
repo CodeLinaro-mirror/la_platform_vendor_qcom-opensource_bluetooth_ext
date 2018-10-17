@@ -55,6 +55,7 @@ typedef void (*  btvendor_bredr_cleanup_callback)(bool status);
 typedef void (*  btvendor_iot_device_broadcast_callback)(RawAddress* remote_bd_addr, uint16_t error,
                         uint16_t error_info, uint32_t event_mask, uint8_t lmp_ver, uint16_t lmp_subver,
                         uint16_t manufacturer_id, uint8_t power_level, uint8_t rssi, uint8_t link_quality );
+typedef void (*  btvendor_get_link_key_callback)(RawAddress* remote_bd_addr, bool key_found, LINK_KEY link_key, int key_type);
 
 /** BT-Vendor callback structure. */
 typedef struct {
@@ -62,6 +63,7 @@ typedef struct {
     size_t      size;
     btvendor_bredr_cleanup_callback  bredr_cleanup_cb;
     btvendor_iot_device_broadcast_callback iot_device_broadcast_cb;
+    btvendor_get_link_key_callback get_link_key_cb;
 } btvendor_callbacks_t;
 
 /** Represents the standard BT-Vendor interface.
@@ -91,6 +93,9 @@ typedef struct {
     /** Add out of band bond device */
     int (*add_out_of_band_bond_device)(const RawAddress *bd_addr, LINK_KEY link_key,
                                        uint8_t key_type, uint8_t pin_len);
+
+    /** Get linke key */
+    void (*get_link_key)(const RawAddress *bd_addr);
 
     /** Closes the interface. */
     void  (*cleanup)( void );
