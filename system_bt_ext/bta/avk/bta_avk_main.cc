@@ -663,7 +663,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
                     APPL_TRACE_DEBUG("bta_avk_api_register : bta_ar_reg_avrc %d !~", bta_avk_cb.features);
                     bta_ar_reg_avrc(UUID_SERVCLASS_AV_REM_CTRL_TARGET, "AV Remote Control Target",
                         NULL, p_bta_avk_cfg->avrc_tg_cat, BTA_ID_AVK,
-                        (bta_avk_cb.features & BTA_AVK_FEAT_BROWSE),AVRC_REV_1_4);
+                        (bta_avk_cb.features & BTA_AVK_FEAT_BROWSE),AVRC_REV_1_5);
                 }
 #endif
             }
@@ -839,7 +839,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
                     /* create an SDP record as AVRC CT. */
                     APPL_TRACE_DEBUG("bta_avk_api_register : bta_ar_reg_avrc1 %d !~", bta_avk_cb.features);
                     bta_ar_reg_avrc(UUID_SERVCLASS_AV_REMOTE_CONTROL, NULL, NULL,
-                    p_bta_avk_cfg->avrc_ct_cat, BTA_ID_AVK,(bta_avk_cb.features & BTA_AVK_FEAT_BROWSE), AVRC_REV_1_4);
+                    p_bta_avk_cfg->avrc_ct_cat, BTA_ID_AVK,(bta_avk_cb.features & BTA_AVK_FEAT_BROWSE), AVRC_REV_1_5);
 #endif
                 }
             }
