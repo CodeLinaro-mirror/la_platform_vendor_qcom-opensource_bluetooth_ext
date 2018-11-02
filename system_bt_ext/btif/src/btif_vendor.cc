@@ -132,7 +132,7 @@ static void btif_vendor_get_link_key_event(uint16_t event, char *p_param)
     bool bt_linkkey_file_found = false;
     RawAddress *bd_addr = (RawAddress *)p_param;
     LINK_KEY link_key;
-    int linkkey_type;
+    int linkkey_type = 0;
     size_t size = sizeof(link_key);
 
     /* Get linkkey from config file */
