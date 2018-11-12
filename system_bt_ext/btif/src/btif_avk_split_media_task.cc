@@ -305,7 +305,7 @@ static void btif_split_recv_ctrl_data(void)
             {
                 //audio doesn't need sbc params, can read from header
                 tA2D_SBC_CIE codec_cfg;
-                param[0] = 2;//length
+                param[0] = 7;//length
                 param[1] = 0;//media type: audio
                 param[2] = codec_id;
                 bta_avk_co_audio_get_sbc_config(&codec_cfg);
