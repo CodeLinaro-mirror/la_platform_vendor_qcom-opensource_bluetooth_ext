@@ -187,6 +187,8 @@ static void bta_avk_sys_rs_cback (tBTA_SYS_CONN_STATUS status,uint8_t id, uint8_
 static void bta_avk_api_enable_multicast(tBTA_AVK_DATA *p_data);
 static void bta_avk_api_update_supp_codecs(tBTA_AVK_DATA *p_data);
 
+bool is_split_enabled();
+
 /* action functions */
 const tBTA_AVK_NSM_ACT bta_avk_nsm_act[] =
 {
@@ -274,6 +276,20 @@ static void bta_avk_api_enable(tBTA_AVK_DATA *p_data)
     (*bta_avk_cb.p_cback)(BTA_AVK_ENABLE_EVT, (tBTA_AVK *)&enable);
 }
 
+/*******************************************************************************
+**
+** Function         is_split_enabled
+**
+** Description      api to check if split is enabled or not
+**
+** Returns          boolean
+**
+*******************************************************************************/
+bool is_split_enabled() {
+    APPL_TRACE_DEBUG("%s split_enabled = %d ",__func__,
+                  (bta_avk_cb.features & BTA_AVK_FEAT_SPLIT_ENABLED));
+    return (bta_avk_cb.features & BTA_AVK_FEAT_SPLIT_ENABLED);
+}
 /*******************************************************************************
 **
 ** Function         bta_avk_addr_to_scb
@@ -647,7 +663,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
                     APPL_TRACE_DEBUG("bta_avk_api_register : bta_ar_reg_avrc %d !~", bta_avk_cb.features);
                     bta_ar_reg_avrc(UUID_SERVCLASS_AV_REM_CTRL_TARGET, "AV Remote Control Target",
                         NULL, p_bta_avk_cfg->avrc_tg_cat, BTA_ID_AVK,
-                        (bta_avk_cb.features & BTA_AVK_FEAT_BROWSE),AVRC_REV_1_4);
+                        (bta_avk_cb.features & BTA_AVK_FEAT_BROWSE),AVRC_REV_1_5);
                 }
 #endif
             }
@@ -724,6 +740,9 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
                 cs.p_sink_data_cback = bta_avk_stream_data_cback;
                 startIndex = BTIF_SV_AVK_AA_SBC_INDEX;
                 endIndex = BTIF_SV_AVK_AA_SEP_INDEX;
+            }
+            if (is_split_enabled()) {
+                cs.is_split_enabled = TRUE;
             }
             /* Initialize Handles to zero */
             for(index = 0; index < (endIndex - startIndex); index++)
@@ -820,7 +839,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
                     /* create an SDP record as AVRC CT. */
                     APPL_TRACE_DEBUG("bta_avk_api_register : bta_ar_reg_avrc1 %d !~", bta_avk_cb.features);
                     bta_ar_reg_avrc(UUID_SERVCLASS_AV_REMOTE_CONTROL, NULL, NULL,
-                    p_bta_avk_cfg->avrc_ct_cat, BTA_ID_AVK,(bta_avk_cb.features & BTA_AVK_FEAT_BROWSE), AVRC_REV_1_4);
+                    p_bta_avk_cfg->avrc_ct_cat, BTA_ID_AVK,(bta_avk_cb.features & BTA_AVK_FEAT_BROWSE), AVRC_REV_1_5);
 #endif
                 }
             }
@@ -1599,6 +1618,12 @@ char *bta_avk_evt_code(uint16_t evt_code)
     case BTA_AVK_ROLE_CHANGE_EVT: return "ROLE_CHANGE";
     case BTA_AVK_AVDT_DELAY_RPT_EVT: return "AVDT_DELAY_RPT";
     case BTA_AVK_ACP_CONNECT_EVT: return "ACP_CONNECT";
+    case BTA_AVK_API_OFFLOAD_START_EVT: return "API_OFFLOAD_START_REQ";
+    case BTA_AVK_API_OFFLOAD_STOP_EVT: return " API_OFFLOAD_STOP_REQ";
+    case BTA_AVK_API_PENDING_START_CNF_EVT: return "API_PENDING_START_CNF";
+    case BTA_AVK_API_PENDING_START_REJECT_EVT: return " API_PENDING_START_REJ";
+    case BTA_AVK_API_PENDING_SUSPEND_CNF_EVT: return " API_PENDING_SUSPEND_CNF";
+    case BTA_AVK_API_PENDING_SUSPEND_REJECT_EVT: return " API_PENDING_SUSPEND_REJECT ";
 
     case BTA_AVK_API_ENABLE_EVT: return "API_ENABLE";
     case BTA_AVK_API_REGISTER_EVT: return "API_REG";

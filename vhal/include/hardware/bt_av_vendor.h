@@ -32,6 +32,9 @@
 
 #define BT_PROFILE_ADVANCED_AUDIO_VENDOR_ID "a2dp_vendor"
 #define BT_PROFILE_ADVANCED_AUDIO_SINK_VENDOR_ID "a2dp_sink_vendor"
+#define BT_PROFILE_ADVANCED_AUDIO_SINK_SPLIT_VENDOR_ID "a2dp_sink_split_vendor"
+#define BT_PROFILE_ADVANCED_AUDIO_SINK_SPLIT_ID "a2dp_sink_split"
+
 
 __BEGIN_DECLS
 
@@ -218,6 +221,12 @@ typedef void (*btav_mtu_packettype_config_vendor_callback)(uint16_t mtu,uint8_t 
 
 typedef void (*btav_audio_registration_vendor_callback)(bool state);
 
+/** Callback for informing start indication to application.*/
+typedef void (*btav_audio_split_sink_start_ind_callback)(const RawAddress& bd_addr );
+
+/** Callback for informing suspend indication to application.*/
+typedef void (*btav_audio_split_sink_suspend_ind_callback)(const RawAddress& bd_addr );
+
 /** BT-AV Vendor callback structure. */
 typedef struct {
     /** set to sizeof(btav_vendor_callbacks_t) */
@@ -239,6 +248,8 @@ typedef struct {
     btav_audio_codec_config_vendor_callback audio_codec_config_vendor_cb;
     btav_audio_data_read_vendor_callback audio_data_read_vendor_cb;
     btav_audio_registration_vendor_callback registration_vendor_cb;
+    btav_audio_split_sink_start_ind_callback start_ind_cb;
+    btav_audio_split_sink_suspend_ind_callback suspend_ind_cb;
 } btav_sink_vendor_callbacks_t;
 
 /** Represents the standard BT-AV interface.
@@ -314,6 +325,18 @@ typedef struct {
    /** Updates the supported codec by A2DP Sink  */
    bt_status_t (*update_supported_codecs_param_vendor)( btav_codec_configuration_t
                         *p_codec_config_list, uint8_t num_codec_configs);
+
+    /** response to start indication */
+    bt_status_t (*start_ind_rsp)(const RawAddress& bd_addr, int accepted);
+
+    /** response to suspend indication */
+    bt_status_t (*suspend_ind_rsp)(const RawAddress& bd_addr, int accepted);
+
+    /** start request to remote   */
+    bt_status_t (*start_req)(const RawAddress& bd_addr);
+
+    /** suspend request to remote   */
+    bt_status_t (*suspend_req)(const RawAddress& bd_addr);
 } btav_sink_vendor_interface_t;
 __END_DECLS
 

@@ -252,7 +252,7 @@ bool btif_avk_is_playing();
 bool btif_avk_get_ongoing_multicast();
 void sink_audio_focus_status_vendor(int state, bt_bdaddr_t *bd_addr);
 
-const char *dump_avk_sm_state_name(btif_avk_state_t state)
+static const char *dump_avk_sm_state_name(btif_avk_state_t state)
 {
     switch (state)
     {
@@ -265,7 +265,7 @@ const char *dump_avk_sm_state_name(btif_avk_state_t state)
     }
 }
 
-const char *dump_avk_sm_event_name(btif_avk_sm_event_t event)
+static const char *dump_avk_sm_event_name(btif_avk_sm_event_t event)
 {
     switch((int)event)
     {
@@ -1368,7 +1368,7 @@ static bool btif_avk_state_started_handler(btif_sm_event_t event, void *p_data, 
 }
 
 
-void btif_avk_event_deep_copy(uint16_t event, char *p_dest, char *p_src)
+static void btif_avk_event_deep_copy(uint16_t event, char *p_dest, char *p_src)
 {
     tBTA_AVK *av_src = (tBTA_AVK *)p_src;
     tBTA_AVK *av_dest = (tBTA_AVK *)p_dest;
@@ -2188,8 +2188,8 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
     enable_delay_reporting = (strcmp(value, "false") == 0);
     enable_notification_cb = streaming_prarm & A2DP_SINK_ENABLE_NOTIFICATION_CB;
 
-    BTIF_TRACE_IMP(" ~~ enable_sbc_decoding = %d, retreive RTP header = %d, enable_delay_reporting = %d",
-            enable_stack_sbc_decoding, retreive_rtp_header, enable_delay_reporting);
+    BTIF_TRACE_IMP("%s ~~ enable_sbc_decoding = %d, retreive RTP header = %d, enable_delay_reporting = %d",
+            __FUNCTION__ ,enable_stack_sbc_decoding, retreive_rtp_header, enable_delay_reporting);
 
     /* initializing mutex for sink */
     pthread_mutex_init(&sink_data_q_lock, NULL);
@@ -2371,7 +2371,7 @@ static uint32_t get_frame_aligned_data (uint16_t codec_type, uint8_t* data, uint
 ** Returns          void
 **
 *******************************************************************************/
-void update_streaming_device_vendor(bt_bdaddr_t *bd_addr)
+static void update_streaming_device_vendor(bt_bdaddr_t *bd_addr)
 {
     BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
     streaming_bda = RawAddress::kEmpty;
@@ -2389,7 +2389,7 @@ void update_streaming_device_vendor(bt_bdaddr_t *bd_addr)
 ** Returns          void
 **
 *******************************************************************************/
-void update_qahw_delay_vendor(uint16_t qahwdelay)
+static void update_qahw_delay_vendor(uint16_t qahwdelay)
 {
     int index = btif_get_latest_playing_device_idx();
     if(btif_avk_cb[index].avdt_sync != TRUE )
@@ -2797,7 +2797,7 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
 ** Returns          void
 **
 *******************************************************************************/
-void update_flushing_device_vendor(bt_bdaddr_t *bd_addr)
+static void update_flushing_device_vendor(bt_bdaddr_t *bd_addr)
 {
     BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
     tBT_SINK_DATA_HDR* p_data_q_buf;
@@ -4027,7 +4027,7 @@ uint64_t btif_avk_get_average_delay(RawAddress bd_addr) {
 *******************************************************************************/
 void clear_delay_record(void) {
     BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
-    delay_record[DELAY_RECORD_COUNT] = {0};
+    memset(delay_record,0,(sizeof(uint64_t)*DELAY_RECORD_COUNT));
     delay_record_idx = 0;
     int index = btif_get_latest_playing_device_idx();
     btif_avk_cb[index].average_delay = 0;

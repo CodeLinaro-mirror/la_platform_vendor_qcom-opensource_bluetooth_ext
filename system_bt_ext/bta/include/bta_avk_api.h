@@ -75,6 +75,7 @@ typedef uint8_t tBTA_AVK_STATUS;
 /* Internal features */
 #define BTA_AVK_FEAT_AVRC_UI_UPDATE 0x4000 /* Update UI to show notification for browsing capable remote*/
 #define BTA_AVK_FEAT_NO_SCO_SSPD 0x8000  /* Do not suspend av streaming as to AG events(SCO or Call) */
+#define BTA_AVK_FEAT_SPLIT_ENABLED 0x2000  /* Do not suspend av streaming as to AG events(SCO or Call) */
 
 typedef uint16_t tBTA_AVK_FEAT;
 
@@ -267,9 +268,11 @@ typedef uint8_t tBTA_AVK_ERR;
 #define BTA_AVK_ROLE_CHANGED_EVT     23
 #define BTA_AVK_RC_BROWSE_OPEN_EVT   24       /* remote control channel open */
 #define BTA_AVK_RC_BROWSE_CLOSE_EVT  25       /* remote control browse channel closed */
+#define BTA_AVK_OFFLOAD_START_RSP_EVT 26    /* a2dp offload start response */
+#define BTA_AVK_OFFLOAD_STOP_RSP_EVT 27    /* a2dp offload stop response */
 
 /* Max BTA event */
-#define BTA_AVK_MAX_EVT          26
+#define BTA_AVK_MAX_EVT          28
 
 typedef uint8_t tBTA_AVK_EVT;
 
@@ -367,6 +370,24 @@ typedef struct
     RawAddress         peer_addr;
     tBTA_AVK_STATUS  status;
 } tBTA_AVK_RC_OPEN;
+
+typedef struct
+{
+    tBTA_AVK_HNDL hndl;
+    tBTA_AVK_STATUS status;
+} tBTA_AVK_OFFLOAD_RSP;
+
+typedef struct
+{
+    uint8_t index;
+    uint8_t accepted;
+} tBTA_AVK_START_RSP;
+
+typedef struct
+{
+    uint8_t index;
+    uint8_t accepted;
+} tBTA_AVK_SUSPEND_RSP;
 
 /* data associated with BTA_AVK_RC_CLOSE_EVT */
 typedef struct
@@ -500,6 +521,9 @@ typedef union
     tBTA_AVK_REJECT      reject;
     tBTA_AVK_RC_FEAT     rc_feat;
     tBTA_AVK_ROLE_CHANGED role_changed;
+    tBTA_AVK_OFFLOAD_RSP offload_rsp;
+    tBTA_AVK_START_RSP   start_rsp;// to handle response from btapp for start ind
+    tBTA_AVK_SUSPEND_RSP   suspend_rsp; // to handle response from btapp for suspend ind
 } tBTA_AVK;
 
 typedef struct
@@ -876,6 +900,12 @@ void BTA_AvkUpdateCodecSupport(uint8_t *p_codec_type_list, uint8_t *p_vnd_list, 
                                    uint8_t codec_info[][AVDT_CODEC_SIZE], uint8_t num_codec_configs);
 
 
+void BTA_AvkOffloadStart(tBTA_AVK_HNDL hndl);
+void BTA_AvkOffloadStop(tBTA_AVK_HNDL hndl);
+void BTA_AvkSendPedingStartCnf(tBTA_AVK_HNDL hndl);
+void BTA_AvkSendPedingStartRej(tBTA_AVK_HNDL  hndl);
+void BTA_AvkSendPedingSuspendCnf(tBTA_AVK_HNDL  hndl);
+void BTA_AvkSendPedingSuspendRej(tBTA_AVK_HNDL  hndl);
 
 #ifdef __cplusplus
 }
