@@ -50,7 +50,6 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <dlfcn.h>
-
 #include "bt_utils.h"
 #include "bt_target.h"
 #include "bta_api.h"
@@ -116,6 +115,8 @@ char outputFilename [50] = "/etc/bluetooth/output_sample.pcm";
 #define A2DP_SINK_AUDIO_CODEC_PCM       0x40
 #define A2DP_SINK_AUDIO_CODEC_SBC       0x00
 #define A2DP_SINK_AUDIO_CODEC_AAC       0x02
+#define A2DP_SINK_AUDIO_CODEC_APTX      0x08
+#define A2DP_SINK_AUDIO_CODEC_APTX_AD   0x10
 #define AVDT_AVK_MEDIA_AUDIO            0x00
 
 
@@ -313,7 +314,7 @@ static void btif_split_recv_ctrl_data(void)
         }
         case A2DP_AVK_CTRL_GET_CODEC_CONFIG:
         {
-            uint8_t param[MAX_CODEC_CFG_SIZE],idx,bta_hdl,codec_id = 0;
+            uint8_t param[MAX_CODEC_CFG_SIZE],idx,bta_hdl,codec_id = 0, vendor_codec_id = 0;
             uint32_t sampling_freq = 0;
             uint8_t len = 0;
             memset(param,0,MAX_CODEC_CFG_SIZE);
@@ -340,7 +341,23 @@ static void btif_split_recv_ctrl_data(void)
                 bta_avk_co_audio_get_aac_config(&aac_cfg);
                 A2D_BldAacInfo(AVDT_AVK_MEDIA_AUDIO,&aac_cfg,&param[0]);
             }
-
+            else if(codec_id == A2D_NON_A2DP_MEDIA_CT) {
+                vendor_codec_id = bta_avk_get_current_vendor_codec();
+#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
+                if(vendor_codec_id == A2DP_SINK_AUDIO_CODEC_APTX) {
+                     tA2D_APTX_CIE aptx_cfg;
+                     bta_avk_co_audio_get_aptx_config(&aptx_cfg);
+                     A2D_BldAptxInfo(AVDT_AVK_MEDIA_AUDIO,&aptx_cfg,&param[0]);
+                }
+#endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+                if(vendor_codec_id == A2DP_SINK_AUDIO_CODEC_APTX_AD) {
+                     tA2DP_AVK_APTX_AD_CIE aptxad_cfg;
+                     bta_avk_co_audio_get_aptx_ad_config(&aptxad_cfg);
+                     A2D_BldAptxADDecoderInfo(AVDT_AVK_MEDIA_AUDIO,&aptxad_cfg,&param[0]);
+                }
+#endif
+            }
             len = param[0]+1;
             UIPC_AVK_Send(UIPC_CH_ID_AVK_CTRL, 0, &len, 1);
             UIPC_AVK_Send(UIPC_CH_ID_AVK_CTRL, 0, (uint8_t*)&param, len);
