@@ -60,6 +60,8 @@ typedef enum {
     BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_STOP,
     BTIF_AVK_SPLIT_SINK_VSC_START_COMPLETE_EVT,
     BTIF_AVK_SPLIT_SINK_VSC_STOP_COMPLETE_EVT,
+    BTIF_AVK_SPLIT_PENDING_START_ALARM_TIMEOUT,
+    BTIF_AVK_SPLIT_PENDING_SUSPEND_ALARM_TIMEOUT,
     BTIF_AVK_INIT_REQ_EVT,
 } btif_avk_sm_event_t;
 
@@ -139,6 +141,31 @@ void btif_avk_dispatch_sm_event(btif_avk_sm_event_t event, void *p_data, int len
 **
 *******************************************************************************/
 void btif_avk_split_dispatch_sm_event(btif_avk_sm_event_t event, void *p_data, int len);
+
+/*******************************************************************************
+**
+** Function         btif_avk_split_get_started_device_idx
+**
+** Description      updates index of device which is in started state.
+**
+** Returns          TRUE: if only 1 device is in started/suspending/VSC handling state
+**                  FALSE otherwise
+**
+**
+*******************************************************************************/
+bool btif_avk_split_get_started_device_idx(uint8_t* index);
+
+/*******************************************************************************
+**
+** Function         is_streaming_bda_empty
+**
+** Description      checks if streaming_bda is empty(split).
+**
+** Returns          TRUE: if streaming_bda is NULL
+**
+**
+*******************************************************************************/
+bool is_streaming_bda_empty(void);
 
 /*******************************************************************************
 **

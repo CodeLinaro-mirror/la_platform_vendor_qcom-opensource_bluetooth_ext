@@ -155,7 +155,7 @@ static const uint8_t bta_avk_sst_init[][BTA_AVK_NUM_COLS] =
 /* BTA_AVK_API_OFFLOAD_START_EVT */
                             {BTA_AVK_SIGNORE,        BTA_AVK_SIGNORE,       BTA_AVK_INIT_SST },
 /* BTA_AVK_API_OFFLOAD_STOP_EVT */
-                            {BTA_AVK_SIGNORE,        BTA_AVK_SIGNORE,        BTA_AVK_INIT_SST },
+                            {BTA_AVK_OFFLOAD_STOP_REQ,    BTA_AVK_SIGNORE,        BTA_AVK_INIT_SST },
 /* BTA_AVK_API_PENDING_START_CNF_EVT */
                             {BTA_AVK_SIGNORE,        BTA_AVK_SIGNORE,        BTA_AVK_INIT_SST },
 /* BTA_AVK_API_PENDING_START_REJECT_EVT */
