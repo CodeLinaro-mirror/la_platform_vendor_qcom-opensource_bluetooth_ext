@@ -87,5 +87,8 @@ AC_SUBST(SYS_LIB)
 AC_SUBST([CFLAGS])
 AC_SUBST([CC])
 AC_CONFIG_FILES([Makefile\
-    blegatt_test/Makefile])
+    blegatt_test/Makefile\
+    l2test_ertm/Makefile\
+    mcap_tool/Makefile\
+    rfcommtest/Makefile])
 AC_OUTPUT
