@@ -2047,8 +2047,10 @@ static bt_status_t init_ctrl_vendor(btrc_ctrl_vendor_callbacks_t* callbacks, int
 static void clear_cmd_timeout(uint8_t label, uint8_t index) {
   BTIF_TRACE_DEBUG("clear_cmd_timeout");
   rc_transaction_t* p_txn;
-
-  p_txn = get_transaction_by_lbl(label, index);
+  if (FALSE==btif_avk_rc_cb[index].device.transaction[label].in_use)
+    p_txn = NULL;
+  else
+    p_txn = &(btif_avk_rc_cb[index].device.transaction[label]);
   if (p_txn == NULL) {
     BTIF_TRACE_ERROR("%s: Error in transaction label lookup", __func__);
     return;

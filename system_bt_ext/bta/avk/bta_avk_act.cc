@@ -1682,6 +1682,16 @@ void bta_avk_api_disconnect(tBTA_AVK_DATA *p_data)
     alarm_cancel(bta_avk_cb.link_signalling_timer);
 }
 
+static uint16_t bta_src_time_out() {
+  char value[PROPERTY_VALUE_MAX] = {0};
+  uint16_t pts_bta_accept_timeout = 5000;
+  property_get("vendor.bt.pts.certification", value, "false");
+  if(!strcmp(value, "true")){
+      return pts_bta_accept_timeout; // increase timeout value to pass PTS;
+  }
+  return BTA_AVK_ACP_SIG_TIME_VAL;
+}
+
 /*******************************************************************************
 **
 ** Function         bta_avk_sig_chg
@@ -1783,7 +1793,7 @@ void bta_avk_sig_chg(tBTA_AVK_DATA *p_data)
                         p_cb->p_scb[xx]->coll_mask = BTA_AVK_COLL_INC_TMR;
 
                         alarm_set_on_mloop(p_cb->accept_signalling_timer,
-                                           BTA_AVK_ACP_SIG_TIME_VAL,
+                                           bta_src_time_out(),
                                            bta_avk_acp_sig_timer_cback,
                                            UINT_TO_PTR(xx));
                     }
@@ -1939,7 +1949,7 @@ static void bta_avk_acp_sig_timer_cback (void *data)
                     p_scb->coll_mask |= BTA_AVK_COLL_INC_TMR;
 
                     alarm_set_on_mloop(p_cb->accept_signalling_timer,
-                                       BTA_AVK_ACP_SIG_TIME_VAL,
+                                       bta_src_time_out(),
                                        bta_avk_acp_sig_timer_cback,
                                        UINT_TO_PTR(inx));
                 }
