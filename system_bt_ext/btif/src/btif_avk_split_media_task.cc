@@ -173,6 +173,7 @@ static uint32_t get_frame_length();
 static uint8_t check_for_max_number_of_frames_per_packet();
 static const char *dump_media_event(uint16_t event);
 static void btif_avk_media_thread_init(void *context);
+static void btif_avk_uipc_open(void *context);
 static void btif_avk_media_thread_cleanup(void *context);
 static void btif_avk_media_thread_handle_cmd(fixed_queue_t *queue, void *context);
 
@@ -241,6 +242,7 @@ void btif_update_cmd_status(uint8_t cmd,uint8_t status)
     if(btif_avk_media_cb.a2dp_cmd_pending == cmd)
     {
         a2dp_cmd_acknowledge(status);
+        btif_avk_media_cb.a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
     }
     else
         APPL_TRACE_ERROR("pending command missmatch");
@@ -250,13 +252,13 @@ static void btif_split_recv_ctrl_data(void)
 {
     uint8_t cmd = 0;
     int n;
+    uint8_t index = 0;
     n = UIPC_AVK_Read(UIPC_CH_ID_AVK_CTRL, NULL, &cmd, 1);
 
     /* detach on ctrl channel means audioflinger process was terminated */
     if (n == 0)
     {
-        APPL_TRACE_IMP("CTRL CH DETACHED");
-        UIPC_AVK_Close(UIPC_CH_ID_AVK_CTRL);
+        APPL_TRACE_IMP("%s CTRL CH DETACHED",__func__);
         /* we can operate only on datachannel, if af client wants to
            do send additional commands the ctrl channel would be reestablished */
         //btif_audiopath_detached();
@@ -277,10 +279,28 @@ static void btif_split_recv_ctrl_data(void)
             btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY, NULL, 0);
             break;
         case A2DP_AVK_CTRL_CMD_START_CAPTURE:
+            if(is_streaming_bda_empty())
+            {
+                //if streaming_bda is empty send failure ack
+                BTIF_TRACE_DEBUG("%s streaming_bda is empty",__func__);
+                a2dp_cmd_acknowledge(A2DP_CTRL_ACK_FAILURE);
+                break;
+            }
             btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_START_CAPTURE, NULL, 0);
             break;
         case A2DP_AVK_CTRL_CMD_STOP_CAPTURE:
-            btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_STOP_CAPTURE, NULL, 0);
+            // stop capture should be linked to device which has VSC_STATE = STARTED.
+            if (!btif_avk_split_get_started_device_idx(&index))
+            {
+                // there is no device matching started/suspending/HDL_VSC state.
+                // ack from here itself
+                BTIF_TRACE_DEBUG("%s no device in started/suspending/HDL_VSC",__func__);
+                a2dp_cmd_acknowledge(A2DP_CTRL_ACK_SUCCESS);
+                break;
+            }
+            BTIF_TRACE_DEBUG("%s found device @ index %d",__func__,index);
+            btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_STOP_CAPTURE, &index,
+                                       sizeof(uint8_t));
             break;
         case A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE:
         {
@@ -293,7 +313,6 @@ static void btif_split_recv_ctrl_data(void)
         }
         case A2DP_AVK_CTRL_GET_CODEC_CONFIG:
         {
-
             uint8_t param[MAX_CODEC_CFG_SIZE],idx,bta_hdl,codec_id = 0;
             uint32_t sampling_freq = 0;
             uint8_t len = 0;
@@ -346,8 +365,9 @@ static void btif_a2dp_ctrl_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
 
         case UIPC_AVK_Close_EVT:
             /* restart ctrl server unless we are shutting down */
-            if (avk_media_task_running == AVK_MEDIA_TASK_STATE_ON)
-                UIPC_AVK_Open(UIPC_CH_ID_AVK_CTRL , btif_a2dp_ctrl_cb);
+            if (avk_media_task_running == AVK_MEDIA_TASK_STATE_ON) {
+               thread_post(avk_worker_thread, btif_avk_uipc_open, NULL);
+            }
             break;
 
         case UIPC_AVK_RX_DATA_READY_EVT:
@@ -447,19 +467,26 @@ void btif_avk_split_a2dp_on_idle(void)
     bta_avk_co_init();
 }
 
+static void btif_avk_uipc_open(UNUSED_ATTR void *context) {
+    APPL_TRACE_IMP(" %s ++",__func__);
+    bool status = false;
+    status = UIPC_AVK_Open(UIPC_CH_ID_AVK_CTRL , btif_a2dp_ctrl_cb);
+    APPL_TRACE_IMP(" %s --, status:%d",__func__,status);
+}
 
 static void btif_avk_media_thread_init(UNUSED_ATTR void *context) {
+  bool status = false;
   APPL_TRACE_IMP(" %s  split mode +",__func__);
   memset(&btif_avk_media_cb, 0, sizeof(btif_avk_media_cb));
   UIPC_AVK_Init(NULL);
 
 #if (BTA_AV_INCLUDED == TRUE)
-  UIPC_AVK_Open(UIPC_CH_ID_AVK_CTRL , btif_a2dp_ctrl_cb);
+  status = UIPC_AVK_Open(UIPC_CH_ID_AVK_CTRL , btif_a2dp_ctrl_cb);
 #endif
 
   raise_priority_a2dp(TASK_HIGH_MEDIA);
   avk_media_task_running = AVK_MEDIA_TASK_STATE_ON;
-  APPL_TRACE_IMP(" %s split mode -",__func__);
+  APPL_TRACE_IMP(" %s split mode - , status:%d",__func__,status);
 }
 
 static void btif_avk_media_thread_cleanup(UNUSED_ATTR void *context) {
