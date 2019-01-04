@@ -956,11 +956,6 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
     {
         case BTIF_SM_ENTER_EVT:
             btif_avk_cb[index].flags &= ~BTIF_AVK_FLAG_PENDING_STOP;
-            if((!streaming_bda.IsEmpty()) && (streaming_bda == btif_avk_cb[index].peer_bda)) {
-                //streaming bda is assigned to current device, but we move to opened state.
-                // mark it empty
-                streaming_bda = RawAddress::kEmpty;
-            }
             handle_memorized_msgs(index);
             break;
 
@@ -2551,7 +2546,8 @@ static bt_status_t start_req(const RawAddress& bd_addr) {
     BTIF_TRACE_DEBUG("%s for device  str_bda %s", __FUNCTION__,streaming_bda.ToString().c_str());
     // start request from app. First check if other index is in started state.
     uint8_t index = btif_avk_idx_by_bdaddr(&bd_addr);
-    if(index >= btif_max_avk_clients) {
+
+    if(index >= btif_max_avk_clients || (!btif_avk_is_device_connected_connecting(index))) {
         BTIF_TRACE_DEBUG(" %s invalid index ",__func__);
         return BT_STATUS_PARM_INVALID;
     }
@@ -2561,8 +2557,9 @@ static bt_status_t start_req(const RawAddress& bd_addr) {
         return BT_STATUS_BUSY;
     }
 
+    streaming_bda = bd_addr;
     btif_transfer_context(btif_avk_handle_event, BTIF_AVK_START_STREAM_REQ_EVT,
-                                 (char*)&index, sizeof(uint8_t), NULL);
+                                 NULL, 0, NULL);
 }
 
 static bt_status_t suspend_req(const RawAddress& bd_addr) {

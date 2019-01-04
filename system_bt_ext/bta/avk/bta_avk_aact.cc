@@ -794,31 +794,37 @@ static void bta_avk_stream5_cback(uint8_t handle, const RawAddress* bd_addr, uin
 static void bta_avk_a2d_sdp_cback(bool found, tA2DP_Service *p_service)
 {
     tBTA_AVK_SDP_RES *p_msg;
-    tBTA_AVK_SCB     *p_scb;
+    tBTA_AVK_SCB* p_scb = bta_avk_hndl_to_scb(bta_avk_cb.handle);
+
+    if(p_scb == NULL) {
+        APPL_TRACE_EVENT("%s: no scb found for handle(0x%x)",__func__,
+                        bta_avk_cb.handle);
+        return;
+    }
 
     if ((p_msg = (tBTA_AVK_SDP_RES *) osi_malloc(sizeof(tBTA_AVK_SDP_RES))) != NULL)
     {
-        p_msg->hdr.event = (found) ? BTA_AVK_SDP_DISC_OK_EVT : BTA_AVK_SDP_DISC_FAIL_EVT;
 
-        p_scb = bta_avk_hndl_to_scb(bta_avk_cb.handle);
-        if (p_scb)
-        {
+        if (!found && (p_scb->skip_sdp == true)) {
+            p_msg->hdr.event = BTA_AVK_SDP_DISC_OK_EVT;
+            p_scb->avdt_version = AVDT_VERSION;
+            p_scb->skip_sdp = false;
+            APPL_TRACE_WARNING("%s: Continue AVDTP signaling process for incoming A2dp connection",
+                      __func__);
+        } else {
+            p_msg->hdr.event =
+            (found) ? BTA_AVK_SDP_DISC_OK_EVT : BTA_AVK_SDP_DISC_FAIL_EVT;
             if (found && (p_service != NULL))
                 p_scb->avdt_version = p_service->avdt_version;
             else
                 p_scb->avdt_version = 0x00;
+        }
+        p_msg->hdr.layer_specific = bta_avk_cb.handle;
 
-            APPL_TRACE_DEBUG(" %s ~~ p_scb->avdt_version [%d]", __func__,p_scb->avdt_version);
-            p_msg->hdr.layer_specific = bta_avk_cb.handle;
-            bta_sys_sendmsg(p_msg);
-            if (!found)
-                APPL_TRACE_ERROR ("bta_avk_a2d_sdp_cback, SDP record not found");
-            bta_sys_conn_close(BTA_ID_AVK, p_scb->hdi, p_scb->peer_addr);
-        }
-        else
-        {
-            APPL_TRACE_ERROR ("bta_avk_a2d_sdp_cback, no scb found for handle(0x%x)", bta_avk_cb.handle);
-        }
+        bta_sys_sendmsg(p_msg);
+        if (!found)
+            APPL_TRACE_ERROR ("bta_av_a2dp_sdp_cback, SDP record not found");
+        bta_sys_conn_close(BTA_ID_AV, p_scb->hdi, p_scb->peer_addr);
     }
 }
 
@@ -1136,7 +1142,7 @@ void bta_avk_do_disc_a2d (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
 
     bta_sys_conn_open(BTA_ID_AVK, p_scb->hdi, p_scb->peer_addr);
 
-    if (p_scb->skip_sdp == TRUE)
+    if (p_scb->skip_sdp == TRUE && (a2dp_get_avdt_sdp_ver() < AVDT_VERSION_SYNC))
     {
         tA2DP_Service a2d_ser;
         a2d_ser.avdt_version = AVDT_VERSION;
