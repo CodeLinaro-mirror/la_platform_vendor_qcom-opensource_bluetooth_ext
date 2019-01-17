@@ -100,6 +100,8 @@ typedef enum {
 #define DEFAULT_RENDERING_DELAY            200      //define a fix rendering delay
 #define APTX_RENDERING_DELAY               200
 #define AAC_RENDERING_DELAY                180
+
+#define BTIF_AVK_PENDING_RESPONSE_TIMEOUT     5000
 /*****************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -156,9 +158,11 @@ static btav_sink_vendor_callbacks_t *bt_av_sink_vendor_callbacks = NULL;
 static btif_avk_cb_t btif_avk_cb[BTIF_AVK_NUM_CB];
 static alarm_t *avk_open_on_rc_timer = NULL;
 static uint8_t btif_max_avk_clients = 1;
+static alarm_t *avk_pending_start_timer = NULL;
+static alarm_t *avk_pending_suspend_timer = NULL;
 
 static uint16_t enable_delay_reporting = 0; // by default disable it
-static bt_bdaddr_t streaming_bda;
+static RawAddress streaming_bda;
 extern tBTA_AVK_CO_CODEC_CAP_LIST *p_bta_avk_codec_pri_list;
 extern tBTA_AVK_CO_CODEC_CAP_LIST bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_SEP_INDEX];
 extern uint8_t bta_avk_num_codec_configs;
@@ -212,6 +216,8 @@ static void btif_avk_event_free_data(btif_sm_event_t event, void *p_data);
 static bool btif_avk_is_playing_on_other_idx(int current_index);
 static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int max, int a2dp_multicast_state, uint8_t streaming_prarm);
 bool btif_avk_split_is_connected(void);
+void btif_avk_pending_start_timeout_handler(void* data);
+void btif_avk_pending_suspend_timeout_handler(void* data);
 
 static const btif_sm_handler_t btif_avk_state_handlers[] =
 {
@@ -304,6 +310,8 @@ static const char *dump_avk_sm_event_name(btif_avk_sm_event_t event)
         CASE_RETURN_STR(BTIF_AVK_SPLIT_SINK_VSC_STOP_COMPLETE_EVT)
         CASE_RETURN_STR(BTA_AVK_OFFLOAD_START_RSP_EVT)
         CASE_RETURN_STR(BTA_AVK_OFFLOAD_STOP_RSP_EVT)
+        CASE_RETURN_STR(BTIF_AVK_SPLIT_PENDING_START_ALARM_TIMEOUT)
+        CASE_RETURN_STR(BTIF_AVK_SPLIT_PENDING_SUSPEND_ALARM_TIMEOUT)
         default: return "UNKNOWN_EVENT";
    }
 }
@@ -515,6 +523,11 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
             }
             // reset all memorized messages list.
             btif_avk_reset_messages(index);
+            if((!streaming_bda.IsEmpty()) && (streaming_bda == btif_avk_cb[index].peer_bda)) {
+                //streaming bda is assigned to current device, but we move to opened state.
+                // mark it empty
+                streaming_bda = RawAddress::kEmpty;
+            }
             break;
 
         case BTIF_SM_EXIT_EVT:
@@ -615,7 +628,11 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
                         &(req.peer_bd), req.codec_type, req.codec_info);
             }
         } break;
-
+        case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
+            BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
+            // in this state, we are not ready.
+            btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
+            break;
         case BTA_AVK_OPEN_EVT:
         {
             /* We get this event in Idle State if Signaling
@@ -717,6 +734,12 @@ static bool btif_avk_split_state_opening_handler(btif_sm_event_t event, void *p_
 
         case BTIF_SM_EXIT_EVT:
             btif_avk_cb[index].prev_state = BTIF_AVK_STATE_OPENING;
+            break;
+
+        case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
+            BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
+            // in this state, we are not ready.
+            btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
             break;
 
         case BTA_AVK_REJECT_EVT:
@@ -895,6 +918,12 @@ static bool btif_avk_split_state_closing_handler(btif_sm_event_t event, void *p_
             btif_avk_rc_handler(event, (tBTA_AVK*)p_data);
             break;
 
+        case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
+            BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
+            // in this state, we are not ready.
+            btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
+            break;
+
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
                                 dump_avk_sm_event_name((btif_avk_sm_event_t)event));
@@ -927,19 +956,25 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
     {
         case BTIF_SM_ENTER_EVT:
             btif_avk_cb[index].flags &= ~BTIF_AVK_FLAG_PENDING_STOP;
-            btif_avk_cb[index].flags &= ~BTIF_AVK_FLAG_PENDING_START;
+            handle_memorized_msgs(index);
             break;
 
         case BTIF_SM_EXIT_EVT:
-            btif_avk_cb[index].flags &= ~BTIF_AVK_FLAG_PENDING_START;
             btif_avk_cb[index].prev_state = BTIF_AVK_STATE_OPENED;
             break;
 
         case BTIF_AVK_START_STREAM_REQ_EVT:
             // we received start request from btapp. only update streaming device here,
-            // wait for BTIF_AVK_SPLIT_SINK_START_CAPTURE
-            btif_avk_cb[index].flags |= BTIF_AVK_FLAG_PENDING_START;
-            memcpy(&streaming_bda, &(btif_avk_cb[index].peer_bda),sizeof(bt_bdaddr_t));
+            streaming_bda = btif_avk_cb[index].peer_bda;
+            BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
+                             btif_avk_cb[index].vsc_command_status);
+            if (btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTED) {
+                // VSC command has already been sent. directly send start req to remote
+                BTA_AvkStart(btif_avk_cb[index].bta_handle);
+            } else {
+                // wait for BTIF_AVK_SPLIT_SINK_START_CAPTURE
+                btif_avk_cb[index].flags |= BTIF_AVK_FLAG_PENDING_START;
+            }
             break;
         case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_HDL_VSC);
@@ -958,8 +993,30 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
             }
             break;
         case BTIF_AVK_SPLIT_SINK_SETUP_COMPLETE:
-            BTA_AvkStart(btif_avk_cb[index].bta_handle);
-            btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE, A2DP_CTRL_ACK_SUCCESS);
+            if((btif_avk_cb[index].flags & BTIF_AVK_FLAG_PENDING_START)) {
+                // if start request is sent earlier, we were waiting for session
+                // complete to happen to send START_REQUEST.
+                BTA_AvkStart(btif_avk_cb[index].bta_handle);
+                btif_avk_cb[index].flags &= ~ BTIF_AVK_FLAG_PENDING_START;
+            } else {
+                BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
+                             btif_avk_cb[index].vsc_command_status);
+                switch(btif_avk_cb[index].vsc_command_status) {
+                    case BTIF_AVK_VSC_STARTED:
+                        btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE,
+                                        A2DP_CTRL_ACK_SUCCESS);
+                        break;
+                    case BTIF_AVK_VSC_STOP:
+                        // VSC would have failed, by this time
+                        btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE,
+                                        A2DP_CTRL_ACK_FAILURE);
+                        break;
+                    default:
+                        BTIF_TRACE_ERROR("%s  unexpected state %d ",__func__,
+                                    btif_avk_cb[index].vsc_command_status);
+                        break;
+                }
+            }
             break;
         case BTIF_AVK_SINK_START_STREAM_REQ_EVT:
             //check if AVRCP connection is there, send AVRCP_PLAY, otherwise send AVDTP_START
@@ -971,10 +1028,16 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
             }
             else
             {
-                // we received start request from btapp. only update streaming device here,
-                // wait for BTIF_AVK_SPLIT_SINK_START_CAPTURE
-                btif_avk_cb[index].flags |= BTIF_AVK_FLAG_PENDING_START;
-                memcpy(&streaming_bda, &(btif_avk_cb[index].peer_bda),sizeof(bt_bdaddr_t));
+                streaming_bda = btif_avk_cb[index].peer_bda;
+                BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
+                             btif_avk_cb[index].vsc_command_status);
+                if (btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTED) {
+                    // VSC command has already been sent. directly send start req to remote
+                    BTA_AvkStart(btif_avk_cb[index].bta_handle);
+                } else {
+                    // wait for BTIF_AVK_SPLIT_SINK_START_CAPTURE
+                    btif_avk_cb[index].flags |= BTIF_AVK_FLAG_PENDING_START;
+                }
             }
             break;
         case BTA_AVK_START_EVT:
@@ -1002,16 +1065,39 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
             }
 
             if (p_av->start.initiator == TRUE) {
+                // we got START_RSP from remote, DUT Initiator
+                switch(btif_avk_cb[index].vsc_command_status) {
+                    case BTIF_AVK_VSC_STARTED:
+                        btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE,
+                                        A2DP_CTRL_ACK_SUCCESS);
+                        break;
+                    case BTIF_AVK_VSC_STOP:
+                        // VSC would have failed, by this time
+                        btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE,
+                                        A2DP_CTRL_ACK_FAILURE);
+                        break;
+                    default:
+                        BTIF_TRACE_ERROR("%s  unexpected state %d ",__func__,
+                                    btif_avk_cb[index].vsc_command_status);
+                        break;
+                    }
                 av_state = BTIF_AVK_STATE_STARTED;
             } else {
                 // incmoing START request. send HAL_CBAC to btapp
                 av_state = BTIF_AVK_STATE_STARTING;
-                memcpy(&streaming_bda, &(btif_avk_cb[index].peer_bda),sizeof(bt_bdaddr_t));
+                // if streaming_bda is empty, only then assign
+                if(streaming_bda.IsEmpty()) {
+                    streaming_bda = btif_avk_cb[index].peer_bda;
+                }
+                alarm_set_on_mloop(avk_pending_start_timer,BTIF_AVK_PENDING_RESPONSE_TIMEOUT,
+                                btif_avk_pending_start_timeout_handler,
+                                (void *)&btif_avk_cb[index].peer_bda);
+                BTIF_TRACE_IMP("%s : alarm set = %d",__func__,
+                                alarm_is_scheduled(avk_pending_start_timer));
                 HAL_CBACK(bt_av_sink_vendor_callbacks, start_ind_cb, btif_avk_cb[index].peer_bda);
             }
             btif_sm_change_state(btif_avk_cb[index].sm_handle, av_state);
-
-        } 
+        }
             break;
 
          case BTIF_AVK_SPLIT_SINK_VSC_STOP_COMPLETE_EVT:
@@ -1042,6 +1128,12 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
                     BTIF_TRACE_ERROR("%s  unexpected state %d ",__func__,btif_avk_cb[index].vsc_command_status);
                     break;
             }
+            break;
+
+        case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
+            BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
+            // in this state, we are not ready.
+            btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
             break;
 
         case BTIF_AVK_DISCONNECT_REQ_EVT:
@@ -1155,6 +1247,7 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
     switch (event)
     {
         case BTIF_SM_ENTER_EVT:
+            handle_memorized_msgs(index);
             break;
         case BTIF_SM_EXIT_EVT:
             btif_avk_cb[index].prev_state = BTIF_AVK_STATE_SUSPENDING;
@@ -1173,6 +1266,8 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
              // MM-Audio sessoin is stopped
              BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
                              btif_avk_cb[index].vsc_command_status);
+             if(alarm_is_scheduled(avk_pending_suspend_timer))
+                 alarm_cancel(avk_pending_suspend_timer);
              // check the last vsc_command status.
             switch (btif_avk_cb[index].vsc_command_status) {
                 case BTIF_AVK_VSC_STARTED:
@@ -1206,7 +1301,42 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
              }
              btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
              break;
+         case BTIF_AVK_DISCONNECT_REQ_EVT:
+         case BTA_AVK_CLOSE_EVT:
+         case BTA_AVK_STOP_EVT:
+             if(alarm_is_scheduled(avk_pending_suspend_timer))
+                 alarm_cancel(avk_pending_suspend_timer);
+            BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
+                             btif_avk_cb[index].vsc_command_status);
+            memorize_msg(index,event,BTIF_AVK_STATE_SUSPENDING, p_data);
+            if (btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTED) {
+                // cancel timer
+                // VSC START was successful, send VSC_STOP
+                btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_HDL_VSC);
+                // send a message to send VSC command
+                btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_STOP, &index,
+                            sizeof(uint8_t));
+            }
+            if (btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STOP) {
+                BTA_AvkSendPedingSuspendCnf(btif_avk_cb[index].bta_handle);
+                btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
+            }
+            break;
+        case BTIF_AVK_SPLIT_PENDING_SUSPEND_ALARM_TIMEOUT:
+             if(btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTED) {
+             // Stop vsc and send suspend command to remote
+             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_HDL_VSC);
+             btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_STOP, &index,
+                           sizeof(uint8_t));
+             }
+             break;
+
+        default:
+            BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
+                               dump_avk_sm_event_name((btif_avk_sm_event_t)event));
+            return FALSE;
     }
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -1233,6 +1363,13 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
             break;
         // sink_start capture called by mm-audio, we will move to vsc state
         case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
+            if(alarm_is_scheduled(avk_pending_start_timer))
+                alarm_cancel(avk_pending_start_timer);
+            BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
+            if (btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTED) {
+                btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_SUCCESS);
+                break;
+            }
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_HDL_VSC);
             // send a message to send VSC command
             btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_START, &index,
@@ -1247,13 +1384,15 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
             break;
             // if we are in this state, VSC command has already been sent 
         case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
-             BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
-             if ( btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTED) {
-                 // success case
-                 btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_SUCCESS);
-             } else if( btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_START_FAILED){
-                 //failure case
-                 btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
+            BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
+            switch(btif_avk_cb[index].vsc_command_status) {
+                case BTIF_AVK_VSC_STARTED:
+                case BTIF_AVK_VSC_STOP:// in case check_ready is called before start_catpure
+                    btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_SUCCESS);
+                    break;
+                default:
+                    btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
+                    break;
              }
              break;
         case BTIF_AVK_SPLIT_SINK_START_IND_RSP:
@@ -1286,7 +1425,7 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
                    btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_STOP, &index,
                                        sizeof(uint8_t));
                case BTIF_AVK_VSC_STOP:
-                   // we haveb't sent VSC_START command  send START_REJ and move to opened
+                   // we haven't sent VSC_START command  send START_REJ and move to opened
                    BTA_AvkSendPedingStartRej(btif_avk_cb[index].bta_handle);
                    btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
                    btif_update_cmd_status(A2DP_AVK_CTRL_CMD_STOP_CAPTURE, A2DP_CTRL_ACK_SUCCESS);
@@ -1314,6 +1453,20 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
                  btif_update_cmd_status(A2DP_AVK_CTRL_CMD_STOP_CAPTURE, A2DP_CTRL_ACK_SUCCESS);
              } else {
                  btif_update_cmd_status(A2DP_AVK_CTRL_CMD_STOP_CAPTURE, A2DP_CTRL_ACK_FAILURE);
+             }
+             break;
+        case BTIF_AVK_SPLIT_PENDING_START_ALARM_TIMEOUT:
+             switch(btif_avk_cb[index].vsc_command_status) {
+                 case BTIF_AVK_VSC_STOP:
+                 case BTIF_AVK_VSC_START_FAILED:
+                     BTIF_TRACE_ERROR("%s: send start cfm",__func__);
+                     // in starting stating state, start_capture event not received from audio
+                     btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_STARTED);
+                     BTA_AvkSendPedingStartCnf(btif_avk_cb[index].bta_handle);
+                     break;
+                 default:
+                     //Dont do anything
+                     break;
              }
              break;
         case BTIF_SM_EXIT_EVT:
@@ -1374,7 +1527,7 @@ static bool btif_avk_split_state_vsc_handler(btif_sm_event_t event, void *p_data
             BTA_AvkOffloadStop(btif_avk_cb[index].bta_handle);
             break;
         case BTA_AVK_OFFLOAD_START_RSP_EVT:
-            BTIF_TRACE_DEBUG(" %s OFFLOAD_START_RSP Status %d vsc_cmd_status %d",
+            BTIF_TRACE_DEBUG(" %s OFFLOAD_START_RSP Status %d vsc_cmd_status %d",__func__,
                              p_av->offload_rsp.status,btif_avk_cb[index].vsc_command_status);
             if (p_av->offload_rsp.status == 0) {
                 btif_avk_cb[index].vsc_command_status = BTIF_AVK_VSC_STARTED;
@@ -1428,6 +1581,7 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
                 btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_avk_cb[index].peer_bda));
             }
             handle_memorized_msgs(index);
+            btif_avk_cb[index].flags &= ~ BTIF_AVK_FLAG_PENDING_START;
             break;
 
         case BTIF_SM_EXIT_EVT:
@@ -1437,6 +1591,52 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
             break;
 
         case BTIF_AVK_START_STREAM_REQ_EVT:
+            break;
+
+        case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
+            BTIF_TRACE_EVENT("%s vsc status  %d",__FUNCTION__,
+                        btif_avk_cb[index].vsc_command_status);
+            switch(btif_avk_cb[index].vsc_command_status) {
+                case BTIF_AVK_VSC_STARTED:
+                    btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_SUCCESS);
+                    break;
+                case BTIF_AVK_VSC_STOP:
+                case BTIF_AVK_VSC_START_FAILED:
+                    /* In started State, VSC not sent */
+                    btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_HDL_VSC);
+                    // send a message to send VSC command
+                    btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_START,
+                                    &index, sizeof(uint8_t));
+                    break;
+                case BTIF_AVK_VSC_STARTING:
+                case BTIF_AVK_VSC_STOPPING:
+                /* Don't do anything, let's first come back to stable state */
+                    break;
+            }
+            break;
+
+        case BTIF_AVK_SPLIT_SINK_SETUP_COMPLETE:
+            switch(btif_avk_cb[index].vsc_command_status) {
+                case BTIF_AVK_VSC_STARTED:
+                    btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE,
+                                    A2DP_CTRL_ACK_SUCCESS);
+                    break;
+                default:
+                    btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE,
+                                    A2DP_CTRL_ACK_FAILURE);
+                    break;
+            }
+            break;
+
+        case BTIF_AVK_SPLIT_SINK_VSC_START_COMPLETE_EVT:
+            BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
+                             btif_avk_cb[index].vsc_command_status);
+            if (btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTED) {
+                // Vsc successful,ack back,  wait for sink setup complete.
+                btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_SUCCESS);
+            } else {
+                btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
+            }
             break;
 
         case BTIF_AVK_SPLIT_SINK_STOP_CAPTURE:
@@ -1465,7 +1665,7 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
             }
             break;
 
-         case BTIF_AVK_SPLIT_SINK_VSC_STOP_COMPLETE_EVT:
+        case BTIF_AVK_SPLIT_SINK_VSC_STOP_COMPLETE_EVT:
              BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
                              btif_avk_cb[index].vsc_command_status);
              if (btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STOP) {
@@ -1475,6 +1675,17 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
              }
              break;
 
+        case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
+            BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
+            switch(btif_avk_cb[index].vsc_command_status) {
+                case BTIF_AVK_VSC_STARTED:
+                    btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_SUCCESS);
+                    break;
+                default:
+                    btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
+                    break;
+             }
+             break;
         case BTIF_AVK_STOP_STREAM_REQ_EVT:
         case BTIF_AVK_SUSPEND_STREAM_REQ_EVT:
             btif_avk_cb[index].flags |= BTIF_AVK_FLAG_LOCAL_SUSPEND_PENDING;
@@ -1545,6 +1756,9 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
                 }
                 btif_avk_cb[index].flags &= ~BTIF_AVK_FLAG_LOCAL_SUSPEND_PENDING;
                 HAL_CBACK(bt_av_sink_vendor_callbacks, suspend_ind_cb, btif_avk_cb[index].peer_bda);
+                alarm_set_on_mloop(avk_pending_suspend_timer,BTIF_AVK_PENDING_RESPONSE_TIMEOUT,
+                                   btif_avk_pending_suspend_timeout_handler,
+                                   (void *)&btif_avk_cb[index].peer_bda);
                 btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_SUSPENDING);
                 break;
             }
@@ -1745,7 +1959,7 @@ static void btif_avk_handle_event(uint16_t event, char* p_param)
         case BTIF_AVK_CLEANUP_REQ_EVT: /*Clean up to be called on default index*/
             BTIF_TRACE_IMP("%s: BTIF_AVK_CLEANUP_REQ_EVT", __FUNCTION__);
             bt_avk_callbacks = NULL;
-            btif_avk_a2dp_stop_media_task();
+            btif_avk_split_a2dp_stop_media_task();
             return;
         case BTIF_AVK_CONNECT_REQ_EVT:
             bt_addr = (bt_bdaddr_t *)p_param;
@@ -1758,7 +1972,6 @@ static void btif_avk_handle_event(uint16_t event, char* p_param)
             break;
             // messages coming from mediatask
         case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
-        case BTIF_AVK_SPLIT_SINK_STOP_CAPTURE:
         case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
         case BTIF_AVK_START_STREAM_REQ_EVT:
         case BTIF_AVK_STOP_STREAM_REQ_EVT:
@@ -1771,6 +1984,7 @@ static void btif_avk_handle_event(uint16_t event, char* p_param)
         case BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_STOP:
         case BTIF_AVK_SPLIT_SINK_VSC_STOP_COMPLETE_EVT:
         case BTIF_AVK_SPLIT_SINK_VSC_START_COMPLETE_EVT:
+        case BTIF_AVK_SPLIT_SINK_STOP_CAPTURE:
             index = *((uint8_t *)p_param);
             break;
         case BTIF_AVK_SPLIT_SINK_START_IND_RSP:
@@ -1780,6 +1994,10 @@ static void btif_avk_handle_event(uint16_t event, char* p_param)
         case BTA_AVK_OFFLOAD_START_RSP_EVT:
         case BTA_AVK_OFFLOAD_STOP_RSP_EVT:
           index = HANDLE_TO_INDEX(p_bta_data->offload_rsp.hndl);
+          break;
+        case BTIF_AVK_SPLIT_PENDING_START_ALARM_TIMEOUT:
+        case BTIF_AVK_SPLIT_PENDING_SUSPEND_ALARM_TIMEOUT:
+          index = btif_avk_idx_by_bdaddr((bt_bdaddr_t*)p_param);
           break;
         /*Events from the stack, BTA*/
         case BTA_AVK_ENABLE_EVT:
@@ -2149,6 +2367,10 @@ bt_status_t btif_avk_split_init(int service_id)
         BTIF_TRACE_IMP("%s", __FUNCTION__);
         alarm_free(avk_open_on_rc_timer);
         avk_open_on_rc_timer = alarm_new("btif_av.avk_open_on_rc_timer");
+        alarm_free(avk_pending_start_timer);
+        avk_pending_start_timer = alarm_new("btif_av.avk_pending_start_timer");
+        alarm_free(avk_pending_suspend_timer);
+        avk_pending_suspend_timer = alarm_new("btif_av.avk_pending_suspend_timer");
         if(!btif_avk_split_a2dp_is_media_task_stopped())
             return BT_STATUS_FAIL;
 
@@ -2229,6 +2451,7 @@ static bt_status_t init_sink(btav_sink_callbacks_t* callbacks)
         BTIF_TRACE_DEBUG(" %s: initialized codec list with default %d number of codecs",
             __FUNCTION__, i + 1);
     }
+    streaming_bda = RawAddress::kEmpty;
     pthread_mutex_unlock(&split_sink_codec_q_lock);
 
     return status;
@@ -2323,7 +2546,8 @@ static bt_status_t start_req(const RawAddress& bd_addr) {
     BTIF_TRACE_DEBUG("%s for device  str_bda %s", __FUNCTION__,streaming_bda.ToString().c_str());
     // start request from app. First check if other index is in started state.
     uint8_t index = btif_avk_idx_by_bdaddr(&bd_addr);
-    if(index >= btif_max_avk_clients) {
+
+    if(index >= btif_max_avk_clients || (!btif_avk_is_device_connected_connecting(index))) {
         BTIF_TRACE_DEBUG(" %s invalid index ",__func__);
         return BT_STATUS_PARM_INVALID;
     }
@@ -2333,8 +2557,9 @@ static bt_status_t start_req(const RawAddress& bd_addr) {
         return BT_STATUS_BUSY;
     }
 
+    streaming_bda = bd_addr;
     btif_transfer_context(btif_avk_handle_event, BTIF_AVK_START_STREAM_REQ_EVT,
-                                 (char*)&index, sizeof(uint8_t), NULL);
+                                 NULL, 0, NULL);
 }
 
 static bt_status_t suspend_req(const RawAddress& bd_addr) {
@@ -2363,7 +2588,6 @@ static bt_status_t suspend_req(const RawAddress& bd_addr) {
 static void update_streaming_device_vendor(bt_bdaddr_t *bd_addr)
 {
     BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
-    streaming_bda = RawAddress::kEmpty;
     streaming_bda = *bd_addr;
     BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__, streaming_bda.ToString().c_str());
 }
@@ -2780,6 +3004,80 @@ static void update_flushing_device_vendor(bt_bdaddr_t *bd_addr)
     BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
 }
 
+/*******************************************************************************
+**
+** Function         btif_avk_split_index_matches_state
+**
+** Description      checks if current state matches any of the input state.
+**
+** Returns          TRUE: state matches input state
+**                  FALSE otherwise
+**
+**
+*******************************************************************************/
+
+bool btif_avk_split_index_matches_state(uint8_t index, uint8_t* states, uint8_t num_states)
+{
+    btif_sm_state_t state = btif_sm_get_state(btif_avk_cb[index].sm_handle);
+    BTIF_TRACE_DEBUG(" %s index = %d, state = %d",__func__,index, state);
+    for (int i= 0; i < num_states; i++) {
+        if(state == states[i])
+            return TRUE;
+    }
+    return FALSE;
+}
+
+/*******************************************************************************
+**
+** Function         is_streaming_bda_empty
+**
+** Description      checks if streaming_bda is empty(split).
+**
+** Returns          TRUE: if streaming_bda is NULL
+**
+**
+*******************************************************************************/
+bool is_streaming_bda_empty(void)
+{
+   bool ret;
+   ret = streaming_bda.IsEmpty();
+   BTIF_TRACE_DEBUG(" %s ret = %d",__func__,ret);
+   return ret;
+}
+
+/*******************************************************************************
+**
+** Function         btif_avk_split_get_started_device_idx
+**
+** Description      updates index of device which is in started state.
+**
+** Returns          TRUE: if only 1 device is in started/suspending/VSC handling state
+**                  FALSE otherwise
+**
+**
+*******************************************************************************/
+bool btif_avk_split_get_started_device_idx(uint8_t* index) {
+
+    btif_sm_state_t state = BTIF_AVK_STATE_IDLE;
+    uint8_t i;
+    uint8_t num_state_to_check;
+    uint8_t states[] = {BTIF_AVK_STATE_STARTED,
+                        BTIF_AVK_STATE_SUSPENDING,
+                        BTIF_AVK_STATE_HDL_VSC};
+    num_state_to_check = sizeof(states)/sizeof(uint8_t);
+
+    for (i = 0; i < btif_max_avk_clients; i++)
+    {
+        if (btif_avk_split_index_matches_state(i, states, num_state_to_check))
+        {
+            *index = i;
+            return TRUE;
+        }
+    }
+    BTIF_TRACE_DEBUG(" %s, no device found in started/suspending/HDL_VSC state",__func__);
+    return FALSE;
+}
+
 bool btif_avk_split_is_device_connected(RawAddress address)
 {
     btif_sm_state_t state = btif_get_conn_state_of_device(address);
@@ -3113,4 +3411,18 @@ int btif_avk_split_get_rendering_delay(RawAddress bd_addr) {
     int index = btif_avk_idx_by_bdaddr(&bd_addr);
     BTIF_TRACE_ERROR("%s rendering delay of index %d : %d",__func__, index, btif_avk_cb[index].delay);
     return btif_avk_cb[index].delay;
+}
+
+void btif_avk_pending_start_timeout_handler(void* data) {
+    BTIF_TRACE_DEBUG("%s",__func__);
+    alarm_cancel(avk_pending_start_timer);
+    btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SPLIT_PENDING_START_ALARM_TIMEOUT,
+                               (char *)data, sizeof(bt_bdaddr_t), NULL);
+}
+
+void btif_avk_pending_suspend_timeout_handler(void* data) {
+    BTIF_TRACE_DEBUG("%s",__func__);
+    alarm_cancel(avk_pending_suspend_timer);
+    btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SPLIT_PENDING_SUSPEND_ALARM_TIMEOUT,
+                               (char *)data, sizeof(bt_bdaddr_t), NULL);
 }

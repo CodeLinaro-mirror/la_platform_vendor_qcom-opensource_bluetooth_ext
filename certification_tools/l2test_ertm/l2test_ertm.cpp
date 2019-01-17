@@ -21,7 +21,7 @@
 
 /************************************************************************************
  *
- *  Filename:      l2test_ertm.c
+ *  Filename:      l2test_ertm.cpp
  *
  *  Description:   Bluedroid L2CAP TOOL application
  *
@@ -40,7 +40,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <sys/prctl.h>
-#include <sys/capability.h>
+//#include <sys/capability.h>
 #include <signal.h>
 #include <time.h>
 
@@ -48,8 +48,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include "bt_target.h"
-#include <private/android_filesystem_config.h>
-#include <android/log.h>
+//#include <private/android_filesystem_config.h>
+//#include <android/log.h>
 
 #include <hardware/hardware.h>
 #include <hardware/bluetooth.h>
@@ -123,7 +123,7 @@ static long buffer_size = 2048;
 
 static int master = 0;
 static int auth = 0;
-static int encrypt = 0;
+static int encrypt_val = 0;
 static int secure_m4_l4 = 0;
 /* Default number of frames */
 static int num_frames = 1;
@@ -169,6 +169,7 @@ static bt_status_t status;
 
 const bt_interface_t* sBtInterface = NULL;
 const btvendor_interface_t *btvendorInterface = NULL;
+bluetooth_device_t *bt_device_ =NULL;
 
 static gid_t groups[] = { AID_NET_BT, AID_INET, AID_NET_BT_ADMIN,
                           AID_SYSTEM, AID_MISC, AID_SDCARD_RW,
@@ -195,7 +196,7 @@ static uint16_t           g_lcid          = 0;
 
 static int Send_Data();
 static int WaitForCompletion(int Cmd, int Timeout);
-
+static void bdt_log(const char *fmt_str, ...);
 
 /************************************************************************************
 **  Externs
@@ -204,7 +205,21 @@ static int WaitForCompletion(int Cmd, int Timeout);
 /************************************************************************************
 **  Functions
 ************************************************************************************/
+/*****************************************************************************
+**   Logger API
+*****************************************************************************/
 
+void bdt_log(const char *fmt_str, ...)
+{
+    static char buffer[1024];
+    va_list ap;
+
+    va_start(ap, fmt_str);
+    vsnprintf(buffer, 1024, fmt_str, ap);
+    va_end(ap);
+
+    fprintf(stdout, "%s\n", buffer);
+}
 
 //--------------------l2test----------------------------------------------------
 btl2cap_interface_t* get_l2cap_interface(void);
@@ -266,7 +281,7 @@ static void l2test_l2c_config_cfm_cb(uint16_t lcid, tL2CAP_CFG_INFO *p_cfg)
 
     /* For now, always accept configuration from the other side */
     if (p_cfg->result == L2CAP_CFG_OK) {
-        printf("\nl2test_l2c_config_cfm_cb Success\n");
+        bdt_log("\nl2test_l2c_config_cfm_cb Success\n");
     } else {
 
      /* If peer has rejected FCR and suggested basic then try basic */
@@ -300,25 +315,25 @@ static void l2test_l2c_disconnect_cfm_cb(uint16_t lcid, uint16_t result)
 }
 static void l2test_l2c_QoSViolationInd(const RawAddress &bd_addr)
 {
-    printf("l2test_l2c_QoSViolationInd\n");
+    bdt_log("l2test_l2c_QoSViolationInd\n");
 }
 static void l2test_l2c_data_ind_cb(uint16_t lcid, BT_HDR *p_buf)
 {
-     printf("l2test_l2c_data_ind_cb:: event=%u, len=%u, offset=%u, layer_specific=%u\n", p_buf->event, p_buf->len, p_buf->offset, p_buf->layer_specific);
+     bdt_log("l2test_l2c_data_ind_cb:: event=%u, len=%u, offset=%u, layer_specific=%u\n", p_buf->event, p_buf->len, p_buf->offset, p_buf->layer_specific);
 }
 static void l2test_l2c_congestion_ind_cb(uint16_t lcid, bool is_congested)
 {
-    printf("l2test_l2c_congestion_ind_cb\n");
+    bdt_log("l2test_l2c_congestion_ind_cb\n");
 }
 
 static void l2test_l2c_tx_complete_cb (uint16_t lcid, uint16_t NoOfSDU)
 {
-    printf("l2test_l2c_tx_complete_cb, cid=0x%x, SDUs=%u\n", lcid, NoOfSDU);
+    bdt_log("l2test_l2c_tx_complete_cb, cid=0x%x, SDUs=%u\n", lcid, NoOfSDU);
 }
 
 static void l2c_echo_rsp_cb(uint16_t p)
 {
-    printf("Ping Response = %s\n", (L2CAP_PING_RESULT_OK==p) ?"Ping Reply OK" :(L2CAP_PING_RESULT_NO_LINK==p) ?"Link Could Not be setup" :"Remote L2cap did not reply");
+    bdt_log("Ping Response = %s\n", (L2CAP_PING_RESULT_OK==p) ?"Ping Reply OK" :(L2CAP_PING_RESULT_NO_LINK==p) ?"Link Could Not be setup" :"Remote L2cap did not reply");
 }
 
 /* L2CAP callback function structure */
@@ -344,7 +359,7 @@ static tL2CAP_APPL_INFO l2test_l2c_appl = {
 
 static void bdt_shutdown(void)
 {
-    printf("shutdown bdroid test app\n");
+    bdt_log("shutdown bdroid test app\n");
     main_done = 1;
 }
 
@@ -353,12 +368,12 @@ static void bdt_shutdown(void)
 ** Android's init.rc does not yet support applying linux capabilities
 *****************************************************************************/
 
-static void config_permissions(void)
+/*static void config_permissions(void)
 {
     struct __user_cap_header_struct header;
     struct __user_cap_data_struct cap[2];
 
-    printf("set_aid_and_cap : pid %d, uid %d gid %d", getpid(), getuid(), getgid());
+    bdt_log("set_aid_and_cap : pid %d, uid %d gid %d", getpid(), getuid(), getgid());
 
     header.pid = 0;
 
@@ -386,7 +401,7 @@ static void config_permissions(void)
 
     capset(&header, &cap[0]);
     setgroups(sizeof(groups)/sizeof(groups[0]), groups);
-}
+}*/
 
 
 
@@ -433,12 +448,12 @@ static int create_cmdjob(char *cmd)
     char *job_cmd;
 
     job_cmd = malloc(strlen(cmd)+1); /* freed in job handler */
+    memset(job_cmd,0,strlen(cmd)+1);
     if (job_cmd) {
-        strlcpy(job_cmd, cmd, sizeof(job_cmd));
-
+        strncpy(job_cmd, cmd, sizeof(job_cmd));
         if (pthread_create(&thread_id, NULL,
                        (void*)cmdjob_handler, (void*)job_cmd)!=0)
-            perror("pthread_create");
+            bdt_log("pthread_create");
     }
 
     return 0;
@@ -448,7 +463,7 @@ static int create_cmdjob(char *cmd)
 /*******************************************************************************
  ** Load stack lib
  *******************************************************************************/
-#define BLUETOOTH_LIBRARY_NAME "libbluetooth_qti.so"
+#define BLUETOOTH_LIBRARY_NAME "/usr/lib64/bluetooth.default.so"
 int load_bt_lib(const bt_interface_t** interface) {
   const char* sym = BLUETOOTH_INTERFACE_STRING;
   bt_interface_t* itf = nullptr;
@@ -458,19 +473,19 @@ int load_bt_lib(const bt_interface_t** interface) {
   void* handle = dlopen(path, RTLD_NOW);
   if (!handle) {
     const char* err_str = dlerror();
-    printf("failed to load Bluetooth library\n");
+    bdt_log("failed to load Bluetooth library %s \n", path);
     goto error;
   }
 
   // Get the address of the bt_interface_t.
   itf = (bt_interface_t*)dlsym(handle, sym);
   if (!itf) {
-    printf("failed to load symbol from Bluetooth library\n");
+    bdt_log("failed to load symbol from Bluetooth library\n");
     goto error;
   }
 
   // Success.
-  printf(" loaded HAL Success\n");
+  bdt_log(" loaded HAL Success\n");
   *interface = itf;
   return 0;
 
@@ -481,22 +496,48 @@ error:
   return -EINVAL;
 }
 
-int HAL_load(void)
+bool HAL_load(void)
 {
-  if (load_bt_lib((bt_interface_t const**)&sBtInterface)) {
-    printf("No Bluetooth Library found\n");
-    return -1;
-  }
-  return 0;
+    hw_module_t *module;
+    struct hw_device_t *device_;
+
+    if (hw_get_module (BT_STACK_MODULE_ID, (hw_module_t const **) &module)) {
+        bdt_log("%s hw_get_module failed", BT_STACK_MODULE_ID);
+        return false;
+    }
+
+    if (module->methods->open (module, BT_STACK_MODULE_ID, &device_)) {
+        return false;
+    }
+
+    bt_device_ = (bluetooth_device_t *) device_;
+    sBtInterface = bt_device_->get_bluetooth_interface ();
+    if (!sBtInterface) {
+        bt_device_->common.close ((hw_device_t *) & bt_device_->common);
+        bt_device_ = NULL;
+        return false;
+    }
+    return true;
 }
 
-int HAL_unload(void)
+bool HAL_unload(void)
 {
-    int err = 0;
+    bdt_log("Unloading HAL lib");
+    if (sBtInterface) {
+        sBtInterface->cleanup ();
+        sBtInterface = NULL;
+    }
+
+    if (bt_device_) {
+        bt_device_->common.close ((hw_device_t *) & bt_device_->common);
+        bt_device_ = NULL;
+    }
 
     sBtInterface = NULL;
 
-    return err;
+    bdt_log("HAL library unloaded ");
+
+    return true;
 }
 
 /*******************************************************************************
@@ -519,11 +560,11 @@ void check_return_status(bt_status_t status)
 {
     if (status != BT_STATUS_SUCCESS)
     {
-         printf("HAL REQUEST FAILED\n");
+         bdt_log("HAL REQUEST FAILED\n");
     }
     else
     {
-        printf("\nHAL REQUEST SUCCESS");
+        bdt_log("\nHAL REQUEST SUCCESS");
     }
 }
 
@@ -563,7 +604,7 @@ static void adapter_properties_changed(bt_status_t status, int num_properties, b
 
 static void discovery_state_changed(bt_discovery_state_t state)
 {
-    printf("Discovery State Updated : %s\n", (state == BT_DISCOVERY_STOPPED)?"STOPPED":"STARTED");
+    bdt_log("Discovery State Updated : %s\n", (state == BT_DISCOVERY_STOPPED)?"STOPPED":"STARTED");
 }
 
 #if 0
@@ -574,7 +615,7 @@ static void pin_request_cb(RawAddress *remote_bd_addr, bt_bdname_t *bd_name, uin
     bt_pin_code_t pincode = {{ 0x31, 0x32, 0x33, 0x34}};
 
     if(BT_STATUS_SUCCESS != sBtInterface->pin_reply(remote_bd_addr, TRUE, 4, &pincode)) {
-        printf("Pin Reply failed\n");
+        bdt_log("Pin Reply failed\n");
     }
 }
 #endif
@@ -582,7 +623,7 @@ static void ssp_request_cb(RawAddress *remote_bd_addr, bt_bdname_t *bd_name,
                            uint32_t cod, bt_ssp_variant_t pairing_variant, uint32_t pass_key)
 {
     if(BT_STATUS_SUCCESS != sBtInterface->ssp_reply(remote_bd_addr, pairing_variant, TRUE, pass_key)) {
-        printf("SSP Reply failed\n");
+        bdt_log("SSP Reply failed\n");
     }
 }
 
@@ -599,7 +640,7 @@ static void acl_state_changed(bt_status_t status, RawAddress *remote_bd_addr, bt
 
 static void dut_mode_recv(uint16_t opcode, uint8_t *buf, uint8_t len)
 {
-    printf("DUT MODE RECEIVE : NOT IMPLEMENTED\n");
+    bdt_log("DUT MODE RECEIVE : NOT IMPLEMENTED\n");
 }
 
 static bt_callbacks_t bt_callbacks = {
@@ -661,13 +702,14 @@ static bt_os_callouts_t callouts = {
 
 void bdt_init(void)
 {
-    printf("INIT BT \n");
+    bdt_log("INIT BT \n");
     status = (bt_status_t)sBtInterface->init(&bt_callbacks);
     if (status == BT_STATUS_SUCCESS) {
         // Get Vendor Interface
         btvendorInterface = (btvendor_interface_t *)sBtInterface->get_profile_interface(BT_PROFILE_VENDOR_ID);
+        bdt_log("%p loading vendor interface ", btvendorInterface);
         if (!btvendorInterface) {
-            printf("Error in loading vendor interface \n");
+            bdt_log("Error in loading vendor interface \n");
             exit(0);
         }
         status = (bt_status_t)sBtInterface->set_os_callouts(&callouts);
@@ -678,9 +720,9 @@ void bdt_init(void)
 void bdt_enable(void)
 {
     //int status = 0;
-    printf("ENABLE BT\n");
+    bdt_log("ENABLE BT\n");
     if (BT_STATE_ON == g_AdapterState) {
-        printf("Bluetooth is already enabled\n");
+        bdt_log("Bluetooth is already enabled\n");
         return;
     }
     status = (bt_status_t)sBtInterface->enable(strict_mode);
@@ -738,7 +780,7 @@ bool do_enable(char *p)
     bdt_enable();
     if(0 != WaitForCompletion(BT_TURNON_CMD, 10))
     {
-        printf("BT Turn ON Failed... Exiting...\n");
+        bdt_log("BT Turn ON Failed... Exiting...\n");
         return FALSE;
     }
     return TRUE;
@@ -749,7 +791,7 @@ bool do_disable(char *p)
     bdt_disable();
     if(0 != WaitForCompletion(BT_TURNOFF_CMD, 10))
     {
-        printf("BT Turn OFF Failed... Exiting...\n");
+        bdt_log("BT Turn OFF Failed... Exiting...\n");
         return FALSE;
     }
     return TRUE;
@@ -825,7 +867,7 @@ bool do_l2cap_ping(char *p)
     RawAddress bd_addr;
     RawAddress::FromString(p, bd_addr);
     if(FALSE == sL2capInterface->Ping(bd_addr, l2c_echo_rsp_cb)) {
-        printf("Failed to send Ping Request \n");
+        bdt_log("Failed to send Ping Request \n");
         return FALSE;
     }
     return TRUE;
@@ -894,15 +936,15 @@ static int WaitForCompletion(int Cmd, int Timeout)
 
 static void l2c_listen(int SendData)
 {
-    printf("Waiting for Incoming connection... \n");
+    bdt_log("Waiting for Incoming connection... \n");
     if(0 != WaitForCompletion(I_CONNECT_CMD, 60))
     {
-        printf("No incoming connection... Exiting...\n");
+        bdt_log("No incoming connection... Exiting...\n");
         return;
     }
     if(TRUE == SendData)
     {
-    printf(" going to send data...\n");
+    bdt_log(" going to send data...\n");
     Send_Data();
     }
 }
@@ -914,25 +956,25 @@ static int Send_Data()
 
     if (data_size < 0)
         data_size = g_omtu;
-    printf("data_size = %ld, g_omtu=%d", data_size, g_omtu);
+    bdt_log("data_size = %ld, g_omtu=%d", data_size, g_omtu);
 
     tmpBuf = (char *)malloc(data_size);
     if(NULL == tmpBuf)
     {
-        printf("Malloc failed \n");
+        bdt_log("Malloc failed \n");
         return FALSE;
     }
     if (filename) {
         fd = open(filename, O_RDONLY);
-        printf("Filename for input data = %s \n", filename);
+        bdt_log("Filename for input data = %s \n", filename);
         if (fd < 0) {
-        printf("Open failed: %s (%d)\n", strerror(errno), errno);
+        bdt_log("Open failed: %s (%d)\n", strerror(errno), errno);
         exit(1);
     }
     while (1) {
         size = read(fd, tmpBuf, data_size);
         if(size <= 0) {
-            printf("\n File end ");
+            bdt_log("\n File end ");
             break;
         }
     do_l2cap_DataWrite(tmpBuf, size);
@@ -942,10 +984,10 @@ static int Send_Data()
         memset(tmpBuf, '\x7f', data_size);
     }
     if (num_frames && g_delay && count) {
-    printf("Delay before first send ... %lu msec, size=%ld \n", g_delay/1000, data_size);
+    bdt_log("Delay before first send ... %lu msec, size=%ld \n", g_delay/1000, data_size);
     usleep(g_delay);
     }
-    printf(" count %d...\n", count);
+    bdt_log(" count %d...\n", count);
     sleep(5);
     while (count > 0) {
         char tmpBuffer[] = {0x11,0x04,0x7F,0x7F,0x7F,0x7F,0x7F,
@@ -961,11 +1003,11 @@ static int Send_Data()
                         0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F
                       };
         count--;
-        printf("Before write count is %d...\n", count);
+        bdt_log("Before write count is %d...\n", count);
         if( g_Sar_Present == TRUE)
         {
         sleep(5);
-        printf("SAR present..\n");
+        bdt_log("SAR present..\n");
         do_l2cap_DataWrite(tmpBuffer, 100);
         sleep(5);
         do_l2cap_DataWrite(tmpBuffer, 100);
@@ -981,7 +1023,7 @@ static int Send_Data()
 static void l2c_connect(char *svr)
 {
 
-    printf("In l2c_connect - %s \n", svr);
+    bdt_log("In l2c_connect - %s \n", svr);
     do_l2cap_connect(svr);
 }
 
@@ -990,7 +1032,7 @@ static void l2c_send(char *p)
 
     do_l2cap_connect(p);
     if(0 != WaitForCompletion(I_CONNECT_CMD, 10)) {
-        printf("Connection didnot happen in 10sec... Returning Failure...\n");
+        bdt_log("Connection didnot happen in 10sec... Returning Failure...\n");
         return;
     }
     sleep(1); //Let Config to complete
@@ -1003,12 +1045,12 @@ static int l2c_pair(char *p)
     RawAddress::FromString(p, bd_addr);
     if(BT_STATUS_SUCCESS != sBtInterface->create_bond(&bd_addr,TRANSPORT_BREDR))
     {
-        printf("Failed to Initiate Pairing \n");
+        bdt_log("Failed to Initiate Pairing \n");
         return FALSE;
     }
     if(0 != WaitForCompletion(O_PAIR_CMD, 15))
     {
-        printf("Pairing didnot happen in 15sec... Returning Failure...\n");
+        bdt_log("Pairing didnot happen in 15sec... Returning Failure...\n");
         return FALSE;
     }
     return TRUE;
@@ -1017,26 +1059,26 @@ static int l2c_pair(char *p)
 static void l2c_ping(char *svr)
 {
 
-    printf("In l2c_ping - %s \n", svr);
+    bdt_log("In l2c_ping - %s \n", svr);
     do_l2cap_ping(svr);
 }
 
 static void l2c_disconnect(char *p)
 {
-    printf("In l2c_disconnect\n");
+    bdt_log("In l2c_disconnect\n");
     do_l2cap_disconnect(p);
 }
 
 static void options(void)
 {
-    printf("Modes:\n"
+    bdt_log("Modes:\n"
                 "\t-c connect\n"
                 "\t-r receive\n"
                 "\t-s connect and send\n"
                 "\t-w wait and send\n"
                 "\t-p bonding\n"
                 "\t-a ping\n");
-    printf("Options:\n"
+    bdt_log("Options:\n"
                 "\t[-b bytes] [-i device] [-P psm] [-J cid]\n"
                 "\t[-I imtu] [-O omtu]\n"
                 "\t[-L localBusy status] 1-localbusy, 0-otherwise (default=0)\n"
@@ -1108,7 +1150,7 @@ int main(int argc, char *argv[])
                 g_delay = atoi(optarg) * 1000;
                 break;
             case 'E':
-                encrypt = 1;
+                encrypt_val = 1;
                 break;
             case 'F':
                 filename = strdup(optarg);
@@ -1139,7 +1181,7 @@ int main(int argc, char *argv[])
 
             case 'P':
                 g_PSM = atoi(optarg);
-                printf("PSM %d",g_PSM);
+                bdt_log("PSM %d",g_PSM);
                 break;
             case 'S':
                 secure_m4_l4 = 1;
@@ -1155,23 +1197,23 @@ int main(int argc, char *argv[])
                     g_Fcr_Present = TRUE;
                     g_Fcr_Mode = L2CAP_FCR_ERTM_MODE;
                     g_Ertm_AllowedMode = L2CAP_FCR_CHAN_OPT_ERTM;
-                    printf("in ERTM Mandatory option - 1\n");
+                    bdt_log("in ERTM Mandatory option - 1\n");
                 } else if (strcasecmp(optarg, "ertm") == 0) {
                     g_Fcr_Present = TRUE;
                     g_Fcr_Mode = L2CAP_FCR_ERTM_MODE;
-                    printf("in ERTM option \n");
+                    bdt_log("in ERTM option \n");
                 } else if (strcasecmp(optarg, "streaming-mandatory") == 0) {
-                    printf("FCR Mode selected as Streaming Mandatory\n");
+                    bdt_log("FCR Mode selected as Streaming Mandatory\n");
                     g_Fcr_Present = TRUE;
                     g_Fcr_Mode = L2CAP_FCR_STREAM_MODE;
                     g_Ertm_AllowedMode = L2CAP_FCR_CHAN_OPT_STREAM;
                 } else if (strcasecmp(optarg, "streaming") == 0) {
                     g_Fcr_Present = TRUE;
-                    printf("FCR Mode selected as Streaming\n");
+                    bdt_log("FCR Mode selected as Streaming\n");
                     g_Fcr_Mode = L2CAP_FCR_STREAM_MODE;
                 } else {
                     g_Fcr_Mode = L2CAP_FCR_BASIC_MODE;
-                    printf("FCR Mode selected as Basic. String passed matches none\n");
+                    bdt_log("FCR Mode selected as Basic. String passed matches none\n");
                 }
                 break;
 
@@ -1182,7 +1224,7 @@ int main(int argc, char *argv[])
                 break;
             case 'Z':
                  g_Sar_Present = TRUE;
-                 printf("g_Sar_Present = true \n");
+                 bdt_log("g_Sar_Present = true \n");
                  break;
             default:
             options();
@@ -1209,9 +1251,9 @@ int main(int argc, char *argv[])
     sa.sa_flags   = SA_NOCLDSTOP;
     sigaction(SIGCHLD, &sa, NULL);
 
-    config_permissions();
-    if ( HAL_load() < 0 ) {
-        perror("HAL failed to initialize, exit\n");
+    //config_permissions();
+    if ( HAL_load() == false ) {
+        bdt_log("HAL failed to initialize, exit\n");
         unlink(PID_FILE);
         exit(0);
     }
@@ -1221,30 +1263,30 @@ int main(int argc, char *argv[])
     sleep(5);
     if(FALSE == do_enable(NULL))
         goto ERR;
-        printf("\n Before l2cap init\n");
+        bdt_log("\n Before l2cap init\n");
         do_l2cap_init(NULL);
-        printf("\n after l2cap init\n");
+        bdt_log("\n after l2cap init\n");
         if (g_SecOnlyMode)
         {
-        printf("\n Before Setting SecureConnectionsOnlyMode");
+        bdt_log("\n Before Setting SecureConnectionsOnlyMode");
           do_l2cap_SetSecConnOnlyMode(TRUE);
-        printf("\n After Setting SecureConnectionsOnlyMode");
+        bdt_log("\n After Setting SecureConnectionsOnlyMode");
         }
     //Outgoing Connection
     if(TRUE == g_ConnType)
     {
         if(1 == auth)    g_SecLevel |= BTM_SEC_OUT_AUTHENTICATE;
-        if(1 == encrypt) g_SecLevel |= BTM_SEC_OUT_ENCRYPT ;
+        if(1 == encrypt_val) g_SecLevel |= BTM_SEC_OUT_ENCRYPT ;
         if(1 == secure_m4_l4) g_SecLevel |= BTM_SEC_MODE4_LEVEL4;
     } else {
         if(1 == auth)    g_SecLevel |= BTM_SEC_IN_AUTHENTICATE;
-        if(1 == encrypt) g_SecLevel |= BTM_SEC_IN_ENCRYPT ;
+        if(1 == encrypt_val) g_SecLevel |= BTM_SEC_IN_ENCRYPT ;
         if(1 == secure_m4_l4) g_SecLevel |= BTM_SEC_MODE4_LEVEL4;
     }
 
     if(0 != g_PSM)
         {
-            printf("g_SecLevel = %d \n", g_SecLevel);
+            bdt_log("g_SecLevel = %d \n", g_SecLevel);
             sL2capInterface->RegisterPsm(g_PSM, g_ConnType, g_SecLevel /*BTM_SEC_IN_AUTHORIZE */);
             sleep(3);
         }
@@ -1281,7 +1323,7 @@ int main(int argc, char *argv[])
 
     if(0 != g_LocalBusy) {
         sleep(5);
-        printf("To Send Local BusyStatus.... Press any key\n");
+        bdt_log("To Send Local BusyStatus.... Press any key\n");
         read(0, &temp, 2);
         sL2capInterface->FlowControl(g_lcid, 0); //second param is 'dataEnabled', making it false means localBusy
     }
@@ -1289,7 +1331,7 @@ int main(int argc, char *argv[])
 ERR:
     while(1) {
         sleep(5);
-        printf("Enter Y/y to Exit... \n");
+        bdt_log("Enter Y/y to Exit... \n");
         len = read(0, &temp, 2);
         if((temp[0] == 'Y') || (temp[0] == 'y'))
         break;

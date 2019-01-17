@@ -22,7 +22,7 @@
 
 /************************************************************************************
  *
- *  Filename:      gatt_tool.c
+ *  Filename:      gatt_test.cpp
  *
  *  Description:   Bluedroid GATT TOOL application
  *
@@ -39,7 +39,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <sys/prctl.h>
-#include <sys/capability.h>
+//#include <sys/capability.h>
 #include <map>
 //#include <sys/time.h>
 //#include <signal.h>
@@ -51,8 +51,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <private/android_filesystem_config.h>
-#include <android/log.h>
+//#include <private/android_filesystem_config.h>
+//#include <android/log.h>
 
 #include <hardware/hardware.h>
 #include <hardware/bluetooth.h>
@@ -63,7 +63,7 @@
 #include <hardware/bt_gatt_types.h>
 //#include "../../osi/include/allocator.h"
 #include <bt_testapp.h>
-
+#include <stdarg.h>
 #include <signal.h>
 #include <time.h>
 
@@ -117,6 +117,12 @@ typedef struct {
 #define INTERVAL_MEDIUM  2
 #define INTERVAL_HIGH    3
 
+#define L2CAP_LE_DEFAULT_MTU 512
+#define L2CAP_LE_DEFAULT_MPS 230
+#define L2CAP_LE_MAX_CREDIT 65535
+#define L2CAP_LE_DEFAULT_CREDIT 1
+
+
 /************************************************************************************
 **  Local type definitions
 ************************************************************************************/
@@ -167,10 +173,11 @@ static tL2CAP_LE_CFG_INFO local_coc_cfg;
 
 /* Main API */
 const bt_interface_t* sBtInterface = NULL;
+bluetooth_device_t *bt_device_ =NULL;
 
-static gid_t groups[] = { AID_NET_BT, AID_INET, AID_NET_BT_ADMIN,
+/*static gid_t groups[] = { AID_NET_BT, AID_INET, AID_NET_BT_ADMIN,
                           AID_SYSTEM, AID_MISC, AID_SDCARD_RW,
-                          AID_NET_ADMIN, AID_VPN};
+                          AID_NET_ADMIN, AID_VPN};*/
 
 enum {
     DISCONNECT,
@@ -388,7 +395,7 @@ static void connect_cb(int conn_id, int status, int client_if, const RawAddress&
     remote_bd_addr.address[3], remote_bd_addr.address[4], remote_bd_addr.address[5], conn_id, status, client_if);
 
     g_conn_id = conn_id;
-    sGapInterface->Gap_BleAttrDBUpdate(remote_bd_addr.address, 50, 70, 0, 1000);
+    sGapInterface->Gap_BleAttrDBUpdate(remote_bd_addr, 50, 70, 0, 1000);
 
 }
 
@@ -1318,7 +1325,7 @@ static void bdt_shutdown(void)
 ** Android's init.rc does not yet support applying linux capabilities
 *****************************************************************************/
 
-static void config_permissions(void)
+/*static void config_permissions(void)
 {
     struct __user_cap_header_struct header;
     struct __user_cap_data_struct cap[2];
@@ -1352,7 +1359,7 @@ static void config_permissions(void)
 
     capset(&header, &cap[0]);
     setgroups(sizeof(groups)/sizeof(groups[0]), groups);
-}
+}*/
 
 
 /*****************************************************************************
@@ -1743,12 +1750,13 @@ static int create_cmdjob(char *cmd)
     char *job_cmd;
 
     job_cmd = (char*)calloc(1, strlen(cmd)+1); /* freed in job handler */
+    memset(job_cmd,0,strlen(cmd)+1);
     if (job_cmd) {
-       strlcpy(job_cmd, cmd,(strlen(cmd)+1));
+       strncpy(job_cmd, cmd,(strlen(cmd)));
        if (pthread_create(&thread_id, NULL, cmdjob_handler, (void *)job_cmd) != 0)
       /*if (pthread_create(&thread_id, NULL,
                        (void*)cmdjob_handler, (void*)job_cmd) !=0)*/
-         perror("pthread_create");
+         bdt_log("pthread_create");
       return 0;
     }
     else
@@ -1759,7 +1767,7 @@ static int create_cmdjob(char *cmd)
 /*******************************************************************************
  ** Load stack lib
  *******************************************************************************/
-#define BLUETOOTH_LIBRARY_NAME "libbluetooth_qti.so"
+#define BLUETOOTH_LIBRARY_NAME "/usr/lib64/bluetooth.default.so"
 int load_bt_lib(const bt_interface_t** interface) {
   const char* sym = BLUETOOTH_INTERFACE_STRING;
   bt_interface_t* itf = nullptr;
@@ -1769,7 +1777,7 @@ int load_bt_lib(const bt_interface_t** interface) {
   void* handle = dlopen(path, RTLD_NOW);
   if (!handle) {
     //const char* err_str = dlerror();
-    printf("failed to load Bluetooth library\n");
+    printf("failed to load Bluetooth library %s \n", path);
     goto error;
   }
 
@@ -1792,26 +1800,48 @@ error:
   return -EINVAL;
 }
 
-int HAL_load(void)
+bool HAL_load(void)
 {
-    if (load_bt_lib((bt_interface_t const**)&sBtInterface)) {
-        printf("No Bluetooth Library found\n");
-        return -1;
+    hw_module_t *module;
+    struct hw_device_t *device_;
+
+    if (hw_get_module (BT_STACK_MODULE_ID, (hw_module_t const **) &module)) {
+        printf("%s hw_get_module failed", BT_STACK_MODULE_ID);
+        return false;
     }
-    return 0;
+
+    if (module->methods->open (module, BT_STACK_MODULE_ID, &device_)) {
+        return false;
+    }
+
+    bt_device_ = (bluetooth_device_t *) device_;
+    sBtInterface = bt_device_->get_bluetooth_interface ();
+    if (!sBtInterface) {
+        bt_device_->common.close ((hw_device_t *) & bt_device_->common);
+        bt_device_ = NULL;
+        return false;
+    }
+    return true;
 }
 
-int HAL_unload(void)
+bool HAL_unload(void)
 {
-    int err = 0;
-
     bdt_log("Unloading HAL lib");
+    if (sBtInterface) {
+        sBtInterface->cleanup ();
+        sBtInterface = NULL;
+    }
+
+    if (bt_device_) {
+        bt_device_->common.close ((hw_device_t *) & bt_device_->common);
+        bt_device_ = NULL;
+    }
 
     sBtInterface = NULL;
 
-    bdt_log("HAL library unloaded (%s)", strerror(err));
+    bdt_log("HAL library unloaded ");
 
-    return err;
+    return true;
 }
 
 /*******************************************************************************
@@ -2216,6 +2246,7 @@ void bdt_init(void)
     if (status == BT_STATUS_SUCCESS) {
         // Get Vendor Interface
         btvendorInterface = (btvendor_interface_t *)sBtInterface->get_profile_interface(BT_PROFILE_VENDOR_ID);
+        bdt_log("%p loading vendor interface ", btvendorInterface);
         if (!btvendorInterface) {
             bdt_log("Error in loading vendor interface ");
             exit(0);
@@ -2491,7 +2522,7 @@ void do_le_client_connect (char *p)
     }
     else
     {
-        Ret = sGattInterface->Connect(g_client_if, bd_addr.address, TRUE, transport);
+        Ret = sGattInterface->Connect(g_client_if, bd_addr, TRUE, transport);
     }
     printf("%s:: Ret=%d \n", __FUNCTION__, Ret);
 }
@@ -2543,7 +2574,7 @@ void do_le_client_connect_auto (char *p)
     }
     else
     {
-        Ret = sGattInterface->Connect(g_client_if, bd_addr.address, FALSE,BT_TRANSPORT_LE);
+        Ret = sGattInterface->Connect(g_client_if, bd_addr, FALSE,BT_TRANSPORT_LE);
     }
     printf("%s:: Ret=%d \n", __FUNCTION__,Ret );
 }
@@ -2924,7 +2955,7 @@ void do_le_set_idle_timeout(char *p)
     RawAddress bd_addr = {{0}};
         if(FALSE == GetBdAddr(p, &bd_addr))    return;
     idle_timeout = get_int(&p, -1); //arg2
-    sGattInterface->cSetIdleTimeout(bd_addr.address, idle_timeout);
+    sGattInterface->cSetIdleTimeout(bd_addr, idle_timeout);
 
 }
 
@@ -3515,7 +3546,7 @@ void do_smp_pair(char *p)
     tSMP_STATUS Ret = 0;
     RawAddress bd_addr = {{0}};
     if(FALSE == GetBdAddr(p, &bd_addr))    return;
-    Ret = sSmpIface->Pair(bd_addr.address);
+    Ret = sSmpIface->Pair(bd_addr);
     printf("%s:: Ret=%d \n", __FUNCTION__, Ret);
 }
 
@@ -3524,7 +3555,7 @@ void do_smp_pair_cancel(char *p)
     bool Ret = 0;
     RawAddress bd_addr = {{0}};
     if(FALSE == GetBdAddr(p, &bd_addr))    return;
-    Ret = sSmpIface->PairCancel(bd_addr.address);
+    Ret = sSmpIface->PairCancel(bd_addr);
     printf("%s:: Ret=%d \n", __FUNCTION__, Ret);
 }
 
@@ -3534,7 +3565,7 @@ void do_smp_security_grant(char *p)
     RawAddress bd_addr = {{0}};
     if(FALSE == GetBdAddr(p, &bd_addr))    return; //arg1
     res = get_int(&p, -1); // arg2
-    sSmpIface->SecurityGrant(bd_addr.address, res);
+    sSmpIface->SecurityGrant(bd_addr, res);
     printf("%s:: Ret=%d \n", __FUNCTION__,res);
 }
 
@@ -3549,7 +3580,7 @@ void do_smp_passkey_reply(char *p)
         printf("res value=%d\n", res);
     passkey = get_int(&p, -1); // arg3
         printf("passkey value=%d\n", passkey);
-    sSmpIface->PasskeyReply(bd_addr.address, res, passkey);
+    sSmpIface->PasskeyReply(bd_addr, res, passkey);
     printf("%s:: Ret=%d \n", __FUNCTION__,res);
 }
 
@@ -3576,7 +3607,7 @@ void do_le_gap_conn_param_update(char *p)
     //attr_uuid = get_hex(&p, -1);
     //L2CA_UpdateBleConnParams(bd_addr.address, 50, 70, 0, 1000);
     printf("stage 1\n");
-    sGapInterface->Gap_BleAttrDBUpdate(bd_addr.address, attr_value.conn_param.int_min, attr_value.conn_param.int_max,attr_value.conn_param.latency ,attr_value.conn_param.sp_tout);
+    sGapInterface->Gap_BleAttrDBUpdate(bd_addr, attr_value.conn_param.int_min, attr_value.conn_param.int_max,attr_value.conn_param.latency ,attr_value.conn_param.sp_tout);
     printf("%s:: GAP connection parameter Update\n", __FUNCTION__);
 
 }
@@ -3649,7 +3680,7 @@ void do_l2cap_send_data_cid(char *p)
     bt_hdr.layer_specific = 0;
 
 
-    Ret = sL2capInterface->SendFixedChnlData(cid, bd_addr.address, &bt_hdr);
+    Ret = sL2capInterface->SendFixedChnlData(cid, bd_addr, &bt_hdr);
     printf("%s:: Ret=%d \n", __FUNCTION__, Ret);
 
 }
@@ -3703,12 +3734,12 @@ int main (int argc, char * argv[])
 {
     static btgatt_callbacks_t    sGatt_cb = {sizeof(btgatt_callbacks_t), &sGattClient_cb, &sGattServer_cb, &sScanner_cb};
 
-    config_permissions();
+    //config_permissions();
     bdt_log("\n:::::::::::::::::::::::::::::::::::::::::::::::::::");
     bdt_log(":: Bluedroid test app starting");
 
-    if ( HAL_load() < 0 ) {
-        perror("HAL failed to initialize, exit\n");
+    if (HAL_load() == false) {
+        bdt_log("HAL failed to initialize, exit\n");
         unlink(PID_FILE);
         exit(0);
     }

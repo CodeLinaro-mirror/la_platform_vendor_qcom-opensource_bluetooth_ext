@@ -22,7 +22,7 @@
 
 /************************************************************************************
  *
- *  Filename:      mcap_tool.c
+ *  Filename:      mcap_tool.cpp
  *
  *  Description:   Bluedroid MCAP TOOL application
  *
@@ -38,15 +38,16 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <sys/prctl.h>
-#include <sys/capability.h>
+#include <signal.h>
+//#include <sys/capability.h>
 #include "l2c_api.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include <private/android_filesystem_config.h>
-#include <android/log.h>
+//#include <private/android_filesystem_config.h>
+//#include <android/log.h>
 
 #include <hardware/hardware.h>
 #include <hardware/bluetooth.h>
@@ -85,6 +86,7 @@ static bool strict_mode = FALSE;
 /* Main API */
 const bt_interface_t* sBtInterface = NULL;
 const btvendor_interface_t *btvendorInterface = NULL;
+bluetooth_device_t *bt_device_ =NULL;
 
 static gid_t groups[] = { AID_NET_BT, AID_INET, AID_NET_BT_ADMIN,
                           AID_SYSTEM, AID_MISC, AID_SDCARD_RW,
@@ -226,7 +228,7 @@ static void bdt_shutdown(void)
 ** Android's init.rc does not yet support applying linux capabilities
 *****************************************************************************/
 
-static void config_permissions(void)
+/*static void config_permissions(void)
 {
     struct __user_cap_header_struct header;
     struct __user_cap_data_struct cap[2];
@@ -260,7 +262,7 @@ static void config_permissions(void)
 
     capset(&header, &cap[0]);
     setgroups(sizeof(groups)/sizeof(groups[0]), groups);
-}
+}*/
 
 
 
@@ -550,16 +552,13 @@ static int create_cmdjob(char *cmd)
     pthread_t thread_id;
     char *job_cmd;
     job_cmd = (char*)calloc(1, strlen(cmd)+1); /* freed in job handler */
-    if(job_cmd)
-    {
-        strlcpy(job_cmd, cmd, strlen(job_cmd)+1);
-
+    if(job_cmd) {
+        strncpy(job_cmd, cmd, strlen(job_cmd));
         if (pthread_create(&thread_id, NULL, cmdjob_handler, (void *)job_cmd) != 0)
             perror("pthread_create");
     }
     else
         bdt_log("Mecap_test: Cannot Allocate memory for cmdjob");
-
 
     return 0;
 }
@@ -567,7 +566,7 @@ static int create_cmdjob(char *cmd)
 /*******************************************************************************
  ** Load stack lib
  *******************************************************************************/
-#define BLUETOOTH_LIBRARY_NAME "libbluetooth_qti.so"
+#define BLUETOOTH_LIBRARY_NAME "/usr/lib64/bluetooth.default.so"
 int load_bt_lib(const bt_interface_t** interface) {
   const char* sym = BLUETOOTH_INTERFACE_STRING;
   bt_interface_t* itf = nullptr;
@@ -602,11 +601,26 @@ error:
 
 int HAL_load(void)
 {
-    if (load_bt_lib((bt_interface_t const**)&sBtInterface)) {
-        printf("No Bluetooth Library found\n");
-        return -1;
+    hw_module_t *module;
+    struct hw_device_t *device_;
+
+    if (hw_get_module (BT_STACK_MODULE_ID, (hw_module_t const **) &module)) {
+        bdt_log("%s hw_get_module failed", BT_STACK_MODULE_ID);
+        return false;
     }
-    return 0;
+
+    if (module->methods->open (module, BT_STACK_MODULE_ID, &device_)) {
+        return false;
+    }
+
+    bt_device_ = (bluetooth_device_t *) device_;
+    sBtInterface = bt_device_->get_bluetooth_interface ();
+    if (!sBtInterface) {
+        bt_device_->common.close ((hw_device_t *) & bt_device_->common);
+        bt_device_ = NULL;
+        return false;
+    }
+    return true;
 }
 
 int HAL_unload(void)
@@ -614,12 +628,21 @@ int HAL_unload(void)
     int err = 0;
 
     bdt_log("Unloading HAL lib");
+    if (sBtInterface) {
+        sBtInterface->cleanup ();
+        sBtInterface = NULL;
+    }
+
+    if (bt_device_) {
+        bt_device_->common.close ((hw_device_t *) & bt_device_->common);
+        bt_device_ = NULL;
+    }
 
     sBtInterface = NULL;
 
-    bdt_log("HAL library unloaded (%s)", strerror(err));
+    bdt_log("HAL library unloaded ");
 
-    return err;
+    return true;
 }
 
 /*******************************************************************************
@@ -1100,7 +1123,7 @@ static void process_cmd(char *p, unsigned char is_job)
 int main (int argc, char * argv[])
 {
 
-    config_permissions();
+    //config_permissions();
     bdt_log("\n:::::::::::::::::::::::::::::::::::::::::::::::::::");
     bdt_log(":: Bluedroid test app starting");
 
