@@ -124,6 +124,10 @@ typedef void (* remote_dev_prop_callback)(bt_status_t status,
 /* Receive any HCI event from controller for raw commands */
 typedef void (* hci_event_recv_callback)(uint8_t event_code, uint8_t *buf, uint8_t len);
 
+/** Callback to notify ssr cleanup to app.
+ */
+typedef void (*  btvendor_ssr_cleanup_callback)(void);
+
 /** BT-Vendor callback structure. */
 typedef struct {
     /** set to sizeof(BtVendorCallbacks) */
@@ -131,7 +135,8 @@ typedef struct {
     btvendor_bredr_cleanup_callback  bredr_cleanup_cb;
     btvendor_iot_device_broadcast_callback iot_device_broadcast_cb;
     remote_dev_prop_callback         rmt_dev_prop_cb;
-    hci_event_recv_callback  hci_event_recv_cb;
+    hci_event_recv_callback          hci_event_recv_cb;
+    btvendor_ssr_cleanup_callback    ssr_cleanup_cb;
 } btvendor_callbacks_t;
 
 typedef int (*property_set_callout)(const char* key, const char* value);

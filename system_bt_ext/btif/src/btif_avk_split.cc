@@ -101,7 +101,7 @@ typedef enum {
 #define APTX_RENDERING_DELAY               200
 #define AAC_RENDERING_DELAY                180
 
-#define BTIF_AVK_PENDING_RESPONSE_TIMEOUT     5000
+#define BTIF_AVK_PENDING_RESPONSE_TIMEOUT     10000 // 10 seconds
 /*****************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -948,8 +948,9 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
     tBTA_AVK *p_av = (tBTA_AVK*)p_data;
     tBTIF_STATUS status = BTIF_SUCCESS;
 
-    BTIF_TRACE_IMP("%s event:%s flags %x and index = %d", __FUNCTION__,
-                     dump_avk_sm_event_name((btif_avk_sm_event_t)event), btif_avk_cb[index].flags, index);
+    BTIF_TRACE_IMP("%s event:%s flags %x  index =%d VSC_Cmd_Status = %d", __FUNCTION__,
+         dump_avk_sm_event_name((btif_avk_sm_event_t)event), btif_avk_cb[index].flags, index,
+         btif_avk_cb[index].vsc_command_status);
 
 
     switch (event)
@@ -1241,8 +1242,9 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
 {
     tBTA_AVK *p_av = (tBTA_AVK*)p_data;
 
-    BTIF_TRACE_IMP("%s event:%s flags %x  index =%d", __FUNCTION__,
-         dump_avk_sm_event_name((btif_avk_sm_event_t)event), btif_avk_cb[index].flags, index);
+    BTIF_TRACE_IMP("%s event:%s flags %x  index =%d VSC_Cmd_Status = %d", __FUNCTION__,
+         dump_avk_sm_event_name((btif_avk_sm_event_t)event), btif_avk_cb[index].flags, index,
+         btif_avk_cb[index].vsc_command_status);
 
     switch (event)
     {
@@ -1280,6 +1282,8 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
                    // VSC Stop was already sent.send suspend cfm and move to OPENED
                    BTA_AvkSendPedingSuspendCnf(btif_avk_cb[index].bta_handle);
                    btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
+                   btif_report_audio_state(BTAV_AUDIO_STATE_REMOTE_SUSPEND,
+                                                            &(btif_avk_cb[index].peer_bda));
                    btif_update_cmd_status(A2DP_AVK_CTRL_CMD_STOP_CAPTURE, A2DP_CTRL_ACK_SUCCESS);
                    break;
                 case BTIF_AVK_VSC_STARTING:
@@ -1320,14 +1324,23 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
             if (btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STOP) {
                 BTA_AvkSendPedingSuspendCnf(btif_avk_cb[index].bta_handle);
                 btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
+                btif_report_audio_state(BTAV_AUDIO_STATE_STOPPED,
+                                                        &(btif_avk_cb[index].peer_bda));
             }
             break;
         case BTIF_AVK_SPLIT_PENDING_SUSPEND_ALARM_TIMEOUT:
              if(btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTED) {
              // Stop vsc and send suspend command to remote
-             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_HDL_VSC);
-             btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_STOP, &index,
+                btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_HDL_VSC);
+                btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_STOP, &index,
                            sizeof(uint8_t));
+             }
+            if ((btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STOP) ||
+                (btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_START_FAILED)) {
+                BTA_AvkSendPedingSuspendCnf(btif_avk_cb[index].bta_handle);
+                btif_report_audio_state(BTAV_AUDIO_STATE_REMOTE_SUSPEND,
+                                                &(btif_avk_cb[index].peer_bda));
+                btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
              }
              break;
 
@@ -1566,8 +1579,9 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
     btif_sm_state_t state = BTIF_AVK_STATE_IDLE;
     int i;
 
-    BTIF_TRACE_IMP("%s event:%s flags %x  index =%d", __FUNCTION__,
-                     dump_avk_sm_event_name((btif_avk_sm_event_t)event), btif_avk_cb[index].flags, index);
+    BTIF_TRACE_IMP("%s event:%s flags %x  index =%d VSC_Cmd_Status = %d", __FUNCTION__,
+         dump_avk_sm_event_name((btif_avk_sm_event_t)event), btif_avk_cb[index].flags, index,
+         btif_avk_cb[index].vsc_command_status);
 
     switch (event)
     {
@@ -1576,10 +1590,7 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
             btif_avk_cb[index].flags &= ~BTIF_AVK_FLAG_REMOTE_SUSPEND;
             // if we are coming back from HDL_VSC/STARTING,
             // no need to send STARTED_IND to app
-            if ((btif_avk_cb[index].prev_state != BTIF_AVK_STATE_HDL_VSC)||
-                (btif_avk_cb[index].prev_state != BTIF_AVK_STATE_STARTING)) {
-                btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_avk_cb[index].peer_bda));
-            }
+            btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_avk_cb[index].peer_bda));
             handle_memorized_msgs(index);
             btif_avk_cb[index].flags &= ~ BTIF_AVK_FLAG_PENDING_START;
             break;
