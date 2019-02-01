@@ -1259,6 +1259,8 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
              BTIF_TRACE_DEBUG(" %s SUSPEND_CMD_RSP accepted =%d ",__FUNCTION__,
                              p_av->suspend_rsp.accepted);
              if (p_av->suspend_rsp.accepted == CMD_REJECTED) {
+                 if(alarm_is_scheduled(avk_pending_suspend_timer))
+                     alarm_cancel(avk_pending_suspend_timer);
                  BTA_AvkSendPedingSuspendRej(btif_avk_cb[index].bta_handle);
                  // ideally remote has suspended, not sure it will still send packets or not.
                  btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_STARTED);
@@ -1413,6 +1415,8 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
             BTIF_TRACE_DEBUG(" %s START_CMD_RSP accepted =%d ",__FUNCTION__,
                              p_av->start_rsp.accepted);
              if (p_av->start_rsp.accepted == CMD_REJECTED) {
+                 if(alarm_is_scheduled(avk_pending_start_timer))
+                     alarm_cancel(avk_pending_start_timer);
                  BTA_AvkSendPedingStartRej(btif_avk_cb[index].bta_handle);
                  btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
              }
@@ -1421,6 +1425,8 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
              BTIF_TRACE_DEBUG(" %s SUSPEND_CMD_RSP accepted =%d ",__FUNCTION__,
                              p_av->suspend_rsp.accepted);
              if (p_av->suspend_rsp.accepted == CMD_REJECTED) {
+                 if(alarm_is_scheduled(avk_pending_suspend_timer))
+                     alarm_cancel(avk_pending_suspend_timer);
                  BTA_AvkSendPedingSuspendRej(btif_avk_cb[index].bta_handle);
                  btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
              }
