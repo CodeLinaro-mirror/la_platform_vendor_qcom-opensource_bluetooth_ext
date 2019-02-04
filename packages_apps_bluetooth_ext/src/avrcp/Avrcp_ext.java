@@ -1956,7 +1956,7 @@ public final class Avrcp_ext {
                         builder.setState(PlaybackState.STATE_PLAYING,
                                 PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f);
                         newState = builder.build();
-                    } else if (!mAudioManagerIsPlaying && !mAudioManager.isMusicActive()){
+                    } else if (!mAudioManagerIsPlaying) {
                         builder.setState(PlaybackState.STATE_PAUSED,
                                 PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0.0f);
                         newState = builder.build();
@@ -5069,14 +5069,18 @@ public final class Avrcp_ext {
                 AvrcpConstants.NOTIFICATION_TYPE_INTERIM) && (action == KeyEvent.ACTION_UP)) {
             int currentPlayState =
                     convertPlayStateToPlayStatus(deviceFeatures[deviceIndex].mCurrentPlayState);
-            deviceFeatures[deviceIndex].mPlayStatusChangedNT =
-                    AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
-            if (deviceFeatures[deviceIndex].mCurrentDevice != null)
+            Log.d(TAG, " currentPlayState: " + currentPlayState + " mLastRspPlayStatus: " +
+                          deviceFeatures[deviceIndex].mLastRspPlayStatus);
+            if (deviceFeatures[deviceIndex].mCurrentDevice != null &&
+                    deviceFeatures[deviceIndex].mLastRspPlayStatus != currentPlayState) {
+                deviceFeatures[deviceIndex].mPlayStatusChangedNT =
+                                    AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
                 registerNotificationRspPlayStatusNative(deviceFeatures[deviceIndex].mPlayStatusChangedNT
                        ,currentPlayState,
                         getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
-            deviceFeatures[deviceIndex].mLastRspPlayStatus = currentPlayState;
-            Log.d(TAG, "Sending playback status CHANGED rsp on FF/Rewind key release");
+                deviceFeatures[deviceIndex].mLastRspPlayStatus = currentPlayState;
+                Log.d(TAG, "Sending playback status CHANGED rsp on FF/Rewind key release");
+            }
         }
 
         Log.d(TAG, "cached passthrough: " + deviceFeatures[deviceIndex].mLastPassthroughcmd +
