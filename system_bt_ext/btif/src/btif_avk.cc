@@ -2121,6 +2121,8 @@ static bt_status_t init_sink(btav_sink_callbacks_t* callbacks)
             /* Set default priorty order as APTX (Classic) > AAC > MP3 > SBC */
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
             p_bta_avk_codec_pri_list[i].codec_type = A2D_NON_A2DP_MEDIA_CT;
+            p_bta_avk_codec_pri_list[i].codec_id = A2D_APTX_CODEC_ID_BLUETOOTH;
+            p_bta_avk_codec_pri_list[i].vendor_id = A2D_APTX_VENDOR_ID;
             memcpy(&p_bta_avk_codec_pri_list[i++].codec_cap.aptx_caps,
                 &bta_avk_co_aptx_caps, sizeof(tA2D_APTX_CIE));
             memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_APTX_INDEX]
@@ -2647,6 +2649,8 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
             case A2DP_SINK_AUDIO_CODEC_APTX:
                 /* Update Codec Type for APTX */
                 p_bta_avk_codec_pri_list[i].codec_type = A2D_NON_A2DP_MEDIA_CT;
+                p_bta_avk_codec_pri_list[i].codec_id = A2D_APTX_CODEC_ID_BLUETOOTH;
+                p_bta_avk_codec_pri_list[i].vendor_id = A2D_APTX_VENDOR_ID;
                 /* Copy Mandatory APTX codec parameters */
                 memcpy(&p_bta_avk_codec_pri_list[i].codec_cap.aptx_caps,
                     &bta_avk_co_aptx_caps, sizeof(tA2D_APTX_CIE));
