@@ -3112,11 +3112,13 @@ public final class Avrcp_ext {
         BluetoothDevice mDevice = mA2dpService.getActiveDevice();
         //validating device is connected
         int index = getIndexForDevice(device);
-        if (index != INVALID_DEVICE_INDEX &&
-            mDevice != null && mDevice.equals(deviceFeatures[index].mCurrentDevice)) {
+        if (index != INVALID_DEVICE_INDEX && mDevice != null &&
+            (mDevice.equals(deviceFeatures[index].mCurrentDevice) ||
+            (mDevice.isTwsPlusDevice() && device.isTwsPlusDevice()))) {
             setActiveDevice(mDevice);
             //below line to send setAbsolute volume if device is suporting absolute volume
-            setAbsVolumeFlag(mDevice);
+            if (mDevice.equals(deviceFeatures[index].mCurrentDevice))
+                setAbsVolumeFlag(mDevice);//Do not call this funciton for second EB connect
             //When A2dp playing on DUT and Remote got connected, send proper playstatus
             if (isPlayingState(mCurrentPlayerState) &&
                 mA2dpService.isA2dpPlaying(device)) {
@@ -4805,6 +4807,9 @@ public final class Avrcp_ext {
                 deviceFeatures[1-deviceIndex].mCurrentDevice.isTwsPlusDevice() &&
                 isTwsPlusPair(deviceFeatures[1-deviceIndex].mCurrentDevice, device)) {
                 Log.d(TAG,"TWS+ pair connected, keep both devices active");
+                //Explicitly set it to true for usecase streaming handoff between
+                // speaker and TWS+ earbuds
+                deviceFeatures[1-deviceIndex].isActiveDevice = true;
             } else {
                 deviceFeatures[1-deviceIndex].isActiveDevice = false;
             }
