@@ -1834,7 +1834,7 @@ static bool bta_avk_co_audio_supports_config(uint8_t codec_type, const uint8_t *
         acquire_codec_mutex_lock();
         if (bta_avk_sbc_cfg_in_cap((uint8_t *)p_codec_cfg,
             (tA2D_SBC_CIE *)&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_SBC_INDEX]
-            .codec_cap.aac_caps))
+            .codec_cap.sbc_caps))
         {
             release_codec_mutex_lock();
             return FALSE;
