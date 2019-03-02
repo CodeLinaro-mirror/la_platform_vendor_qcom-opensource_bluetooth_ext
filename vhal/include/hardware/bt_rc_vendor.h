@@ -577,6 +577,21 @@ typedef void (* btrc_ctrl_set_browsed_player_callback )(
     RawAddress *bd_addr, uint8_t num_items, uint8_t depth);
 
 typedef void (* btrc_ctrl_set_addressed_player_callback)(RawAddress *bd_addr, uint8_t status);
+ /*
+  * opcode:
+  * 0x00 for Vendor-dependent commands
+  * 0x7C for Pass Through commands
+  * 0xFF for Browsing commands, it is extended by Google
+  *
+  * id:
+  * Shared by PDU ID (Vendor-dependent commands and Browsing commands)
+  * and Operation ID for pass through commands
+  *
+  * status:
+  * Shared by Response code (Pass Through commands) and Error/Status Code
+  */
+typedef void (* btrc_ctrl_error_status_code_callback)(RawAddress *bd_addr, uint8_t opcode,
+                                                        uint8_t id, uint8_t status);
 
 /** BT-RC Controller callback structure. */
 typedef struct {
@@ -704,6 +719,7 @@ typedef struct {
     btrc_ctrl_available_player_changed_callback available_player_changed_cb;
     btrc_ctrl_now_playing_changed_callback      now_playing_changed_cb;
     btrc_ctrl_add_to_now_playing_rsp_callback   add_to_now_playing_cb;
+    btrc_ctrl_error_status_code_callback         error_status_code_cb;
 } btrc_vendor_ctrl_callbacks_t;
 
 /** Represents the standard BT-RC AVRCP Controller interface. */
