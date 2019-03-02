@@ -111,7 +111,7 @@ public class BluetoothPbapFixes {
 
     private static final int ORDER_BY_ALPHABETICAL = 1;
 
-    static final int MAX_CONNECTED_DEVICES = 2;
+    static final int MAX_CONNECTED_DEVICES = 5;
 
     // Stores map of BD address to isRebonded for the given BT Session
     protected static HashMap<String,String> PbapSdpResponse = new HashMap <String,String>();
@@ -494,5 +494,33 @@ public class BluetoothPbapFixes {
             mNotificationManager.notify(NOTIFICATION_ID, notification);
         else
             Log.e(TAG,"mNotificationManager is null");
+    }
+
+    /* Checks if notification for Version Upgrade is required */
+    protected static void handleNotificationTask(BluetoothPbapService service,
+            BluetoothDevice remoteDevice) {
+        boolean hasPbap12Support = remoteSupportsPbap1_2(remoteDevice);
+        /* check if remote devices is rebonded by looking into its entry in hashmap using key
+         * (0,8) i.e. first 3 bytes of bd addr in string format including colon (XX:XX:XX) */
+        String isRebonded = PbapSdpResponse.get(
+                remoteDevice.getAddress().substring(0,8));
+        /* fetch PCE version of remote (if present) in hashmap 'remoteVersion' from key
+         * (0,8) i.e. first 3 bytes of bd addr in string format including colon (XX:XX:XX) */
+        Integer remotePceVersion = remoteVersion.get(
+                remoteDevice.getAddress().substring(0,8));
+        if (hasPbap12Support && (isRebonded.equals("N"))) {
+            Log.d(TAG, "Remote Supports PBAP 1.2. Notify user");
+            createNotification(service, true);
+        } else if (!hasPbap12Support
+                && (remotePceVersion != null &&
+                    remotePceVersion.intValue() < PBAP_ADV_VERSION)
+                && (isRebonded != null && isRebonded.equals("N"))) {
+            Log.d(TAG, "Remote PBAP profile support downgraded");
+            createNotification(service, false);
+        } else {
+            Log.d(TAG, "Notification Not Required.");
+            if (mNotificationManager != null)
+                mNotificationManager.cancelAll();
+        }
     }
 }

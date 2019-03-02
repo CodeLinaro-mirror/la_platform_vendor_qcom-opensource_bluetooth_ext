@@ -78,6 +78,7 @@
 #include "profile_config.h"
 #include "btif_tws_plus.h"
 #include "btif_api.h"
+#include "device/include/controller.h"
 
 #if TEST_APP_INTERFACE == TRUE
 #include <bt_testapp.h>
@@ -166,6 +167,7 @@ static void btif_vendor_bredr_cleanup_event(uint16_t event, char *p_param)
     }
     btif_queue_release();
     btif_dm_bredr_disable();
+    BTA_DmBredrCleanup();
     HAL_CBACK(bt_vendor_callbacks, bredr_cleanup_cb, true);
 }
 
@@ -179,6 +181,25 @@ static void btif_vendor_send_iot_info_cb(uint16_t event, char *p_param)
             broadcast_cb_data.manufacturer_id, broadcast_cb_data.power_level,
             broadcast_cb_data.rssi, broadcast_cb_data.link_quality,
             broadcast_cb_data.glitch_count);
+}
+
+void btif_vendor_update_add_on_features() {
+    uint8_t add_on_features_len = 0;
+    bt_vendor_property_t vnd_prop;
+    char buf[8];
+    const controller_t* controller = controller_get_interface();
+    if(controller) {
+        const bt_device_features_t* dev_features = controller->get_add_on_features(
+                                    &add_on_features_len);
+        if(dev_features && add_on_features_len > 0) {
+            vnd_prop.type = BT_VENDOR_PROPERTY_SOC_ADD_ON_FEATURES;
+            vnd_prop.val = (void*)buf;
+            vnd_prop.len = add_on_features_len;
+            memcpy(vnd_prop.val, dev_features, add_on_features_len);
+            HAL_CBACK(bt_vendor_callbacks, adapter_vendor_prop_cb,
+                                   BT_STATUS_SUCCESS, 1, &vnd_prop);
+         }
+    }
 }
 
 void btif_broadcast_timer_cb(UNUSED_ATTR void *data) {
@@ -276,12 +297,25 @@ void btif_vendor_iot_device_broadcast_event(RawAddress* bd_addr,
             manufacturer_id, power_level, rssi, link_quality,
             glitch_count);
 }
+static void bredrstartup(void)
+{
+    LOG_INFO(LOG_TAG,"bredrstartup");
+    BTA_DmBredrStartup();
+}
+
 static void bredrcleanup(void)
 {
     LOG_INFO(LOG_TAG,"bredrcleanup");
     btif_transfer_context(btif_vendor_bredr_cleanup_event,BTIF_VENDOR_BREDR_CLEANUP,
                           NULL, 0, NULL);
 }
+
+static void hciclose(void)
+{
+    LOG_INFO(LOG_TAG,"hciclose");
+    btif_hci_close();
+}
+
 
 #if HCI_RAW_CMD_INCLUDED == TRUE
 // Callback invoked on receiving HCI event
@@ -422,11 +456,13 @@ static const btvendor_interface_t btvendorInterface = {
     NULL,
 #endif
     bredrcleanup,
+    bredrstartup,
     set_wifi_state,
     get_profile_info,
     set_property_callouts,
     cleanup,
     voip_network_type_wifi,
+    hciclose,
 };
 
 /*******************************************************************************

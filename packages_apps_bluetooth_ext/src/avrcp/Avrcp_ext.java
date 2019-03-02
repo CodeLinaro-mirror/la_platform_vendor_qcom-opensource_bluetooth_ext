@@ -179,6 +179,7 @@ public final class Avrcp_ext {
          "9C:DF:03", //9C:DF:03:D3:C0:17, Name: Benz S600L
          "00:0A:08",  //00:0A:08:51:1E:E7, Name: BMW530
          "00:04:79", //00-04-79-00-06-bc, Name: radius HP-BTL01
+         "28:A1:83", //28-A1-83-94-90-AE, Name: VW Radio
      };
     private static final String playerStateUpdateBlackListedNames[] = {
        "Audi",
@@ -803,6 +804,17 @@ public final class Avrcp_ext {
                     if(vol != deviceFeatures[deviceIndex].mRemoteVolume &&
                        deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice)
                        setVolumeNative(vol , getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
+                       if (deviceFeatures[deviceIndex].mCurrentDevice.isTwsPlusDevice()) {
+                           AdapterService adapterService = AdapterService.getAdapterService();
+                           BluetoothDevice peer_device =
+                            adapterService.getTwsPlusPeerDevice(deviceFeatures[deviceIndex].mCurrentDevice);
+                           if (peer_device != null &&
+                               getIndexForDevice(peer_device) != INVALID_DEVICE_INDEX) {
+                               // Change volume to peer earbud as well
+                               Log.d(TAG,"setting volume to TWS+ peer also");
+                               setVolumeNative(vol, getByteAddress(peer_device));
+                           }
+                       }
                 }
                 //mLastLocalVolume = -1;
                 break;
@@ -3092,14 +3104,20 @@ public final class Avrcp_ext {
         BluetoothDevice mDevice = mA2dpService.getActiveDevice();
         //validating device is connected
         int index = getIndexForDevice(device);
-        if(index != INVALID_DEVICE_INDEX) {
-                if (mDevice != null &&
-                    (mDevice.equals(deviceFeatures[index].mCurrentDevice) ||
-                    (mDevice.isTwsPlusDevice() && device.isTwsPlusDevice()))) {
-                    setActiveDevice(mDevice);
-                    //below line to send setAbsolute volume if device is suporting absolute volume
-                    setAbsVolumeFlag(mDevice);
-                }
+        if (index != INVALID_DEVICE_INDEX && mDevice != null &&
+            (mDevice.equals(deviceFeatures[index].mCurrentDevice) ||
+             (mDevice.isTwsPlusDevice() && device.isTwsPlusDevice()))) {
+            setActiveDevice(mDevice);
+            //below line to send setAbsolute volume if device is suporting absolute volume
+            if (mDevice.equals(deviceFeatures[index].mCurrentDevice))
+                setAbsVolumeFlag(mDevice);//Do not call this funciton for second EB connect
+            //When A2dp playing on DUT and Remote got connected, send proper playstatus
+            if (isPlayingState(mCurrentPlayerState) &&
+                mA2dpService.isA2dpPlaying(device)) {
+                deviceFeatures[index].mCurrentPlayState = mCurrentPlayerState;
+                Log.i(TAG,"Send correct playstatus to remote when it gets connected: " +
+                                                      deviceFeatures[index].mCurrentPlayState);
+            }
         }
         Log.i(TAG,"Exit setAvrcpConnectedDevice");
     }
@@ -4653,7 +4671,7 @@ public final class Avrcp_ext {
                     deviceFeatures[i].isActiveDevice) {
                     addr = getByteAddress(deviceFeatures[i].mCurrentDevice);
                     index = i;
-                    break; 
+                    break;
                 }
             }
 
@@ -4684,7 +4702,7 @@ public final class Avrcp_ext {
                 if (deviceFeatures[i].isActiveDevice) {
                     addr = getByteAddress(deviceFeatures[i].mCurrentDevice);
                     deviceFeatures[i].mNowPlayingListChangedNT = type;
-                    break; 
+                    break;
                 }
             }
             if (addr == null) {
@@ -5055,7 +5073,7 @@ public final class Avrcp_ext {
 
         KeyEvent event = new KeyEvent(action, code);
 
-        if (!KeyEvent.isMediaKey(code)) {
+        if (!KeyEvent.isMediaSessionKey(code)) {
             Log.w(TAG, "Passthrough non-media key " + op + " (code " + code + ") state " + state);
         } else {
             if (code == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD) {
@@ -5095,14 +5113,18 @@ public final class Avrcp_ext {
                 AvrcpConstants.NOTIFICATION_TYPE_INTERIM) && (action == KeyEvent.ACTION_UP)) {
             int currentPlayState =
                     convertPlayStateToPlayStatus(deviceFeatures[deviceIndex].mCurrentPlayState);
-            deviceFeatures[deviceIndex].mPlayStatusChangedNT =
-                    AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
-            if (deviceFeatures[deviceIndex].mCurrentDevice != null)
+            Log.d(TAG, " currentPlayState: " + currentPlayState + " mLastRspPlayStatus: " +
+                          deviceFeatures[deviceIndex].mLastRspPlayStatus);
+            if (deviceFeatures[deviceIndex].mCurrentDevice != null &&
+                    deviceFeatures[deviceIndex].mLastRspPlayStatus != currentPlayState) {
+                deviceFeatures[deviceIndex].mPlayStatusChangedNT =
+                                    AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
                 registerNotificationRspPlayStatusNative(deviceFeatures[deviceIndex].mPlayStatusChangedNT
                        ,currentPlayState,
                         getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
-            deviceFeatures[deviceIndex].mLastRspPlayStatus = currentPlayState;
-            Log.d(TAG, "Sending playback status CHANGED rsp on FF/Rewind key release");
+                deviceFeatures[deviceIndex].mLastRspPlayStatus = currentPlayState;
+                Log.d(TAG, "Sending playback status CHANGED rsp on FF/Rewind key release");
+            }
         }
 
         Log.d(TAG, "cached passthrough: " + deviceFeatures[deviceIndex].mLastPassthroughcmd +

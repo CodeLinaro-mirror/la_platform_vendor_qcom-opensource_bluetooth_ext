@@ -83,9 +83,17 @@ final class Vendor {
         bredrcleanupNative();
     }
 
+    public void bredrStartup() {
+        bredrstartupNative();
+    }
+
     public void setWifiState(boolean status) {
         Log.d(TAG,"setWifiState to: " + status);
         setWifiStateNative(status);
+    }
+
+    public void HCIClose() {
+        hcicloseNative();
     }
 
     public boolean getProfileInfo(int profile_id , int profile_info) {
@@ -180,7 +188,36 @@ final class Vendor {
             }
         }
     }
+
+    void adapterPropertyChangedCallback(int[] types, byte[][] values) {
+        byte[] val;
+        int type;
+        short twsPlusType;
+        boolean autoConnect;
+        byte[] mPeerAddress;
+        if (types.length <= 0) {
+            Log.e(TAG, "No properties to update");
+            return;
+        }
+
+        for (int j = 0; j < types.length; j++) {
+            type = types[j];
+            val = values[j];
+            if (val.length > 0) {
+                Log.d(TAG, "Property type: " + type);
+                switch (type) {
+                    case AbstractionLayer.BT_VENDOR_PROPERTY_HOST_ADD_ON_FEATURES:
+                        mService.updateHostFeatureSupport(val);
+                        break;
+                    case AbstractionLayer.BT_VENDOR_PROPERTY_SOC_ADD_ON_FEATURES:
+                        mService.updateSocFeatureSupport(val);
+                        break;
+                }
+            }
+        }
+    }
     private native void bredrcleanupNative();
+    private native void bredrstartupNative();
     private native void initNative();
     private native static void classInitNative();
     private native void cleanupNative();
@@ -188,4 +225,5 @@ final class Vendor {
     private native boolean getProfileInfoNative(int profile_id , int profile_info);
     private native boolean getQtiStackStatusNative();
     private native boolean voipNetworkWifiInfoNative(boolean isVoipStarted, boolean isNetworkWifi);
+    private native void hcicloseNative();
 }
