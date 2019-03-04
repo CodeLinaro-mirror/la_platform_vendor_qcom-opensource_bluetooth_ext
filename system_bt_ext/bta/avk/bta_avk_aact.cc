@@ -523,6 +523,11 @@ static void bta_avk_proc_stream_evt(uint8_t handle, const RawAddress* bd_addr, u
             sec_len = (p_data->security_cfm.len < BTA_AVK_SECURITY_MAX_LEN) ?
                        p_data->security_cfm.len : BTA_AVK_SECURITY_MAX_LEN;
         }
+        else if (event == AVDT_DELAY_REPORT_CFM_EVT)
+        {
+            APPL_TRACE_DEBUG("%s: AVDT_DELAY_REPORT_CFM_EVT", __func__);
+            return;
+        }
     }
 
     if (p_scb && (p_msg = (tBTA_AVK_STR_MSG *) osi_malloc((uint16_t) (sizeof(tBTA_AVK_STR_MSG) + sec_len))) != NULL)
@@ -591,10 +596,6 @@ static void bta_avk_proc_stream_evt(uint8_t handle, const RawAddress* bd_addr, u
                 p_msg->msg.security_ind.p_data = (uint8_t *) (p_msg + 1);
                 memcpy(p_msg->msg.security_ind.p_data, p_data->security_ind.p_data, sec_len);
                 break;
-
-            case AVDT_DELAY_REPORT_CFM_EVT:
-                APPL_TRACE_DEBUG("%s: AVDT_DELAY_REPORT_CFM_EVT", __func__);
-                return;
 
             case AVDT_SECURITY_CFM_EVT:
                 p_msg->msg.security_cfm.p_data = (uint8_t *) (p_msg + 1);
