@@ -1281,6 +1281,7 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
                    // send a message to send VSC command
                    btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_STOP, &index,
                                        sizeof(uint8_t));
+                   break;
                 case BTIF_AVK_VSC_STOP:
                    // VSC Stop was already sent.send suspend cfm and move to OPENED
                    BTA_AvkSendPedingSuspendCnf(btif_avk_cb[index].bta_handle);
