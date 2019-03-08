@@ -1612,6 +1612,11 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
         case BTIF_AVK_START_STREAM_REQ_EVT:
             break;
 
+        case BTA_AVK_START_EVT:
+            BTIF_TRACE_EVENT("%s Already in started state, send CNF",__FUNCTION__);
+            BTA_AvkSendPedingStartCnf(btif_avk_cb[index].bta_handle);
+            break;
+
         case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
             BTIF_TRACE_EVENT("%s vsc status  %d",__FUNCTION__,
                         btif_avk_cb[index].vsc_command_status);
