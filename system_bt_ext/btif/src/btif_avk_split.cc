@@ -1133,9 +1133,18 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
             break;
 
         case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
-            BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
+            BTIF_TRACE_DEBUG(" VSC command Status %d flag %d ",
+                       btif_avk_cb[index].vsc_command_status,
+                      (btif_avk_cb[index].flags & BTIF_AVK_FLAG_PENDING_START));
             // in this state, we are not ready.
-            btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
+            if(btif_avk_cb[index].flags & BTIF_AVK_FLAG_PENDING_START)
+            {
+                btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY, A2DP_CTRL_ACK_SUCCESS);
+            }
+            else
+            {
+                btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY, A2DP_CTRL_ACK_FAILURE);
+            }
             break;
 
         case BTIF_AVK_DISCONNECT_REQ_EVT:
