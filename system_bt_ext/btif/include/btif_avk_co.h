@@ -68,9 +68,17 @@ void bta_avk_co_init(void);
  *******************************************************************************/
 uint8_t bta_avk_get_current_codec();
 
+uint8_t bta_avk_get_current_vendor_codec();
+
 
 bool bta_avk_co_audio_get_aac_config(tA2D_AAC_CIE *p_aac_config);
 
 bool bta_avk_co_audio_get_sbc_config(tA2D_SBC_CIE *p_sbc_config);
 
+#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
+bool bta_avk_co_audio_get_aptx_config(tA2D_APTX_CIE *p_aptx_config);
+#endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+bool bta_avk_co_audio_get_aptx_ad_config(tA2DP_AVK_APTX_AD_CIE *p_aptx_ad_config);
+#endif
 #endif

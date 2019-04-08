@@ -43,6 +43,10 @@ extern const tA2D_MP3_CIE bta_avk_co_mp3_caps;
 #include "a2d_aptx.h"
 extern const tA2D_APTX_CIE bta_avk_co_aptx_caps;
 #endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+#include "a2d_aptx_ad_decoder.h"
+extern const tA2DP_AVK_APTX_AD_CIE bta_avk_co_aptx_ad_caps;
+#endif
 
 /*****************************************************************************
 **  Constants and data types
@@ -76,6 +80,9 @@ enum
 #if defined(MP3_DECODER_INCLUDED) && (MP3_DECODER_INCLUDED == TRUE)
     BTIF_SV_AVK_AA_MP3_INDEX,
 #endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+    BTIF_SV_AVK_AA_APTX_AD_INDEX,
+#endif
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
     BTIF_SV_AVK_AA_APTX_INDEX,
 #endif
@@ -85,11 +92,15 @@ enum
 typedef struct
 {
     uint8_t codec_type;                   /* peer SEP codec type */
+    /* codec and vendor id used to differntiate between Vendor Specific Codecs */
+    uint16_t codec_id;
+    uint8_t vendor_id;
     union {
         tA2D_SBC_CIE sbc_caps;
         tA2D_AAC_CIE aac_caps;
         tA2D_MP3_CIE mp3_caps;
         tA2D_APTX_CIE aptx_caps;
+        tA2DP_AVK_APTX_AD_CIE aptx_ad_caps;
     } codec_cap;
 } tBTA_AVK_CO_CODEC_CAP_LIST;
 
@@ -240,5 +251,10 @@ extern void * bta_avk_co_audio_sink_data_path(tBTA_AVK_CODEC codec_type,
 **
 *******************************************************************************/
 extern void bta_avk_co_audio_delay(tBTA_AVK_HNDL hndl, uint16_t delay);
+
+uint16_t get_codec_id (uint8_t * p_codec_info);
+uint32_t get_vendor_id (uint8_t * p_codec_info);
+uint8_t get_vendor_specific_codec(uint8_t * p_codec_info);
+uint8_t get_codec_type (uint8_t * p_codec_info);
 
 #endif /* BTA_AVK_CO_H */

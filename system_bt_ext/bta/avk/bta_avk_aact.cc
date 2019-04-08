@@ -97,6 +97,7 @@ typedef union {
     tA2D_AAC_CIE aac_caps;
     tA2D_MP3_CIE mp3_caps;
     tA2D_APTX_CIE aptx_caps;
+    tA2DP_AVK_APTX_AD_CIE aptx_ad_caps;
 } codec_cap_info;
 
 /* state machine states */
@@ -249,7 +250,9 @@ uint32_t get_sbc_channel_count(uint8_t channeltype);
 uint32_t get_sbc_block_len(uint8_t blocktype);
 uint32_t get_sbc_subband(uint8_t subband_type);
 uint32_t calculate_aptx_bitrate(tA2D_APTX_CIE *p_ie);
+uint32_t calculate_aptx_ad_bitrate(tA2DP_AVK_APTX_AD_CIE *p_ie);
 uint32_t get_aptx_sampling_frequency(uint8_t samp_freq);
+uint32_t get_aptx_ad_sampling_frequency(uint8_t samp_freq);
 extern bool is_split_enabled();
 
 void bta_avk_stream_data_cback(uint8_t handle, BT_HDR *p_pkt, uint32_t time_stamp, uint8_t m_pt);
@@ -520,6 +523,11 @@ static void bta_avk_proc_stream_evt(uint8_t handle, const RawAddress* bd_addr, u
             sec_len = (p_data->security_cfm.len < BTA_AVK_SECURITY_MAX_LEN) ?
                        p_data->security_cfm.len : BTA_AVK_SECURITY_MAX_LEN;
         }
+        else if (event == AVDT_DELAY_REPORT_CFM_EVT)
+        {
+            APPL_TRACE_DEBUG("%s: AVDT_DELAY_REPORT_CFM_EVT", __func__);
+            return;
+        }
     }
 
     if (p_scb && (p_msg = (tBTA_AVK_STR_MSG *) osi_malloc((uint16_t) (sizeof(tBTA_AVK_STR_MSG) + sec_len))) != NULL)
@@ -588,10 +596,6 @@ static void bta_avk_proc_stream_evt(uint8_t handle, const RawAddress* bd_addr, u
                 p_msg->msg.security_ind.p_data = (uint8_t *) (p_msg + 1);
                 memcpy(p_msg->msg.security_ind.p_data, p_data->security_ind.p_data, sec_len);
                 break;
-
-            case AVDT_DELAY_REPORT_CFM_EVT:
-                APPL_TRACE_DEBUG("%s: AVDT_DELAY_REPORT_CFM_EVT", __func__);
-                return;
 
             case AVDT_SECURITY_CFM_EVT:
                 p_msg->msg.security_cfm.p_data = (uint8_t *) (p_msg + 1);
@@ -2397,13 +2401,27 @@ void bta_avk_offload_start_req(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
         offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC;
         break;
 #endif
-#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
     case A2D_NON_A2DP_MEDIA_CT:
+#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
+    if ((((tA2D_APTX_CIE*)(p_scb->cfg.codec_info + 3))->vendorId == A2D_APTX_VENDOR_ID) &&
+         (((tA2D_APTX_CIE*)(p_scb->cfg.codec_info + 3))->codecId == A2D_APTX_CODEC_ID_BLUETOOTH)) {
         A2D_ParsAptxInfo((tA2D_APTX_CIE *)&codec_cap_data.aptx_caps,(uint8_t *)p_scb->cfg.codec_info,FALSE);
+        offload_sink_start.codec_id = 8;
         offload_sink_start.peak_bit_rate = calculate_aptx_bitrate((tA2D_APTX_CIE *)&codec_cap_data.aptx_caps);
         offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC;
-        break;
+    }
 #endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+    if ((((tA2DP_AVK_APTX_AD_CIE*)(p_scb->cfg.codec_info + 3))->vendorId == A2DP_AVK_APTX_AD_VENDOR_ID) &&
+         (((tA2DP_AVK_APTX_AD_CIE*)(p_scb->cfg.codec_info + 3))->codecId == A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH)) {
+        A2DP_ParseInfoAptxAdaptiveDecoder((tA2DP_AVK_APTX_AD_CIE *)&codec_cap_data.aptx_ad_caps,
+                                                    (uint8_t *)p_scb->cfg.codec_info,FALSE);
+        offload_sink_start.codec_id = 10;
+        offload_sink_start.peak_bit_rate = calculate_aptx_ad_bitrate((tA2DP_AVK_APTX_AD_CIE *)&codec_cap_data.aptx_ad_caps);
+        offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC;
+    }
+#endif
+        break;
     default:
         APPL_TRACE_ERROR("Unsupported Codec_type");
         return;
@@ -3667,7 +3685,7 @@ uint32_t get_sbc_subband(uint8_t subband_type)
     APPL_TRACE_DEBUG("get_sbc_subband subbands: %d", subbands);
     return subbands;
 }
-
+#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
 uint32_t calculate_aptx_bitrate(tA2D_APTX_CIE *p_ie)
 {
     uint32_t peak_bit_rate , sampling_frequency;
@@ -3695,4 +3713,31 @@ uint32_t get_aptx_sampling_frequency(uint8_t samp_freq)
     APPL_TRACE_DEBUG("get_aptx_sampling_frequency: %d", sampling_frequency);
     return sampling_frequency;
 }
+#endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+uint32_t calculate_aptx_ad_bitrate(tA2DP_AVK_APTX_AD_CIE *p_ie)
+{
+    uint32_t peak_bit_rate;
+    peak_bit_rate = get_aptx_ad_sampling_frequency(p_ie->sampleRate) * 2 * 16;
+    peak_bit_rate = peak_bit_rate / 4;
+    APPL_TRACE_DEBUG("%s channels: %d",__func__,p_ie->channelMode);
+    APPL_TRACE_DEBUG("%s bitrate: %d",__func__,peak_bit_rate);
+    return peak_bit_rate;
+}
+
+uint32_t get_aptx_ad_sampling_frequency(uint8_t samp_freq)
+{
+    uint32_t sampling_frequency = 48000;
+    switch (samp_freq) {
+        case A2DP_AVK_APTX_AD_SAMPLERATE_44100:
+            sampling_frequency = 44100;
+            break;
+        case A2DP_AVK_APTX_AD_SAMPLERATE_48000:
+            sampling_frequency = 48000;
+            break;
+    }
+    APPL_TRACE_DEBUG("%s sampling_freq : %d",__func__, sampling_frequency);
+    return sampling_frequency;
+}
+#endif
 #endif /* BTA_AV_INCLUDED */

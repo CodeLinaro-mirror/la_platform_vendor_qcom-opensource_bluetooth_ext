@@ -153,7 +153,7 @@ static const uint8_t bta_avk_st_open[][BTA_AVK_NUM_COLS] =
 /* API_RC_CLOSE_EVT */      {BTA_AVK_RC_CLOSE,       BTA_AVK_OPEN_ST },
 /* AVRC_OPEN_EVT */         {BTA_AVK_RC_OPENED,      BTA_AVK_OPEN_ST },
 /* AVRC_BROWSE_OPEN_EVT*/   {BTA_AVK_RC_BR_OPENED,   BTA_AVK_OPEN_ST },
-/* AVRC_BROWSE_CLOSE_EVT*/   {BTA_AVK_RC_BR_CLOSE,   BTA_AVK_INIT_ST },
+/* AVRC_BROWSE_CLOSE_EVT*/   {BTA_AVK_RC_BR_CLOSE,   BTA_AVK_OPEN_ST },
 /* AVRC_MSG_EVT */          {BTA_AVK_RC_MSG,         BTA_AVK_OPEN_ST },
 /* AVRC_NONE_EVT */         {BTA_AVK_IGNORE,         BTA_AVK_INIT_ST },
 };
@@ -727,7 +727,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
 #endif
             if(bta_avk_cb.features & BTA_AVK_FEAT_DELAY_RPT)
             {
-                APPL_TRACE_DEBUG(" %s ~~ AVDTP v1.3 : cs.cfg.psc_mask |= AVDT_PSC_DELAY_RPT ",__func__);
+                APPL_TRACE_DEBUG(" %s Enabling delay report ",__func__);
                 cs.cfg.psc_mask |= AVDT_PSC_DELAY_RPT;
                 a2dp_set_avdt_sdp_ver(AVDT_VERSION_SYNC);
                 a2dp_set_a2dp_sdp_ver(A2DP_VERSION_SYNC);
@@ -752,24 +752,33 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
             /* keep the configuration in the stream control block */
             memcpy(&p_scb->cfg, &cs.cfg, sizeof(tAVDT_CFG));
             index = startIndex;
-            while (index < endIndex &&
-                   (p_scb->p_cos->init)(&codec_type, cs.cfg.codec_info,
-                    &cs.cfg.num_protect, cs.cfg.protect_info, index) == TRUE)
+            while (index < endIndex)
             {
+                if (!is_split_enabled()) {
+                    /* APTX-Adaptive Decoder is enabled only in Split Mode */
+                    if(index ==  BTIF_SV_AVK_AA_APTX_AD_INDEX) {
+                        index ++;
+                        continue;
+                    }
+                }
+                // Initialize codec.
+                p_scb->p_cos->init(&codec_type, cs.cfg.codec_info,
+                    &cs.cfg.num_protect, cs.cfg.protect_info, index);
 
                 if(AVDT_CreateStream(&p_scb->seps[index - startIndex].av_handle, &cs) ==
                                                                             AVDT_SUCCESS)
                 {
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
-                   if (index == BTIF_SV_AVK_AA_APTX_INDEX)
+                    /* Aptx-CL and APTX-AD has same offset for codecId and VendorId */
+                   if ((index == BTIF_SV_AVK_AA_APTX_INDEX) ||
+                        (index == BTIF_SV_AVK_AA_APTX_AD_INDEX))
                    {
-                       uint8_t* ptr = cs.cfg.codec_info;
-                       tA2D_APTX_CIE* codecInfo = (tA2D_APTX_CIE*) &ptr[3];
-                       uint8_t vendorId = codecInfo->vendorId;
-                       uint8_t codecId = codecInfo->codecId;
-
-                       p_scb->seps[index - startIndex].vendorId = vendorId;
-                       p_scb->seps[index - startIndex].codecId = codecId;
+                       /*p_scb->seps[index - startIndex].vendorId = 
+                                ((tA2D_APTX_CIE*)(cs.cfg.codec_info + 3))->vendorId;
+                       p_scb->seps[index - startIndex].codecId = 
+                                ((tA2D_APTX_CIE*)(cs.cfg.codec_info + 3))->codecId;*/
+                       p_scb->seps[index - startIndex].codecId = get_codec_id(cs.cfg.codec_info);
+                       p_scb->seps[index - startIndex].vendorId = get_vendor_id(cs.cfg.codec_info);
                        APPL_TRACE_DEBUG("%s audio[%x] vendorId: %x codecId: %x", __func__,
                             index, p_scb->seps[index - startIndex].vendorId,
                             p_scb->seps[index - startIndex].codecId);
@@ -777,12 +786,11 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
 #endif
                     p_scb->seps[index - startIndex].codec_type = codec_type;
                     p_scb->seps[index - startIndex].tsep = cs.tsep;
-                    if(cs.tsep == AVDT_TSEP_SNK)
-                        p_scb->seps[index - startIndex].p_app_data_cback = p_data->api_reg.p_app_data_cback;
-                    else
-                        p_scb->seps[index - startIndex].p_app_data_cback = NULL; /* In case of A2DP SOURCE we don't need a callback to handle media packets */
+                    p_scb->seps[index - startIndex].p_app_data_cback = p_data->api_reg.p_app_data_cback;
+
                     index++;
-                } else
+                } 
+                else
                     break;
             }
 

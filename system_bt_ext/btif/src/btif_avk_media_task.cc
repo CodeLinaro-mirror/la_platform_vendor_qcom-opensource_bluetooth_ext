@@ -1107,6 +1107,11 @@ static void btif_avk_media_thread_cleanup(UNUSED_ATTR void *context) {
   /* this calls blocks until uipc is fully closed */
   UIPC_AVK_Close(UIPC_CH_ID_ALL);
 
+  if(btif_avk_media_cb.a2dp_sink_pcm_buf != NULL) {
+      osi_free(btif_avk_media_cb.a2dp_sink_pcm_buf);
+      btif_avk_media_cb.a2dp_sink_pcm_buf = NULL;
+  }
+
   /* Clear media task flag */
   avk_media_task_running = AVK_MEDIA_TASK_STATE_OFF;
   APPL_TRACE_IMP(" btif_avk_media_thread_cleanup complete");

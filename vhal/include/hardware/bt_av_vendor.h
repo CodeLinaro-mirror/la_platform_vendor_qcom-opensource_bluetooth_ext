@@ -45,12 +45,13 @@ __BEGIN_DECLS
 #define A2DP_SRC_ENABLE_DELAY_REPORTING     0x01
 #define A2DP_SRC_PUMP_ENCODED_DATA          0x02
 
-#define A2DP_SINK_AUDIO_CODEC_SBC       0x00
-#define A2DP_SINK_AUDIO_CODEC_MP3       0x01
-#define A2DP_SINK_AUDIO_CODEC_AAC       0x02
-#define A2DP_SINK_AUDIO_CODEC_ATRAC     0x04
-#define A2DP_SINK_AUDIO_CODEC_APTX      0x08
-#define A2DP_SINK_AUDIO_CODEC_PCM       0x40
+#define A2DP_SINK_AUDIO_CODEC_SBC          0x00
+#define A2DP_SINK_AUDIO_CODEC_MP3          0x01
+#define A2DP_SINK_AUDIO_CODEC_AAC          0x02
+#define A2DP_SINK_AUDIO_CODEC_ATRAC        0x04
+#define A2DP_SINK_AUDIO_CODEC_APTX         0x08
+#define A2DP_SINK_AUDIO_CODEC_APTX_AD      0x10
+#define A2DP_SINK_AUDIO_CODEC_PCM          0x40
 
 /* SBC Codec Macros */
 #define SBC_SAMP_FREQ_16     0x80    /* 16 Khz */
@@ -130,6 +131,9 @@ __BEGIN_DECLS
 #define APTX_CHANNELS_STEREO        0x02
 #define APTX_CHANNELS_MONO          0x01
 
+#define APTX_AD_SAMPLERATE_44100    0x08
+#define APTX_AD_SAMPLERATE_48000    0x10
+
 #define MAX_NUM_CODEC_CONFIGS       20
 
 /* Packet type Macros */
@@ -171,12 +175,20 @@ typedef struct {
     uint8_t  sampling_freq;
 }btav_aptx_codec_config_t;
 
+typedef struct {
+    uint32_t vendor_id;
+    uint16_t codec_id;
+    uint8_t  channel_count;
+    uint8_t  sampling_freq;
+}btav_aptx_ad_codec_config_t;
+
 typedef union
 {
     btav_sbc_codec_config_t sbc_config;
     btav_aac_codec_config_t aac_config;
     btav_mp3_codec_config_t mp3_config;
     btav_aptx_codec_config_t aptx_config;
+    btav_aptx_ad_codec_config_t aptx_ad_config;
 } btav_codec_config_t;
 
 typedef struct

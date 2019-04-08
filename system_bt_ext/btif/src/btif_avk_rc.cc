@@ -642,6 +642,9 @@ static void btif_avk_rc_handle_rc_disconnect (tBTA_AVK_RC_CLOSE *p_rc_close)
     rc_addr = btif_avk_rc_cb[index].rc_addr;
     features = btif_avk_rc_cb[index].rc_features;
 #endif
+    if (btif_avk_rc_cb[index].rc_supported_event_list != NULL) {
+        list_clear(btif_avk_rc_cb[index].rc_supported_event_list);
+    }
     btif_avk_rc_cb[index].rc_handle = BTIF_AVK_RC_HANDLE_NONE;
     btif_avk_rc_cb[index].rc_connected = FALSE;
     btif_avk_rc_cb[index].br_connected = FALSE;
@@ -1713,7 +1716,6 @@ static void btif_avk_rc_ctrl_upstreams_rsp_evt(uint16_t event, tAVRC_RESPONSE *p
             BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES !~", __FUNCTION__);
             btif_avk_rc_supported_event_t *p_event;
 
-            btif_avk_rc_cb[index].rc_supported_event_list = list_new(osi_free);
 
             int xx = 0;
             if (pavrc_resp->get_caps.capability_id == AVRC_CAP_COMPANY_ID)
@@ -2030,6 +2032,7 @@ static bt_status_t init_ctrl_vendor(btrc_ctrl_vendor_callbacks_t* callbacks, int
     for (i = 0; i < btif_max_rc_clients; i++)
     {
        btif_avk_rc_cb[i].rc_vol_label=MAX_LABEL;
+       btif_avk_rc_cb[i].rc_supported_event_list = list_new(osi_free);
     }
     lbl_init();
     return result;
@@ -2277,6 +2280,13 @@ static void cleanup_ctrl(void)
     if (btif_avk_rc_ctrl_callbacks)
     {
         btif_avk_rc_ctrl_callbacks = NULL;
+    }
+    //clear list
+    for(int index = 0;index < btif_max_rc_clients; index++) {
+        if (btif_avk_rc_cb[index].rc_supported_event_list != NULL) {
+            list_clear(btif_avk_rc_cb[index].rc_supported_event_list);
+            osi_free(btif_avk_rc_cb[index].rc_supported_event_list);
+        }
     }
     memset(&btif_avk_rc_cb, 0, sizeof(btif_avk_rc_cb_t));
     lbl_destroy();
@@ -3676,6 +3686,8 @@ static void initialize_transaction(int lbl, int index)
     {
        if (alarm_is_scheduled(btif_avk_rc_cb[index].device.transaction[lbl].txn_timer))
           clear_cmd_timeout(lbl, index);
+       //free alarm before assigning null to it
+       alarm_free(btif_avk_rc_cb[index].device.transaction[lbl].txn_timer);
        btif_avk_rc_cb[index].device.transaction[lbl].txn_timer = NULL;
        btif_avk_rc_cb[index].device.transaction[lbl].lbl = lbl;
        btif_avk_rc_cb[index].device.transaction[lbl].in_use=FALSE;

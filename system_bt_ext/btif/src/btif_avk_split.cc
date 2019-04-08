@@ -102,6 +102,7 @@ typedef enum {
 #define AAC_RENDERING_DELAY                180
 
 #define BTIF_AVK_PENDING_RESPONSE_TIMEOUT     10000 // 10 seconds
+#define APTX_AD_RENDERING_DELAY            150
 /*****************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -1132,9 +1133,18 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
             break;
 
         case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
-            BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
+            BTIF_TRACE_DEBUG(" VSC command Status %d flag %d ",
+                       btif_avk_cb[index].vsc_command_status,
+                      (btif_avk_cb[index].flags & BTIF_AVK_FLAG_PENDING_START));
             // in this state, we are not ready.
-            btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
+            if(btif_avk_cb[index].flags & BTIF_AVK_FLAG_PENDING_START)
+            {
+                btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY, A2DP_CTRL_ACK_SUCCESS);
+            }
+            else
+            {
+                btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY, A2DP_CTRL_ACK_FAILURE);
+            }
             break;
 
         case BTIF_AVK_DISCONNECT_REQ_EVT:
@@ -1258,6 +1268,8 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
              BTIF_TRACE_DEBUG(" %s SUSPEND_CMD_RSP accepted =%d ",__FUNCTION__,
                              p_av->suspend_rsp.accepted);
              if (p_av->suspend_rsp.accepted == CMD_REJECTED) {
+                 if(alarm_is_scheduled(avk_pending_suspend_timer))
+                     alarm_cancel(avk_pending_suspend_timer);
                  BTA_AvkSendPedingSuspendRej(btif_avk_cb[index].bta_handle);
                  // ideally remote has suspended, not sure it will still send packets or not.
                  btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_STARTED);
@@ -1278,6 +1290,7 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
                    // send a message to send VSC command
                    btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SEND_VSC_A2DP_STOP, &index,
                                        sizeof(uint8_t));
+                   break;
                 case BTIF_AVK_VSC_STOP:
                    // VSC Stop was already sent.send suspend cfm and move to OPENED
                    BTA_AvkSendPedingSuspendCnf(btif_avk_cb[index].bta_handle);
@@ -1412,6 +1425,8 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
             BTIF_TRACE_DEBUG(" %s START_CMD_RSP accepted =%d ",__FUNCTION__,
                              p_av->start_rsp.accepted);
              if (p_av->start_rsp.accepted == CMD_REJECTED) {
+                 if(alarm_is_scheduled(avk_pending_start_timer))
+                     alarm_cancel(avk_pending_start_timer);
                  BTA_AvkSendPedingStartRej(btif_avk_cb[index].bta_handle);
                  btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
              }
@@ -1420,6 +1435,8 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
              BTIF_TRACE_DEBUG(" %s SUSPEND_CMD_RSP accepted =%d ",__FUNCTION__,
                              p_av->suspend_rsp.accepted);
              if (p_av->suspend_rsp.accepted == CMD_REJECTED) {
+                 if(alarm_is_scheduled(avk_pending_suspend_timer))
+                     alarm_cancel(avk_pending_suspend_timer);
                  BTA_AvkSendPedingSuspendRej(btif_avk_cb[index].bta_handle);
                  btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
              }
@@ -1602,6 +1619,11 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
             break;
 
         case BTIF_AVK_START_STREAM_REQ_EVT:
+            break;
+
+        case BTA_AVK_START_EVT:
+            BTIF_TRACE_EVENT("%s Already in started state, send CNF",__FUNCTION__);
+            BTA_AvkSendPedingStartCnf(btif_avk_cb[index].bta_handle);
             break;
 
         case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
@@ -2236,6 +2258,9 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
     tA2D_APTX_CIE aptx_cie;
 #endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+    tA2DP_AVK_APTX_AD_CIE aptx_ad_cie;
+#endif
     btif_avk_config_req_t config_req;
     int index = btif_avk_idx_by_bdaddr(&bd_addr);
     if (index >= btif_max_avk_clients)
@@ -2327,30 +2352,63 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
             }
             break;
 #endif
-#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
         case A2D_NON_A2DP_MEDIA_CT:
-            BTIF_TRACE_DEBUG("delay has been inited as :%d", APTX_RENDERING_DELAY);
-            btif_avk_cb[index].delay = APTX_RENDERING_DELAY;
+        /* p_data->avk_config.codec_info  can tell us about APTX-CL or APTX-AD */
+#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
+        if ((get_codec_id(p_data->avk_config.codec_info) == A2D_APTX_CODEC_ID_BLUETOOTH) &&
+           (get_vendor_id(p_data->avk_config.codec_info) == A2D_APTX_VENDOR_ID))
+        {
+                BTIF_TRACE_DEBUG("delay has been inited as :%d", APTX_RENDERING_DELAY);
+                btif_avk_cb[index].delay = APTX_RENDERING_DELAY;
 
-            a2d_status = A2D_ParsAptxInfo(&aptx_cie, (uint8_t *)(p_data->avk_config.codec_info), FALSE);
-            if (a2d_status == A2DP_SUCCESS) {
-                /* Switch to BTIF context */
-                /* setting APTX for Vendor specific codec right now */
-                config_req.codec_type = A2DP_SINK_AUDIO_CODEC_APTX;
-                config_req.sample_rate = btif_avk_a2dp_get_aptx_track_frequency(aptx_cie.sampleRate);
-                config_req.channel_count = btif_avk_a2dp_get_aptx_track_channel_count(aptx_cie.channelMode);
-                config_req.codec_info.aptx_config.vendor_id = aptx_cie.vendorId;
-                config_req.codec_info.aptx_config.codec_id = aptx_cie.codecId;
-                config_req.codec_info.aptx_config.sampling_freq = aptx_cie.sampleRate;
-                config_req.codec_info.aptx_config.channel_count = aptx_cie.channelMode;
-                config_req.peer_bd = p_data->avk_config.bd_addr;
-                btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SINK_CONFIG_REQ_EVT,
-                                     (char*)&config_req, sizeof(config_req), NULL);
-            } else {
-                APPL_TRACE_ERROR("ERROR dump_codec_info A2D_ParsAptxInfo fail:%d", a2d_status);
-            }
-            break;
+                a2d_status = A2D_ParsAptxInfo(&aptx_cie, (uint8_t *)(p_data->avk_config.codec_info), FALSE);
+                if (a2d_status == A2DP_SUCCESS) {
+                    /* Switch to BTIF context */
+                    /* setting APTX for Vendor specific codec right now */
+                    config_req.codec_type = A2DP_SINK_AUDIO_CODEC_APTX;
+                    config_req.sample_rate = btif_avk_a2dp_get_aptx_track_frequency(aptx_cie.sampleRate);
+                    config_req.channel_count = btif_avk_a2dp_get_aptx_track_channel_count(aptx_cie.channelMode);
+                    config_req.codec_info.aptx_config.vendor_id = aptx_cie.vendorId;
+                    config_req.codec_info.aptx_config.codec_id = aptx_cie.codecId;
+                    config_req.codec_info.aptx_config.sampling_freq = aptx_cie.sampleRate;
+                    config_req.codec_info.aptx_config.channel_count = aptx_cie.channelMode;
+                    config_req.peer_bd = p_data->avk_config.bd_addr;
+                    btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SINK_CONFIG_REQ_EVT,
+                                        (char*)&config_req, sizeof(config_req), NULL);
+                } else {
+                    APPL_TRACE_ERROR("ERROR dump_codec_info A2D_ParsAptxInfo fail:%d", a2d_status);
+                }
+        }
 #endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+        if ((get_codec_id(p_data->avk_config.codec_info) == A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH) &&
+           (get_vendor_id(p_data->avk_config.codec_info) == A2DP_AVK_APTX_AD_VENDOR_ID))
+        {
+                BTIF_TRACE_DEBUG("delay has been inited as :%d", APTX_AD_RENDERING_DELAY);
+                btif_avk_cb[index].delay = APTX_AD_RENDERING_DELAY;
+
+                a2d_status = A2DP_ParseInfoAptxAdaptiveDecoder(&aptx_ad_cie,
+                                (uint8_t *)(p_data->avk_config.codec_info), FALSE);
+                if (a2d_status == A2DP_SUCCESS) {
+                    /* Switch to BTIF context */
+                    /* setting APTX for Vendor specific codec right now */
+                    config_req.codec_type = A2DP_SINK_AUDIO_CODEC_APTX_AD;
+                    config_req.sample_rate = btif_avk_a2dp_get_aptx_ad_track_frequency(aptx_ad_cie.sampleRate);
+                    config_req.channel_count = btif_avk_a2dp_get_aptx_ad_track_channel_count(aptx_ad_cie.channelMode);
+                    config_req.codec_info.aptx_ad_config.vendor_id = aptx_ad_cie.vendorId;
+                    config_req.codec_info.aptx_ad_config.codec_id = aptx_ad_cie.codecId;
+                    config_req.codec_info.aptx_ad_config.sampling_freq = aptx_ad_cie.sampleRate;
+                    config_req.codec_info.aptx_ad_config.channel_count = aptx_ad_cie.channelMode;
+                    config_req.peer_bd = p_data->avk_config.bd_addr;
+                    btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SINK_CONFIG_REQ_EVT,
+                                        (char*)&config_req, sizeof(config_req), NULL);
+                } else {
+                    APPL_TRACE_ERROR("ERROR dump_codec_info A2D_AD_ParsAptxInfo fail:%d", a2d_status);
+                }
+        }
+#endif
+            break;
+
             default:
             BTIF_TRACE_DEBUG("delay has been inited as :%d", DEFAULT_RENDERING_DELAY);
             btif_avk_cb[index].delay = DEFAULT_RENDERING_DELAY;
@@ -2431,9 +2489,20 @@ static bt_status_t init_sink(btav_sink_callbacks_t* callbacks)
         p_bta_avk_codec_pri_list = (tBTA_AVK_CO_CODEC_CAP_LIST*)osi_calloc(bta_avk_num_codec_configs *
             sizeof(tBTA_AVK_CO_CODEC_CAP_LIST));
         if (p_bta_avk_codec_pri_list != NULL) {
-            /* Set default priorty order as APTX (Classic) > AAC > MP3 > SBC */
+            /* Set default priorty order as APTX-AD > APTX-CL > AAC > MP3 > SBC */
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+            p_bta_avk_codec_pri_list[i].codec_type = A2D_NON_A2DP_MEDIA_CT;
+            p_bta_avk_codec_pri_list[i].codec_id = A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH;
+            p_bta_avk_codec_pri_list[i].vendor_id = A2DP_AVK_APTX_AD_VENDOR_ID;
+            memcpy(&p_bta_avk_codec_pri_list[i++].codec_cap.aptx_caps,
+                &bta_avk_co_aptx_ad_caps, sizeof(tA2D_APTX_CIE));
+            memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_APTX_AD_INDEX]
+                .codec_cap.aptx_caps, &bta_avk_co_aptx_ad_caps, sizeof(tA2DP_AVK_APTX_AD_CIE));
+#endif
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
             p_bta_avk_codec_pri_list[i].codec_type = A2D_NON_A2DP_MEDIA_CT;
+            p_bta_avk_codec_pri_list[i].codec_id = A2D_APTX_CODEC_ID_BLUETOOTH;
+            p_bta_avk_codec_pri_list[i].vendor_id = A2D_APTX_VENDOR_ID;
             memcpy(&p_bta_avk_codec_pri_list[i++].codec_cap.aptx_caps,
                 &bta_avk_co_aptx_caps, sizeof(tA2D_APTX_CIE));
             memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_APTX_INDEX]
@@ -2758,6 +2827,19 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
                 }
                 break;
 #endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+            case A2DP_SINK_AUDIO_CODEC_APTX_AD:
+                switch (p_codec_config_list[i].codec_config.aptx_ad_config.sampling_freq) {
+                    case APTX_AD_SAMPLERATE_44100:
+                    case APTX_AD_SAMPLERATE_48000:
+                        break;
+                    default:
+                        BTIF_TRACE_ERROR(" %s Invalid APTX AD freq = %d",
+                            __func__, p_codec_config_list[i].codec_config.aptx_ad_config.sampling_freq);
+                        return BT_STATUS_PARM_INVALID;
+                }
+                break;
+#endif
             default:
                 BTIF_TRACE_ERROR(" %s Invalid codec type = %d",
                     __func__, p_codec_config_list[i].codec_type);
@@ -2782,6 +2864,9 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
     tA2D_APTX_CIE aptx_supported_cap;
 #endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+    tA2DP_AVK_APTX_AD_CIE aptx_ad_supported_cap;
+#endif
     uint8_t codec_info[BTIF_SV_AVK_AA_SEP_INDEX][AVDT_CODEC_SIZE];
 
     /* Copy the codec parameters passed from application layer to create a pointer to
@@ -2805,6 +2890,9 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
 #endif
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
     memcpy(&aptx_supported_cap, &bta_avk_co_aptx_caps, sizeof(tA2D_APTX_CIE));
+#endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+    memcpy(&aptx_ad_supported_cap, &bta_avk_co_aptx_ad_caps, sizeof(tA2DP_AVK_APTX_AD_CIE));
 #endif
     for (i = 0; i < num_codec_configs; i ++) {
         p_bta_avk_codec_pri_list[i].codec_type =
@@ -2859,6 +2947,8 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
             case A2DP_SINK_AUDIO_CODEC_APTX:
                 /* Update Codec Type for APTX */
                 p_bta_avk_codec_pri_list[i].codec_type = A2D_NON_A2DP_MEDIA_CT;
+                p_bta_avk_codec_pri_list[i].codec_id = A2D_APTX_CODEC_ID_BLUETOOTH;
+                p_bta_avk_codec_pri_list[i].vendor_id = A2D_APTX_VENDOR_ID;
                 /* Copy Mandatory APTX codec parameters */
                 memcpy(&p_bta_avk_codec_pri_list[i].codec_cap.aptx_caps,
                     &bta_avk_co_aptx_caps, sizeof(tA2D_APTX_CIE));
@@ -2868,6 +2958,23 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
                 /* Check if supported capability needs to be updated */
                 is_value_to_be_updated(&aptx_supported_cap.sampleRate,
                     &p_codec_config_list[i].codec_config.aptx_config.sampling_freq, 1);
+                break;
+#endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+            case A2DP_SINK_AUDIO_CODEC_APTX_AD:
+                /* Update Codec Type for APTX Adaptive*/
+                p_bta_avk_codec_pri_list[i].codec_type = A2D_NON_A2DP_MEDIA_CT;
+                p_bta_avk_codec_pri_list[i].codec_id = A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH;
+                p_bta_avk_codec_pri_list[i].vendor_id = A2DP_AVK_APTX_AD_VENDOR_ID;
+                /* Copy Mandatory APTX codec parameters */
+                memcpy(&p_bta_avk_codec_pri_list[i].codec_cap.aptx_ad_caps,
+                    &bta_avk_co_aptx_ad_caps, sizeof(tA2DP_AVK_APTX_AD_CIE));
+                /* Update sampling frequency as per Application layer */
+                p_bta_avk_codec_pri_list[i].codec_cap.aptx_ad_caps.sampleRate =
+                p_codec_config_list[i].codec_config.aptx_ad_config.sampling_freq;
+                /* Check if supported capability needs to be updated */
+                is_value_to_be_updated(&aptx_ad_supported_cap.sampleRate,
+                    &p_codec_config_list[i].codec_config.aptx_ad_config.sampling_freq, 1);
                 break;
 #endif
         }
@@ -2887,17 +2994,25 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
     j = 0;
     for (i = 0; i < num_codec_configs; i ++) {
         if (!codec_type_added[p_codec_config_list[i].codec_type]) {
-#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
-            if (p_codec_config_list[i].codec_type ==
-                A2DP_SINK_AUDIO_CODEC_APTX) {
-                codec_type_list[j] = A2D_NON_A2DP_MEDIA_CT;
-                vnd_id_list[j] = A2D_APTX_VENDOR_ID;
-                codec_id_list[j] = A2D_APTX_CODEC_ID_BLUETOOTH;
-            }
-            else
-#endif
+            switch(p_codec_config_list[i].codec_type)
             {
-                codec_type_list[j] = p_codec_config_list[i].codec_type;
+#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
+                case A2DP_SINK_AUDIO_CODEC_APTX:
+                    codec_type_list[j] = A2D_NON_A2DP_MEDIA_CT;
+                    vnd_id_list[j] = A2D_APTX_VENDOR_ID;
+                    codec_id_list[j] = A2D_APTX_CODEC_ID_BLUETOOTH;
+                    break;
+#endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+                case A2DP_SINK_AUDIO_CODEC_APTX_AD:
+                    codec_type_list[j] = A2D_NON_A2DP_MEDIA_CT;
+                    vnd_id_list[j] = A2DP_AVK_APTX_AD_VENDOR_ID;
+                    codec_id_list[j] = A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH;
+                    break;
+#endif
+                default:
+                    codec_type_list[j] = p_codec_config_list[i].codec_type;
+                    break;
             }
             codec_type_added[p_codec_config_list[i].codec_type] = 1;
             j ++;
@@ -2912,7 +3027,19 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
     /* Add mandatory codec for all supported codec in the end of priority list to handle
          * case if the codec parameters sent by upper layers are not capable of creating connection.
          * In that case, use the below parameters to create connection. in order of priority of
-         * APTX > AAC > MP3 > SBC */
+         * APTX-AD > APTX-CL > AAC > MP3 > SBC */
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+    if (codec_type_added[A2DP_SINK_AUDIO_CODEC_APTX_AD]) {
+        p_bta_avk_codec_pri_list[num_codec_configs].codec_type
+            = A2D_NON_A2DP_MEDIA_CT;
+        /* Copy Mandatory APTX-AD codec parameters */
+        memcpy(&p_bta_avk_codec_pri_list[num_codec_configs ++]
+            .codec_cap.aptx_ad_caps, &bta_avk_co_aptx_ad_caps,
+            sizeof(tA2DP_AVK_APTX_AD_CIE));
+        BTIF_TRACE_DEBUG(" %s Added Mandatory APTX-AD codec at index %d",
+            __func__, num_codec_configs - 1);
+    }
+#endif
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
     if (codec_type_added[A2DP_SINK_AUDIO_CODEC_APTX]) {
         p_bta_avk_codec_pri_list[num_codec_configs].codec_type
@@ -2982,6 +3109,13 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
         A2D_BldAptxInfo(AVDT_MEDIA_TYPE_AUDIO, &aptx_supported_cap, codec_info[j ++]);
         memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_APTX_INDEX]
             .codec_cap.aptx_caps, &aptx_supported_cap, sizeof(tA2D_APTX_CIE));
+    }
+#endif
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
+    if (codec_type_added[A2DP_SINK_AUDIO_CODEC_APTX_AD]) {
+        A2D_BldAptxADDecoderInfo(AVDT_MEDIA_TYPE_AUDIO, &aptx_ad_supported_cap, codec_info[j ++]);
+        memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_APTX_AD_INDEX]
+            .codec_cap.aptx_ad_caps, &aptx_ad_supported_cap, sizeof(tA2DP_AVK_APTX_AD_CIE));
     }
 #endif
     bta_avk_num_codec_configs = num_codec_configs;

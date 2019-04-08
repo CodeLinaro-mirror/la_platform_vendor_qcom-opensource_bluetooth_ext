@@ -428,6 +428,7 @@ uint8_t bta_avk_rc_create(tBTA_AVK_CB *p_cb, uint8_t role, uint8_t shdl, uint8_t
     p_rcb->lidx = lidx;
     p_rcb->peer_features = 0;
 //  p_rcb->cover_art_psm = 0;
+    alarm_free(p_rcb->br_conn_timer);
     p_rcb->br_conn_timer = alarm_new("bta_avk.br_conn_timer");
     if(lidx == (BTA_AVK_NUM_LINKS + 1))
     {
