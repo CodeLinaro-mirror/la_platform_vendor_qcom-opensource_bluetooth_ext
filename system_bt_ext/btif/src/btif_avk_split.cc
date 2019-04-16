@@ -1489,7 +1489,8 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
              switch(btif_avk_cb[index].vsc_command_status) {
                  case BTIF_AVK_VSC_STOP:
                  case BTIF_AVK_VSC_START_FAILED:
-                     BTIF_TRACE_ERROR("%s: send start cfm",__func__);
+                 case BTIF_AVK_VSC_STARTED:
+                     BTIF_TRACE_DEBUG("%s: send start cfm",__func__);
                      // in starting stating state, start_capture event not received from audio
                      btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_STARTED);
                      BTA_AvkSendPedingStartCnf(btif_avk_cb[index].bta_handle);
@@ -3213,8 +3214,14 @@ bool btif_avk_split_get_started_device_idx(uint8_t* index) {
 
     for (i = 0; i < btif_max_avk_clients; i++)
     {
+        state = btif_sm_get_state(btif_avk_cb[i].sm_handle);
         if (btif_avk_split_index_matches_state(i, states, num_state_to_check))
         {
+            *index = i;
+            return TRUE;
+        } else if ((state == BTIF_AVK_STATE_OPENED) &&
+                   (btif_avk_cb[i].vsc_command_status == BTIF_AVK_VSC_STARTED)) {
+            BTIF_TRACE_DEBUG(" %s, device is in opened & VSC_started state",__func__);
             *index = i;
             return TRUE;
         }
