@@ -41,6 +41,7 @@ import android.content.res.Resources;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.media.AudioManager;
+import android.media.AudioAttributes;
 import android.media.AudioPlaybackConfiguration;
 import android.media.MediaDescription;
 import android.media.MediaMetadata;
@@ -49,6 +50,7 @@ import android.media.session.MediaSession;
 import android.media.session.MediaSession.QueueItem;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -71,6 +73,7 @@ import com.android.bluetooth.ba.BATService;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
+import com.android.bluetooth.ReflectionUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -171,6 +174,7 @@ public final class Avrcp_ext {
     private byte changePathDirection;
     HashMap<BluetoothDevice, Integer> mVolumeMap = new HashMap();
     public static final String VOLUME_MAP = "bluetooth_volume_map";
+    private boolean isShoActive = false;
 
     private boolean twsShoEnabled = false;
     private static final String playerStateUpdateBlackListedAddr[] = {
@@ -234,6 +238,7 @@ public final class Avrcp_ext {
     private final static int MESSAGE_UPDATE_ABS_VOLUME_STATUS = 31;
     private final static int MESSAGE_UPDATE_ABSOLUTE_VOLUME = 32;
     private static final int MSG_PLAY_STATUS_CMD_TIMEOUT = 33;
+    private final static int MESSAGE_START_SHO = 34;
 
     private static final int STACK_CLEANUP = 0;
     private static final int APP_CLEANUP = 1;
@@ -406,6 +411,11 @@ public final class Avrcp_ext {
     };
     DeviceDependentFeature[] deviceFeatures;
 
+    private static class SHOQueue {
+        static BluetoothDevice device;
+        static boolean PlayReq;
+    }
+
     static {
         classInitNative();
     }
@@ -503,7 +513,13 @@ public final class Avrcp_ext {
         NotificationChannel mChannel = new NotificationChannel(AVRCP_NOTIFICATION_ID,
                 mContext.getString(R.string.avrcp_notification_name), NotificationManager.IMPORTANCE_DEFAULT);
         mChannel.setDescription(mContext.getString(R.string.bluetooth_advanced_feat_description));
+        // setDefaults(int defaults) This method was deprecated in API level 26. use
+        // NotificationChannel.enableVibration(boolean) and
+        // NotificationChannel.enableLights(boolean) and
+        // NotificationChannel.setSound(Uri, AudioAttributes) instead.
         mChannel.enableLights(true);
+        mChannel.enableVibration(false);
+        mChannel.setSound(Uri.EMPTY, Notification.AUDIO_ATTRIBUTES_DEFAULT);
         mChannel.setLightColor(Color.GREEN);
         mNotificationManager.createNotificationChannel(mChannel);
 
@@ -802,7 +818,8 @@ public final class Avrcp_ext {
                     vol = convertToAvrcpVolume(vol);
                     Log.d(TAG,"vol = " + vol + "rem vol = " + deviceFeatures[deviceIndex].mRemoteVolume);
                     if(vol != deviceFeatures[deviceIndex].mRemoteVolume &&
-                       deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice)
+                       deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice &&
+                       deviceFeatures[deviceIndex].mCurrentDevice != null) {
                        setVolumeNative(vol , getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
                        if (deviceFeatures[deviceIndex].mCurrentDevice.isTwsPlusDevice()) {
                            AdapterService adapterService = AdapterService.getAdapterService();
@@ -815,6 +832,7 @@ public final class Avrcp_ext {
                                setVolumeNative(vol, getByteAddress(peer_device));
                            }
                        }
+                    }
                 }
                 //mLastLocalVolume = -1;
                 break;
@@ -892,13 +910,14 @@ public final class Avrcp_ext {
                         BTRC_FEAT_AVRC_UI_UPDATE) != 0)
                 {
                     int NOTIFICATION_ID = android.R.drawable.stat_sys_data_bluetooth;
-                    Notification notification = new Notification.Builder(mContext)
+                    //Notification.Builder (Context context) constructor was deprecated in API level 26.
+                    //use Notification.Builder (Context context,String channelId) instead.
+                    Notification notification = new Notification.Builder(mContext, AVRCP_NOTIFICATION_ID)
                         .setContentTitle(mContext.getString(R.string.bluetooth_rc_feat_title))
                         .setContentText(mContext.getString(R.string.bluetooth_rc_feat_content))
                         .setSubText(mContext.getString(R.string.bluetooth_rc_feat_subtext))
                         .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                         .setChannelId(AVRCP_NOTIFICATION_ID)
-                        .setDefaults(Notification.DEFAULT_ALL)
                         .build();
 
                     if (mNotificationManager != null )
@@ -1353,8 +1372,27 @@ public final class Avrcp_ext {
                 // This is for some remote devices, which send PLAY/PAUSE based on AVRCP State.
                 BATService mBatService = BATService.getBATService();
                 if ((mBatService == null) || !mBatService.isA2dpSuspendFromBA()) {
-                  // if this suspend was triggered by BA, then don't update AVRCP state
+                  // if this suspend was triggered by BA, then don't update AVRCP states
                   updateCurrentMediaState((BluetoothDevice)msg.obj);
+                }
+
+                if (mA2dpState == BluetoothA2dp.STATE_PLAYING) {
+                    boolean shoComplete = false;
+                    synchronized(Avrcp_ext.this) {
+                        if(isShoActive) {
+                            isShoActive = false;
+                            shoComplete = true;
+                            Log.e(TAG, "1: SHO complete");
+                        }
+
+                        if(mHandler.hasMessages(MESSAGE_START_SHO)) {
+                            mHandler.removeMessages(MESSAGE_START_SHO);
+                            triggerSHO(SHOQueue.device, SHOQueue.PlayReq);
+                        }
+                    }
+                    if(shoComplete == true) {
+                        CompleteSHO();
+                    }
                 }
               }
               break;
@@ -1520,6 +1558,36 @@ public final class Avrcp_ext {
                 deviceFeatures[deviceIndex].isPlayStatusTimeOut = true;
                 break;
 
+            case MESSAGE_START_SHO:
+                if (mA2dpService != null)
+                    break;
+
+                synchronized (Avrcp_ext.this) {
+                    if(mHandler.hasMessages(MESSAGE_START_SHO)) {
+                        Log.e(TAG, "Queue already has another SHO pending");
+                        break;
+                    }
+                    isShoActive = true;
+                    Log.d(TAG, "2: SHO started. PlayReq = " + msg.arg1);
+                }
+
+                BluetoothDevice dev = (BluetoothDevice)msg.obj;
+                boolean PlayReq = (msg.arg1 == 1);
+                mA2dpService.startSHO(dev);
+
+                if(!PlayReq) {
+                    synchronized (Avrcp_ext.this) {
+                        isShoActive = false;
+                        Log.d(TAG, "3: SHO complete");
+                        if (mHandler.hasMessages(MESSAGE_START_SHO)) {
+                            mHandler.removeMessages(MESSAGE_START_SHO);
+                            triggerSHO(SHOQueue.device, SHOQueue.PlayReq);
+                        }
+                    }
+                    CompleteSHO();
+                }
+                break;
+
             default:
                 Log.e(TAG, "unknown message! msg.what=" + msg.what);
                 break;
@@ -1652,6 +1720,19 @@ public final class Avrcp_ext {
             }
         }
     }
+
+    private boolean isPlayerPaused() {
+        if (mCurrentPlayerState == null)
+            return false;
+
+        int state = mCurrentPlayerState.getState();
+        Log.d(TAG, "isPlayerPaused: state=" + state);
+
+        return (state == PlaybackState.STATE_PAUSED ||
+            state == PlaybackState.STATE_STOPPED ||
+            state == PlaybackState.STATE_NONE);
+    }
+
 
     private boolean areMultipleDevicesConnected() {
         int connections = 0;
@@ -2244,13 +2325,27 @@ public final class Avrcp_ext {
                 if (param <= 0)
                    param = 1;
 
-                boolean isSplitA2dpEnabled = false;
                 long update_interval = 0L;
-                String offloadSupported = SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
-                if (offloadSupported.isEmpty() || "true".equals(offloadSupported)) {
-                    isSplitA2dpEnabled = true;
-                    Log.v(TAG,"split enabled");
+                // Split A2dp will be enabled by default
+                boolean isSplitA2dpEnabled = true;
+                AdapterService adapterService = AdapterService.getAdapterService();
+                if (adapterService != null) {
+                    //Todo, Once KS TAG is available, need to remove ReflectionUtils
+                    //isSplitA2dpEnabled= adapterService.isSplitA2dpEnabled();
+                    ReflectionUtils rUtils = new ReflectionUtils();
+                    if (rUtils.isMethodAvailable(adapterService,"isSplitA2dpEnabled", null)) {
+                      Object obj = rUtils.invokeMethod(adapterService,"isSplitA2dpEnabled", null);
+                      if (obj != null) {
+                          isSplitA2dpEnabled = (boolean)obj;
+                      } else {
+                          Log.v(TAG,"Obj is null");
+                      }
+                    } else {
+                      Log.v(TAG,"isSplitA2dpEnabled method is not available");
+                    }
+                    Log.v(TAG,"split enabled: " + isSplitA2dpEnabled);
                 }
+
                 if (isSplitA2dpEnabled) {
                     update_interval = SystemProperties.getLong("persist.vendor.btstack.avrcp.pos_time", 3000L);
                 } else {
@@ -2401,7 +2496,7 @@ public final class Avrcp_ext {
                     return -1L;
             }
 
-            if (isPlayingState(deviceFeatures[deviceIndex].mCurrentPlayState)) {
+            if (isPlayingState(deviceFeatures[deviceIndex].mCurrentPlayState) && !isPlayerPaused()) {
                 long sinceUpdate =
                      SystemClock.elapsedRealtime() - deviceFeatures[deviceIndex].mLastStateUpdate;
                 currPosition = sinceUpdate + deviceFeatures[deviceIndex].mCurrentPlayState.getPosition();
@@ -2548,7 +2643,7 @@ public final class Avrcp_ext {
         mHandler.removeMessages(currMsgPlayIntervalTimeout);
         if ((deviceFeatures[i].mCurrentDevice != null) &&
             (deviceFeatures[i].mPlayPosChangedNT == AvrcpConstants.NOTIFICATION_TYPE_INTERIM) &&
-                 (isPlayingState(deviceFeatures[i].mCurrentPlayState))) {
+                 (isPlayingState(deviceFeatures[i].mCurrentPlayState)) && !isPlayerPaused()) {
             Message msg = mHandler.obtainMessage(currMsgPlayIntervalTimeout, 0, 0,
                                                  deviceFeatures[i].mCurrentDevice);
             long delay = deviceFeatures[i].mPlaybackIntervalMs;
@@ -3574,7 +3669,9 @@ public final class Avrcp_ext {
                         mPackageManager.queryIntentServices(intent, PackageManager.MATCH_ALL);
 
                 for (ResolveInfo info : playerList) {
-                    String displayableName = info.loadLabel(mPackageManager).toString();
+                    CharSequence displayName = info.loadLabel(mPackageManager);
+                    String displayableName =
+                            (displayName != null) ? displayName.toString():new String();
                     String serviceName = info.serviceInfo.name;
                     String packageName = info.serviceInfo.packageName;
 
@@ -4645,7 +4742,7 @@ public final class Avrcp_ext {
             if((rspStatus == AvrcpConstants.RSP_NO_ERROR) && ((mA2dpService != null) &&
                     !Objects.equals(mA2dpService.getActiveDevice(), device))) {
                 Log.d(TAG, "Trigger Handoff by playItem");
-                mA2dpService.setActiveDevice(device);
+                startSHO(device, true);
             }
             if (!playItemRspNative(address, rspStatus)) {
                 Log.e(TAG, "playItemRspNative failed!");
@@ -4817,7 +4914,43 @@ public final class Avrcp_ext {
     }
 
     public boolean startSHO(BluetoothDevice device, boolean PlayReq) {
-        return false;
+        synchronized (Avrcp_ext.this) {
+            if(isShoActive) {
+                mHandler.removeMessages (MESSAGE_START_SHO);
+                Message msg = mHandler.obtainMessage(MESSAGE_START_SHO, PlayReq?1:0, 0, device);
+                SHOQueue.device = device;
+                SHOQueue.PlayReq = PlayReq;
+                mHandler.sendMessageDelayed(msg, 3000);
+                Log.d(TAG, "4: SHO Queued");
+                return true;
+            } else {
+                isShoActive = true;
+                Log.d(TAG, "5: SHO started: PlayReq = " + PlayReq);
+            }
+        }
+        boolean ret = mA2dpService.startSHO(device);
+        synchronized (Avrcp_ext.this) {
+            if (!PlayReq) {
+                isShoActive = false;
+                Log.d(TAG, "6: SHO complete");
+
+                if (mHandler.hasMessages(MESSAGE_START_SHO)) {
+                    mHandler.removeMessages(MESSAGE_START_SHO);
+                    triggerSHO(SHOQueue.device, SHOQueue.PlayReq);
+                }
+            }
+        }
+        CompleteSHO();
+        return ret;
+    }
+
+    private void triggerSHO(BluetoothDevice device, boolean PlayReq) {
+        Message msg = mHandler.obtainMessage(MESSAGE_START_SHO, PlayReq?1:0, 0, device);
+        mHandler.sendMessage(msg);
+    }
+
+    public void CompleteSHO() {
+        /*For device setup after SHO*/
     }
 
     public void setActiveDevice(BluetoothDevice device) {
@@ -5018,7 +5151,7 @@ public final class Avrcp_ext {
                 }
                 if (action == KeyEvent.ACTION_DOWN) {
                     Log.d(TAG, "AVRCP Trigger Handoff");
-                    mA2dpService.setActiveDevice(device);
+                    startSHO(device, true);
                 } else {
                     Log.d(TAG, "release for play PT from inactive device");
                 }
