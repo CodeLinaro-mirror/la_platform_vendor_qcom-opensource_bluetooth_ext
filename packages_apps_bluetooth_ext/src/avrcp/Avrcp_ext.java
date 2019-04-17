@@ -800,19 +800,21 @@ public final class Avrcp_ext {
                     vol = convertToAvrcpVolume(vol);
                     Log.d(TAG,"vol = " + vol + "rem vol = " + deviceFeatures[deviceIndex].mRemoteVolume);
                     if(vol != deviceFeatures[deviceIndex].mRemoteVolume &&
-                       deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice)
+                       deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice &&
+                       deviceFeatures[deviceIndex].mCurrentDevice != null) {
                        setVolumeNative(vol , getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
                        if (deviceFeatures[deviceIndex].mCurrentDevice.isTwsPlusDevice()) {
                            AdapterService adapterService = AdapterService.getAdapterService();
                            BluetoothDevice peer_device =
                             adapterService.getTwsPlusPeerDevice(deviceFeatures[deviceIndex].mCurrentDevice);
                            if (peer_device != null &&
-                               getIndexForDevice(peer_device) != INVALID_DEVICE_INDEX) {
+                             getIndexForDevice(peer_device) != INVALID_DEVICE_INDEX) {
                                // Change volume to peer earbud as well
                                Log.d(TAG,"setting volume to TWS+ peer also");
                                setVolumeNative(vol, getByteAddress(peer_device));
                            }
                        }
+                    }
                 }
                 //mLastLocalVolume = -1;
                 break;
@@ -2391,8 +2393,17 @@ public final class Avrcp_ext {
                      SystemClock.elapsedRealtime() - deviceFeatures[deviceIndex].mLastStateUpdate;
                 currPosition = sinceUpdate + deviceFeatures[deviceIndex].mCurrentPlayState.getPosition();
             } else {
-                currPosition = deviceFeatures[deviceIndex].mCurrentPlayState.getPosition();
-
+                if (isPlayingState(deviceFeatures[deviceIndex].mCurrentPlayState) &&
+                    (avrcp_playstatus_blacklist && isPlayerStateUpdateBlackListed(
+                     deviceFeatures[deviceIndex].mCurrentDevice.getAddress(),
+                     deviceFeatures[deviceIndex].mCurrentDevice.getName()))) {
+                 currPosition = mCurrentPlayerState.getPosition();
+                 Log.d(TAG, "Remote is BLed for playstatus, So send playposition by fetching from "+
+                                   "mCurrentPlayerState." + currPosition);
+                } else {
+                  currPosition = deviceFeatures[deviceIndex].mCurrentPlayState.getPosition();
+                  Log.d(TAG, "getPlayPosition(): currPosition = " + currPosition);
+                }
             }
         } else {
             if (mCurrentPlayerState == null) {
