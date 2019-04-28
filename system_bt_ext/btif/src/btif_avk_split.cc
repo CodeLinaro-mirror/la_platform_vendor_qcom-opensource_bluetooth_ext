@@ -2984,38 +2984,17 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
     uint8_t codec_type_list[BTIF_SV_AVK_AA_SEP_INDEX];
     uint8_t vnd_id_list[BTIF_SV_AVK_AA_SEP_INDEX];
     uint8_t codec_id_list[BTIF_SV_AVK_AA_SEP_INDEX];
-    uint8_t codec_type_added[MAX_NUM_CODEC_CONFIGS];
+    uint32_t codec_type_added;
     memset(codec_type_list, A2DP_SINK_AUDIO_CODEC_SBC, BTIF_SV_AVK_AA_SEP_INDEX);
     memset(vnd_id_list, 0, BTIF_SV_AVK_AA_SEP_INDEX);
     memset(codec_id_list, 0, BTIF_SV_AVK_AA_SEP_INDEX);
-    memset(codec_type_added, 0, MAX_NUM_CODEC_CONFIGS);
 
     /* Remove duplicate codecs from list. This will be used for hiding/showing codecs
      * for response to AVDTP discover command */
     j = 0;
     for (i = 0; i < num_codec_configs; i ++) {
-        if (!codec_type_added[p_codec_config_list[i].codec_type]) {
-            switch(p_codec_config_list[i].codec_type)
-            {
-#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
-                case A2DP_SINK_AUDIO_CODEC_APTX:
-                    codec_type_list[j] = A2D_NON_A2DP_MEDIA_CT;
-                    vnd_id_list[j] = A2D_APTX_VENDOR_ID;
-                    codec_id_list[j] = A2D_APTX_CODEC_ID_BLUETOOTH;
-                    break;
-#endif
-#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
-                case A2DP_SINK_AUDIO_CODEC_APTX_AD:
-                    codec_type_list[j] = A2D_NON_A2DP_MEDIA_CT;
-                    vnd_id_list[j] = A2DP_AVK_APTX_AD_VENDOR_ID;
-                    codec_id_list[j] = A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH;
-                    break;
-#endif
-                default:
-                    codec_type_list[j] = p_codec_config_list[i].codec_type;
-                    break;
-            }
-            codec_type_added[p_codec_config_list[i].codec_type] = 1;
+        if (!(codec_type_added & p_codec_config_list[i].codec_type)) {
+            codec_type_added |= p_codec_config_list[i].codec_type;
             j ++;
             if (j >= BTIF_SV_AVK_AA_SEP_INDEX) {
                 BTIF_TRACE_ERROR(" %s num of different codecs(%d) exceeds max limit",
@@ -3030,7 +3009,7 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
          * In that case, use the below parameters to create connection. in order of priority of
          * APTX-AD > APTX-CL > AAC > MP3 > SBC */
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
-    if (codec_type_added[A2DP_SINK_AUDIO_CODEC_APTX_AD]) {
+    if (codec_type_added & A2DP_SINK_AUDIO_CODEC_APTX_AD) {
         p_bta_avk_codec_pri_list[num_codec_configs].codec_type
             = A2D_NON_A2DP_MEDIA_CT;
         /* Copy Mandatory APTX-AD codec parameters */
@@ -3042,7 +3021,7 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
     }
 #endif
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
-    if (codec_type_added[A2DP_SINK_AUDIO_CODEC_APTX]) {
+    if (codec_type_added & A2DP_SINK_AUDIO_CODEC_APTX) {
         p_bta_avk_codec_pri_list[num_codec_configs].codec_type
             = A2D_NON_A2DP_MEDIA_CT;
         /* Copy Mandatory APTX codec parameters */
@@ -3054,7 +3033,7 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
     }
 #endif
 #if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
-    if (codec_type_added[A2DP_SINK_AUDIO_CODEC_AAC]) {
+    if (codec_type_added & A2DP_SINK_AUDIO_CODEC_AAC) {
         p_bta_avk_codec_pri_list[num_codec_configs].codec_type
             = A2DP_SINK_AUDIO_CODEC_AAC;
         /* Copy Mandatory AAC codec parameters */
@@ -3066,7 +3045,7 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
     }
 #endif
 #if defined(MP3_DECODER_INCLUDED) && (MP3_DECODER_INCLUDED == TRUE)
-    if (codec_type_added[A2DP_SINK_AUDIO_CODEC_MP3]) {
+    if (codec_type_added & A2DP_SINK_AUDIO_CODEC_MP3) {
         p_bta_avk_codec_pri_list[num_codec_configs].codec_type
             = A2DP_SINK_AUDIO_CODEC_MP3;
         /* Copy Mandatory MP3 codec parameters */
@@ -3088,32 +3067,41 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
     j = 0;
     /* Create Codec Config array for supported types as per application layer */
     memset(codec_info, 0, BTIF_SV_AVK_AA_SEP_INDEX * AVDT_CODEC_SIZE);
+    codec_type_list[j] = A2DP_MEDIA_CT_SBC;
     A2D_BldSbcInfo(AVDT_MEDIA_TYPE_AUDIO, &sbc_supported_cap, codec_info[j ++]);
     memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_SBC_INDEX]
         .codec_cap.sbc_caps, &sbc_supported_cap, sizeof(tA2D_SBC_CIE));
 #if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
-    if (codec_type_added[A2DP_SINK_AUDIO_CODEC_AAC]) {
+    if (codec_type_added & A2DP_SINK_AUDIO_CODEC_AAC) {
+        codec_type_list[j] = A2DP_MEDIA_CT_AAC;
         A2D_BldAacInfo(AVDT_MEDIA_TYPE_AUDIO, &aac_supported_cap, codec_info[j ++]);
         memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_AAC_INDEX]
             .codec_cap.aac_caps, &aac_supported_cap, sizeof(tA2D_AAC_CIE));
     }
 #endif
 #if defined(MP3_DECODER_INCLUDED) && (MP3_DECODER_INCLUDED == TRUE)
-    if (codec_type_added[A2DP_SINK_AUDIO_CODEC_MP3]) {
+    if (codec_type_added & A2DP_SINK_AUDIO_CODEC_MP3) {
+        codec_type_list[j] = A2D_MEDIA_CT_M12;
         A2D_BldMp3Info(AVDT_MEDIA_TYPE_AUDIO, &mp3_supported_cap, codec_info[j ++]);
         memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_MP3_INDEX]
             .codec_cap.mp3_caps, &mp3_supported_cap, sizeof(tA2D_MP3_CIE));
     }
 #endif
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
-    if (codec_type_added[A2DP_SINK_AUDIO_CODEC_APTX]) {
+    if (codec_type_added & A2DP_SINK_AUDIO_CODEC_APTX) {
+        codec_type_list[j] = A2D_NON_A2DP_MEDIA_CT;
+        vnd_id_list[j] = A2DP_AVK_APTX_AD_VENDOR_ID;
+        codec_id_list[j] = A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH;
         A2D_BldAptxInfo(AVDT_MEDIA_TYPE_AUDIO, &aptx_supported_cap, codec_info[j ++]);
         memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_APTX_INDEX]
             .codec_cap.aptx_caps, &aptx_supported_cap, sizeof(tA2D_APTX_CIE));
     }
 #endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
-    if (codec_type_added[A2DP_SINK_AUDIO_CODEC_APTX_AD]) {
+    if (codec_type_added & A2DP_SINK_AUDIO_CODEC_APTX_AD) {
+        codec_type_list[j] = A2D_NON_A2DP_MEDIA_CT;
+        vnd_id_list[j] = A2D_APTX_VENDOR_ID;
+        codec_id_list[j] = A2D_APTX_CODEC_ID_BLUETOOTH;
         A2D_BldAptxADDecoderInfo(AVDT_MEDIA_TYPE_AUDIO, &aptx_ad_supported_cap, codec_info[j ++]);
         memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_APTX_AD_INDEX]
             .codec_cap.aptx_ad_caps, &aptx_ad_supported_cap, sizeof(tA2DP_AVK_APTX_AD_CIE));
