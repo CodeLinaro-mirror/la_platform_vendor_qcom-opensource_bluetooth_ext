@@ -559,6 +559,7 @@ static void* uipc_read_task(void *arg)
     uipc_avk_main.tid = 0;
 
     BTIF_TRACE_EVENT("UIPC READ THREAD DONE");
+    return nullptr;
 }
 
 
