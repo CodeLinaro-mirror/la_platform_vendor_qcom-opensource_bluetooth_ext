@@ -723,4 +723,11 @@ void BTA_AvkSendPedingSuspendRej(tBTA_AVK_HNDL  hndl) {
     bta_sys_sendmsg(p_buf);
 }
 
+void BTA_AvkUpdateDelayReport(tBTA_AVK_HNDL  hndl) {
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+    p_buf->event = BTA_AVK_API_UPDATE_DELAY_REPORT_EVT;
+    p_buf->layer_specific = hndl;
+    bta_sys_sendmsg(p_buf);
+}
+
 #endif /* BTA_AV_INCLUDED */

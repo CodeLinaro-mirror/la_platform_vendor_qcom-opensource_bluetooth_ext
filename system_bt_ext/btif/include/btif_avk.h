@@ -271,24 +271,23 @@ bool btif_avk_peer_supports_3mbps(void);
 
 /*******************************************************************************
 **
-** Function         btif_avk_get_rendering_delay
+** Function         btif_avk_get_init_delay
 **
-** Description      Returns rendering_delay
+** Description      Returns init estimated delay
 **
-** Returns          int
+** Returns          uint32_t
 *******************************************************************************/
-int btif_avk_get_rendering_delay(RawAddress bd_addr);
+uint32_t btif_avk_get_init_delay(RawAddress bd_addr);
 
 /*******************************************************************************
 **
-** Function         btif_avk_split_get_rendering_delay
+** Function         btif_avk_split_get_delay
 **
-** Description      Returns rendering_delay for split a2dp sink.
+** Description      Returns init estimated delay for split a2dp sink.
 **
-** Returns          int
+** Returns          uint32_t
 *******************************************************************************/
-int btif_avk_split_get_rendering_delay(RawAddress bd_addr);
-
+uint32_t btif_avk_split_get_delay(RawAddress bd_addr);
 /*******************************************************************************
 **
 ** Function         btif_avk_get_average_delay
