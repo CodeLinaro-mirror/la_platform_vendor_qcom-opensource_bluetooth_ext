@@ -899,7 +899,7 @@ bool bta_avk_is_avdt_sync(uint16_t handle);
 void BTA_AvkUpdateCodecSupport(uint8_t *p_codec_type_list, uint8_t *p_vnd_list, uint8_t *p_codec_id_list,
                                    uint8_t codec_info[][AVDT_CODEC_SIZE], uint8_t num_codec_configs);
 
-
+void BTA_AvkUpdateDelayReport(tBTA_AVK_HNDL  hndl);
 void BTA_AvkOffloadStart(tBTA_AVK_HNDL hndl);
 void BTA_AvkOffloadStop(tBTA_AVK_HNDL hndl);
 void BTA_AvkSendPedingStartCnf(tBTA_AVK_HNDL hndl);

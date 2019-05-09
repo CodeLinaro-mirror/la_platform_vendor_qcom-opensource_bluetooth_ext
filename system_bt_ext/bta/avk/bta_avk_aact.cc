@@ -184,6 +184,7 @@ const tBTA_AVK_SACT bta_avk_a2d_action[] =
     bta_avk_send_pending_start_rej, /* BTA_AVK_SEND_PENDING_START_REJ */
     bta_avk_send_pending_suspend_cnf, /* BTA_AVK_SEND_PENDING_SUSPEND_CNF */
     bta_avk_send_pending_suspend_rej, /* BTA_AVK_SEND_PENDING_SUSPEND_REJ */
+    bta_avk_update_delay_report, /*BTA_AVK_UPDATE_DELAY_REPORT*/
     NULL
 };
 
@@ -2538,6 +2539,12 @@ void bta_avk_send_pending_suspend_rej (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_dat
 {
     APPL_TRACE_DEBUG(" %s ",__func__);
     AVDT_SndPendingSigSuspend_Rsp(p_scb->avdt_handle, FALSE);
+}
+
+void bta_avk_update_delay_report (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
+{
+    APPL_TRACE_DEBUG(" %s ",__func__);
+    AVDT_UpdateDelayReport(p_scb->avdt_handle);
 }
 
 /*******************************************************************************

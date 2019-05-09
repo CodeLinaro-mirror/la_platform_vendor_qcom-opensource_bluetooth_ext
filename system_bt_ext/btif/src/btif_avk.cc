@@ -87,9 +87,11 @@ typedef enum {
 #define MAX_A2DP_SINK_DATA_QUEUE_SZ         20
 
 #define DELAY_RECORD_COUNT                 100
-#define DEFAULT_RENDERING_DELAY            60      //define a fix rendering delay
-#define APTX_RENDERING_DELAY               580
-#define AAC_RENDERING_DELAY                1480
+
+#define DEFAULT_DELAY                      100
+#define DEFAULT_SBC_DELAY                  1800
+#define DEFAULT_APTX_DELAY                 1350
+#define DEFAULT_AAC_DELAY                  1550
 /*****************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -121,8 +123,8 @@ typedef struct
     uint16_t sink_codec_type;
     /************ Variables used for A2DP Sink *************/
     bool avdt_sync;    //for AVDT1.3 delay reporting
-    uint16_t qahw_delay;
-    int rendering_delay;
+    uint32_t default_estmt_delay;
+    uint32_t qahw_delay;
     uint64_t average_delay;
 } btif_avk_cb_t;
 
@@ -413,8 +415,8 @@ static bool btif_avk_state_idle_handler(btif_sm_event_t event, void *p_data, int
             btif_avk_cb[index].is_device_playing = FALSE;
             btif_avk_cb[index].sink_codec_type = 0xFF;
             btif_avk_cb[index].avdt_sync = FALSE;
-            btif_avk_cb[index].qahw_delay = 0;
-            btif_avk_cb[index].rendering_delay = 0;
+            btif_avk_cb[index].default_estmt_delay = 0;
+            btif_avk_cb[index].qahw_delay = 1800;
             btif_avk_cb[index].average_delay = 0;
             for (int i = 0; i < btif_max_avk_clients; i++)
             {
@@ -804,7 +806,7 @@ static bool btif_avk_state_opening_handler(btif_sm_event_t event, void *p_data, 
                 btif_avk_a2dp_on_stopped(NULL);
             }
             btif_avk_cb[index].avdt_sync = FALSE;
-            btif_avk_cb[index].qahw_delay = 0;
+            btif_avk_cb[index].qahw_delay = 1800;
             /* inform the application that we are disconnected */
             btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED, &(btif_avk_cb[index].peer_bda));
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
@@ -1901,8 +1903,8 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
         switch(codec_type)
         {
         case BTIF_AVK_CODEC_SBC:
-            BTIF_TRACE_DEBUG("rendering_delay has been inited as :%d", DEFAULT_RENDERING_DELAY);
-            btif_avk_cb[index].rendering_delay = DEFAULT_RENDERING_DELAY;
+            BTIF_TRACE_DEBUG("default_estmt_delay has been inited as :%d", DEFAULT_SBC_DELAY);
+            btif_avk_cb[index].default_estmt_delay = DEFAULT_SBC_DELAY;
 
             if(enable_stack_sbc_decoding) // if SBC decoding has to be done by Stack
                 btif_avk_reset_decoder((uint8_t*)(p_data->avk_config.codec_info));
@@ -1930,8 +1932,8 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
 
 #if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
         case BTA_AVK_CODEC_M24:
-            BTIF_TRACE_DEBUG("rendering_delay has been inited as :%d", AAC_RENDERING_DELAY);
-            btif_avk_cb[index].rendering_delay = AAC_RENDERING_DELAY;
+            BTIF_TRACE_DEBUG("default_estmt_delay has been inited as :%d", DEFAULT_AAC_DELAY);
+            btif_avk_cb[index].default_estmt_delay = DEFAULT_AAC_DELAY;
 
             a2d_status = A2D_ParsAacInfo(&aac_cie, (uint8_t *)(p_data->avk_config.codec_info), FALSE);
             if (a2d_status == A2DP_SUCCESS) {
@@ -1953,8 +1955,8 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
 #endif
 #if defined(MP3_DECODER_INCLUDED) && (MP3_DECODER_INCLUDED == TRUE)
         case BTA_AVK_CODEC_M12:
-            BTIF_TRACE_DEBUG("rendering_delay has been inited as :%d", DEFAULT_RENDERING_DELAY);
-            btif_avk_cb[index].rendering_delay = DEFAULT_RENDERING_DELAY;
+            BTIF_TRACE_DEBUG("default_estmt_delay has been inited as :%d", DEFAULT_DELAY);
+            btif_avk_cb[index].default_estmt_delay = DEFAULT_DELAY;
 
             a2d_status = A2D_ParsMp3Info(&mp3_cie, (uint8_t *)(p_data->avk_config.codec_info), FALSE);
             if (a2d_status == A2DP_SUCCESS) {
@@ -1978,8 +1980,8 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
 #endif
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
         case A2D_NON_A2DP_MEDIA_CT:
-            BTIF_TRACE_DEBUG("rendering_delay has been inited as :%d", APTX_RENDERING_DELAY);
-            btif_avk_cb[index].rendering_delay = APTX_RENDERING_DELAY;
+            BTIF_TRACE_DEBUG("default_estmt_delay has been inited as :%d", DEFAULT_APTX_DELAY);
+            btif_avk_cb[index].default_estmt_delay = DEFAULT_APTX_DELAY;
 
             a2d_status = A2D_ParsAptxInfo(&aptx_cie, (uint8_t *)(p_data->avk_config.codec_info), FALSE);
             if (a2d_status == A2DP_SUCCESS) {
@@ -2001,8 +2003,8 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
             break;
 #endif
             default:
-            BTIF_TRACE_DEBUG("rendering_delay has been inited as :%d", DEFAULT_RENDERING_DELAY);
-            btif_avk_cb[index].rendering_delay = DEFAULT_RENDERING_DELAY;
+            BTIF_TRACE_DEBUG("default_estmt_delay has been inited as :%d", DEFAULT_DELAY);
+            btif_avk_cb[index].default_estmt_delay = DEFAULT_DELAY;
             break;
         }
     }
@@ -2026,10 +2028,10 @@ static uint16_t UpdateRptDelay(uint64_t enque_ns)
 
     uint64_t deque_ns = (uint64_t)ts_now.tv_sec * 1000000000 + ts_now.tv_nsec;
     //total delay = buffering + decoding + rending delay
-    uint64_t delay_ns = deque_ns - enque_ns + (btif_avk_cb[index].qahw_delay + btif_avk_cb[index].rendering_delay) * 1000000;
+    uint64_t delay_ns = deque_ns - enque_ns + (btif_avk_cb[index].qahw_delay * 1000000);
 
     if(delay_record_idx >= DELAY_RECORD_COUNT)
-    delay_record_idx = 0;
+        delay_record_idx = 0;
 
     delay_record[delay_record_idx++] = delay_ns;
 
@@ -2044,8 +2046,8 @@ static uint16_t UpdateRptDelay(uint64_t enque_ns)
     if(i >= DELAY_RECORD_COUNT)
         btif_avk_cb[index].average_delay = (sum_dealy / DELAY_RECORD_COUNT);
 
-    BTIF_TRACE_DEBUG(" %s ~~ deque_ns = [%09llu], enque_ns = [%09llu] delay_ns = [%09llu] average_delay for index %d = [%09llu] ", __func__,
-                  deque_ns, enque_ns, delay_ns, btif_avk_cb[index].average_delay, index);
+    BTIF_TRACE_DEBUG(" %s ~~ deque_ns = [%09llu], enque_ns = [%09llu] average_delay for index %d = [%09llu] ",
+                     __func__, deque_ns, enque_ns, btif_avk_cb[index].average_delay, index);
 
     return btif_avk_cb[index].average_delay;
 }
@@ -2397,11 +2399,6 @@ static void update_qahw_delay_vendor(uint16_t qahwdelay)
     if(btif_avk_cb[index].avdt_sync != TRUE )
     {
         BTIF_TRACE_DEBUG(" %s ~~ delay report feature is not enabled, return .", __FUNCTION__);
-        return;
-    }
-    if(btif_avk_cb[index].sink_codec_type == BTIF_AVK_CODEC_SBC && enable_stack_sbc_decoding)
-    {
-        BTIF_TRACE_DEBUG(" %s ~~ SBC stream has been decoded in stack, no need update qahw delay, return .", __FUNCTION__);
         return;
     }
     BTIF_TRACE_DEBUG(" %s ~~ qahwdelay = [%d]", __FUNCTION__, qahwdelay);
@@ -3279,7 +3276,7 @@ static void cleanup_sink(void) {
     btif_avk_media_clear_pcm_queue();
     enable_stack_sbc_decoding = 0;
     for (int i = 0; i < btif_max_avk_clients; i++)
-        btif_avk_cb[i].qahw_delay == 0;
+        btif_avk_cb[i].qahw_delay = 1800;
     pthread_mutex_lock(&sink_data_q_lock);
     fixed_queue_free(RxDataQ,NULL);
     RxDataQ = NULL;
@@ -3994,10 +3991,19 @@ bool btif_avk_get_ongoing_multicast()
     }
 }
 
-int btif_avk_get_rendering_delay(RawAddress bd_addr) {
+/*******************************************************************************
+**
+** Function         btif_avk_get_init_delay
+**
+** Description      Returns init estimated delay value
+**
+** Returns          uint64_t
+*******************************************************************************/
+uint32_t btif_avk_get_init_delay(RawAddress bd_addr) {
     int index = btif_avk_idx_by_bdaddr(&bd_addr);
-    BTIF_TRACE_ERROR("rendering delay of index %d : %d", index, btif_avk_cb[index].rendering_delay);
-    return btif_avk_cb[index].rendering_delay;
+    BTIF_TRACE_ERROR(" %s, Initial estimated delay of index %d : %d",
+                     __func__,index, btif_avk_cb[index].default_estmt_delay);
+    return (btif_avk_cb[index].default_estmt_delay);
 }
 
 /*******************************************************************************
@@ -4010,7 +4016,8 @@ int btif_avk_get_rendering_delay(RawAddress bd_addr) {
 *******************************************************************************/
 uint64_t btif_avk_get_average_delay(RawAddress bd_addr) {
     int index = btif_avk_idx_by_bdaddr(&bd_addr);
-    BTIF_TRACE_ERROR("average delay of index %d : %d", index, btif_avk_cb[index].rendering_delay);
+    BTIF_TRACE_ERROR(" %s, average delay of index %d : %d",
+                     __func__,index, btif_avk_cb[index].average_delay);
     return btif_avk_cb[index].average_delay;
 }
 

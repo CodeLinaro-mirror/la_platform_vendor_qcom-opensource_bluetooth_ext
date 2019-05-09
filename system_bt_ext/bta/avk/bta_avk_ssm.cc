@@ -102,6 +102,7 @@ enum
     BTA_AVK_SEND_PENDING_START_REJ,
     BTA_AVK_SEND_PENDING_SUSPEND_CNF,
     BTA_AVK_SEND_PENDING_SUSPEND_REJ,
+    BTA_AVK_UPDATE_DELAY_REPORT,
     BTA_AVK_NUM_SACTIONS
 };
 
@@ -163,6 +164,8 @@ static const uint8_t bta_avk_sst_init[][BTA_AVK_NUM_COLS] =
 /* BTA_AVK_API_PENDING_SUSPEND_CNF_EVT */
                             {BTA_AVK_SIGNORE,        BTA_AVK_SIGNORE,        BTA_AVK_INIT_SST },
 /* BTA_AVK_API_PENDING_SUSPEND_REJECT_EVT */
+                            {BTA_AVK_SIGNORE,        BTA_AVK_SIGNORE,        BTA_AVK_INIT_SST },
+/* BTA_AVK_API_UPDATE_DELAY_REPORT_EVT*/
                             {BTA_AVK_SIGNORE,        BTA_AVK_SIGNORE,        BTA_AVK_INIT_SST }
 };
 
@@ -215,6 +218,8 @@ static const uint8_t bta_avk_sst_incoming[][BTA_AVK_NUM_COLS] =
 /* BTA_AVK_API_PENDING_SUSPEND_CNF_EVT */
                             {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_INCOMING_SST },
 /* BTA_AVK_API_PENDING_SUSPEND_REJECT_EVT */
+                            {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_INCOMING_SST },
+/* BTA_AVK_API_UPDATE_DELAY_REPORT_EVT*/
                             {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_INCOMING_SST }
 };
 
@@ -267,6 +272,8 @@ static const uint8_t bta_avk_sst_opening[][BTA_AVK_NUM_COLS] =
 /* BTA_AVK_API_PENDING_SUSPEND_CNF_EVT */
                             {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_OPENING_SST },
 /* BTA_AVK_API_PENDING_SUSPEND_REJECT_EVT */
+                            {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_OPENING_SST },
+/* BTA_AVK_API_UPDATE_DELAY_REPORT_EVT*/
                             {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_OPENING_SST }
 };
 
@@ -319,7 +326,9 @@ static const uint8_t bta_avk_sst_open[][BTA_AVK_NUM_COLS] =
 /* BTA_AVK_API_PENDING_SUSPEND_CNF_EVT */
                        {BTA_AVK_SEND_PENDING_SUSPEND_CNF,  BTA_AVK_SIGNORE,  BTA_AVK_OPEN_SST },
 /* BTA_AVK_API_PENDING_SUSPEND_REJECT_EVT */
-                       {BTA_AVK_SEND_PENDING_SUSPEND_REJ,  BTA_AVK_SIGNORE,   BTA_AVK_OPEN_SST }
+                       {BTA_AVK_SEND_PENDING_SUSPEND_REJ,  BTA_AVK_SIGNORE,   BTA_AVK_OPEN_SST },
+/* BTA_AVK_API_UPDATE_DELAY_REPORT_EVT*/
+                       {BTA_AVK_UPDATE_DELAY_REPORT,       BTA_AVK_SIGNORE,   BTA_AVK_OPEN_SST }
 };
 
 /* state table for reconfig state */
@@ -371,6 +380,8 @@ static const uint8_t bta_avk_sst_rcfg[][BTA_AVK_NUM_COLS] =
 /* BTA_AVK_API_PENDING_SUSPEND_CNF_EVT */
                             {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_RCFG_SST },
 /* BTA_AVK_API_PENDING_SUSPEND_REJECT_EVT */
+                            {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_RCFG_SST },
+/* BTA_AVK_API_UPDATE_DELAY_REPORT_EVT*/
                             {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_RCFG_SST }
 };
 
@@ -423,6 +434,8 @@ static const uint8_t bta_avk_sst_closing[][BTA_AVK_NUM_COLS] =
 /* BTA_AVK_API_PENDING_SUSPEND_CNF_EVT */
                             {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_CLOSING_SST },
 /* BTA_AVK_API_PENDING_SUSPEND_REJECT_EVT */
+                            {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_CLOSING_SST },
+/* BTA_AVK_API_UPDATE_DELAY_REPORT_EVT*/
                             {BTA_AVK_SIGNORE,    BTA_AVK_SIGNORE,        BTA_AVK_CLOSING_SST }
 };
 
