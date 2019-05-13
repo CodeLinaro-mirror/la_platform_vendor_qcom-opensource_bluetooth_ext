@@ -147,7 +147,6 @@ static bt_status_t init( btvendor_callbacks_t* callbacks)
     broadcast_cb_timer = alarm_new("btif_vnd.cb_timer");
     LOG_INFO(LOG_TAG,"init");
     LOG_INFO(LOG_TAG,"init done");
-    btif_enable_service(BTA_TWS_PLUS_SERVICE_ID);
     return BT_STATUS_SUCCESS;
 }
 
@@ -186,18 +185,20 @@ void btif_vendor_update_add_on_features() {
     uint8_t add_on_features_len = 0;
     bt_vendor_property_t vnd_prop;
     char buf[8];
+    vnd_prop.len = 0;
     const controller_t* controller = controller_get_interface();
     if(controller) {
         const bt_device_features_t* dev_features = controller->get_add_on_features(
                                     &add_on_features_len);
+
+        vnd_prop.type = BT_VENDOR_PROPERTY_SOC_ADD_ON_FEATURES;
+        vnd_prop.val = (void*)buf;
         if(dev_features && add_on_features_len > 0) {
-            vnd_prop.type = BT_VENDOR_PROPERTY_SOC_ADD_ON_FEATURES;
-            vnd_prop.val = (void*)buf;
             vnd_prop.len = add_on_features_len;
             memcpy(vnd_prop.val, dev_features, add_on_features_len);
-            HAL_CBACK(bt_vendor_callbacks, adapter_vendor_prop_cb,
-                                   BT_STATUS_SUCCESS, 1, &vnd_prop);
-         }
+        }
+        HAL_CBACK(bt_vendor_callbacks, adapter_vendor_prop_cb,
+                               BT_STATUS_SUCCESS, 1, &vnd_prop);
     }
 }
 
@@ -302,6 +303,13 @@ static void bredrcleanup(void)
     btif_transfer_context(btif_vendor_bredr_cleanup_event,BTIF_VENDOR_BREDR_CLEANUP,
                           NULL, 0, NULL);
 }
+
+static void hciclose(void)
+{
+    LOG_INFO(LOG_TAG,"hciclose");
+    btif_hci_close();
+}
+
 
 #if HCI_RAW_CMD_INCLUDED == TRUE
 // Callback invoked on receiving HCI event
@@ -447,6 +455,7 @@ static const btvendor_interface_t btvendorInterface = {
     set_property_callouts,
     cleanup,
     voip_network_type_wifi,
+    hciclose,
 };
 
 /*******************************************************************************
