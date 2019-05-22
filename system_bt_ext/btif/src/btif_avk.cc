@@ -455,8 +455,8 @@ static bool btif_avk_state_idle_handler(btif_sm_event_t event, void *p_data, int
                     HAL_CBACK(bt_av_sink_vendor_callbacks, registration_vendor_cb, TRUE);
                 }
             }
+            btif_read_adapter_property(BT_PROPERTY_CLASS_OF_DEVICE);
             break;
-
         case BTIF_AVK_CONNECT_REQ_EVT:
             /* For outgoing connect stack and app are in sync.
             */
