@@ -31,6 +31,7 @@
 #include "btif_common.h"
 #include "btif_sm.h"
 #include "bta_avk_api.h"
+#include "btif/include/btif_api.h"
 
 #define BTIF_AVK_RC_HANDLE_NONE 0xFF
 
