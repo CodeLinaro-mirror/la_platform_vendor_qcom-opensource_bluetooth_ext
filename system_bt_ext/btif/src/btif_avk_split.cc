@@ -164,6 +164,7 @@ static alarm_t *avk_pending_start_timer = NULL;
 static alarm_t *avk_pending_suspend_timer = NULL;
 
 static uint16_t enable_delay_reporting = 0; // by default disable it
+static uint16_t enable_avrc_browsing = 0;
 static RawAddress streaming_bda;
 extern tBTA_AVK_CO_CODEC_CAP_LIST *p_bta_avk_codec_pri_list;
 extern tBTA_AVK_CO_CODEC_CAP_LIST bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_SEP_INDEX];
@@ -2627,8 +2628,11 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
 
     property_get("persist.bluetooth.disabledelayreports", value, "false");
     enable_delay_reporting = (strcmp(value, "false") == 0);
+    property_get("persist.bluetooth.disablebrowsing", value, "false");
+    enable_avrc_browsing = (strcmp(value, "false") == 0);
 
-    BTIF_TRACE_IMP(" %s enable_delay_reporting = %d",__FUNCTION__,enable_delay_reporting);
+    BTIF_TRACE_IMP(" %s enable_delay_reporting = %d, enable_avrc_browsing = %d",
+                   __FUNCTION__,enable_delay_reporting, enable_avrc_browsing);
 
     return status;
 }
@@ -3468,31 +3472,29 @@ void btif_avk_split_dispatch_sm_event(btif_avk_sm_event_t event, void *p_data, i
 bt_status_t btif_avk_split_sink_execute_service(bool b_enable)
 {
      int i;
+     uint16_t features = 0;
+     features = BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
+                BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|BTA_AVK_FEAT_ADV_CTRL|
+                BTA_AVK_FEAT_RCTG|BTA_AVK_FEAT_SPLIT_ENABLED;
      if (b_enable)
      {
          /* Added BTA_AVK_FEAT_NO_SCO_SSPD - this ensures that the BTA does not
           * auto-suspend av streaming on AG events(SCO or Call). The suspend shall
           * be initiated by the app/audioflinger layers */
 
-        if(enable_delay_reporting) {
-         BTA_AvkEnable(BTA_SEC_AUTHENTICATE, BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
-                                            BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|BTA_AVK_FEAT_BROWSE|
-                BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG|BTA_AVK_FEAT_DELAY_RPT|BTA_AVK_FEAT_SPLIT_ENABLED,
-                bte_avk_callback);
-        BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable Added BTA_AVk_FEAT_DELAY_RPT!", __FUNCTION__);
-        }
-        else
-        {
-            BTA_AvkEnable(BTA_SEC_AUTHENTICATE, BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
-                BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|BTA_AVK_FEAT_BROWSE|
-                                            BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG|BTA_AVK_FEAT_SPLIT_ENABLED,
-                                                                        bte_avk_callback);
-            BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable NOT Added BTA_AVk_FEAT_DELAY_RPT!", __FUNCTION__);
-        }
+         if(enable_delay_reporting) {
+             features |= BTA_AVK_FEAT_DELAY_RPT;
+             BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable Added BTA_AVK_FEAT_DELAY_RPT!", __FUNCTION__);
+         }
+         if(enable_avrc_browsing) {
+             features |= BTA_AVK_FEAT_BROWSE;
+             BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable NOT Added BTA_AVK_FEAT_BROWSE!", __FUNCTION__);
+         }
+         BTA_AvkEnable(BTA_SEC_AUTHENTICATE, features, bte_avk_callback);
          for (i = 0; i < btif_max_avk_clients; i++)
          {
              BTA_AvkRegister(BTA_AVK_CHNL_AUDIO, BTIF_AVK_SERVICE_NAME, 0, bte_avk_media_callback,
-                                                                UUID_SERVCLASS_AUDIO_SINK);
+                             UUID_SERVCLASS_AUDIO_SINK);
          }
      }
      else 

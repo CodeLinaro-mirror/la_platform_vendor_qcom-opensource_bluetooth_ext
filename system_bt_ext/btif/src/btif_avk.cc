@@ -162,6 +162,7 @@ static uint16_t enable_stack_sbc_decoding = 1; // by default enable it
 static uint16_t retreive_rtp_header = 0; // by default disable it
 fixed_queue_t *RxDataQ = NULL;
 static uint16_t enable_delay_reporting = 0; // by default disable it
+static uint16_t enable_avrc_browsing = 0;
 static uint16_t enable_notification_cb = 0; // stack incoming data callback
 static bt_bdaddr_t streaming_bda;
 static uint64_t delay_record[DELAY_RECORD_COUNT] = {0};  //store latest packets delay
@@ -2187,13 +2188,15 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
 
     enable_stack_sbc_decoding = streaming_prarm & A2DP_SINK_ENABLE_SBC_DECODING;
     retreive_rtp_header = streaming_prarm & A2DP_SINK_RETREIVE_RTP_HEADER;
-    //enable_delay_reporting = streaming_prarm & A2DP_SINK_ENABLE_DELAY_REPORTING;
     property_get("persist.bluetooth.disabledelayreports", value, "false");
     enable_delay_reporting = (strcmp(value, "false") == 0);
+    property_get("persist.bluetooth.disablebrowsing", value, "false");
+    enable_avrc_browsing = (strcmp(value, "false") == 0);
     enable_notification_cb = streaming_prarm & A2DP_SINK_ENABLE_NOTIFICATION_CB;
 
-    BTIF_TRACE_IMP("%s ~~ enable_sbc_decoding = %d, retreive RTP header = %d, enable_delay_reporting = %d",
-            __FUNCTION__ ,enable_stack_sbc_decoding, retreive_rtp_header, enable_delay_reporting);
+    BTIF_TRACE_IMP("%s ~~ enable_sbc_decoding = %d, retreive RTP header = %d"
+                   ", enable_delay_reporting = %d, enable_avrc_browsing = %d", __FUNCTION__
+                   ,enable_stack_sbc_decoding, retreive_rtp_header, enable_delay_reporting);
 
     /* initializing mutex for sink */
     pthread_mutex_init(&sink_data_q_lock, NULL);
@@ -3487,31 +3490,28 @@ void btif_avk_dispatch_sm_event(btif_avk_sm_event_t event, void *p_data, int len
 bt_status_t btif_avk_sink_execute_service(bool b_enable)
 {
      int i;
+     uint16_t features = 0;
+     features = BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|BTA_AVK_FEAT_METADATA|
+                BTA_AVK_FEAT_VENDOR|BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG;
      if (b_enable)
      {
          /* Added BTA_AVK_FEAT_NO_SCO_SSPD - this ensures that the BTA does not
           * auto-suspend av streaming on AG events(SCO or Call). The suspend shall
           * be initiated by the app/audioflinger layers */
 
-        if(enable_delay_reporting) {
-         BTA_AvkEnable(BTA_SEC_AUTHENTICATE, BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
-                                            BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|BTA_AVK_FEAT_BROWSE|
-                BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG|BTA_AVK_FEAT_DELAY_RPT,
-                bte_avk_callback);
-        BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable Added BTA_AVk_FEAT_DELAY_RPT!", __FUNCTION__);
-        }
-        else
-        {
-            BTA_AvkEnable(BTA_SEC_AUTHENTICATE, BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
-                BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|BTA_AVK_FEAT_BROWSE|
-                                            BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG,
-                                                                        bte_avk_callback);
-            BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable NOT Added BTA_AVk_FEAT_DELAY_RPT!", __FUNCTION__);
-        }
+         if(enable_delay_reporting) {
+              features |= BTA_AVK_FEAT_DELAY_RPT;
+              BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable Added BTA_AVk_FEAT_DELAY_RPT!", __FUNCTION__);
+         }
+         if(enable_avrc_browsing) {
+             features |= BTA_AVK_FEAT_BROWSE;
+             BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable Added BTA_AVK_FEAT_BROWSE!", __FUNCTION__);
+         }
+         BTA_AvkEnable(BTA_SEC_AUTHENTICATE, features, bte_avk_callback);
          for (i = 0; i < btif_max_avk_clients; i++)
          {
              BTA_AvkRegister(BTA_AVK_CHNL_AUDIO, BTIF_AVK_SERVICE_NAME, 0, bte_avk_media_callback,
-                                                                UUID_SERVCLASS_AUDIO_SINK);
+                             UUID_SERVCLASS_AUDIO_SINK);
          }
      }
      else {
