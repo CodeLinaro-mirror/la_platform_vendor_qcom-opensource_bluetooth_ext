@@ -616,7 +616,14 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
     profile_initialized = p_data->api_reg.service_uuid;
     if(profile_initialized == UUID_SERVCLASS_AUDIO_SINK)
     {
-        p_bta_avk_cfg  = (tBTA_AVK_CFG *) &bta_avk_sink_cfg;
+        p_bta_avk_cfg  = (tBTA_AVK_CFG *) osi_malloc(sizeof(tBTA_AVK_CFG));
+        memcpy(p_bta_avk_cfg,&bta_avk_sink_cfg,sizeof(tBTA_AVK_CFG));
+        if(bta_avk_cb.features & BTA_AVK_FEAT_BROWSE) {
+            p_bta_avk_cfg->avrc_ct_cat |= AVRC_SUPF_CT_BROWSE;
+#if AVCT_BROWSE_INCLUDED == TRUE
+            p_bta_avk_cfg->avrc_tg_cat |= AVRC_SUPF_TG_BROWSE;
+#endif
+        }
     }
     do
     {
