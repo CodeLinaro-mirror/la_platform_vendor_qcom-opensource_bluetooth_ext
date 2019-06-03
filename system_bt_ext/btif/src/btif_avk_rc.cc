@@ -46,6 +46,7 @@
 #include "hardware/bt_rc_vendor.h"
 #include "osi/include/list.h"
 #include "osi/include/properties.h"
+#include "cutils/properties.h"
 #include "btu.h"
 
 /*****************************************************************************
@@ -262,6 +263,7 @@ alarm_t* p_cap_rsp_timer = NULL;
 
 static uint32_t startItem;
 static uint32_t endItem;
+static uint16_t enable_avrc_browsing = 0;
 
 
 #define MAX_UINPUT_PATHS 3
@@ -329,7 +331,7 @@ extern void alarm_set_on_mloop(alarm_t *alarm, period_ms_t interval_ms, alarm_ca
 #if (AVRC_CTLR_INCLUDED == TRUE)
 void btif_avk_rc_handle_rc_ctrl_features(int index)
 {
-	BTIF_TRACE_DEBUG("%s: index = %d !~", __FUNCTION__, index);
+	BTIF_TRACE_DEBUG("%s: index = %d ", __FUNCTION__, index);
 
     if ((btif_avk_rc_cb[index].rc_features & BTA_AVK_FEAT_RCTG)||
        ((btif_avk_rc_cb[index].rc_features & BTA_AVK_FEAT_RCCT)&&
@@ -342,14 +344,14 @@ void btif_avk_rc_handle_rc_ctrl_features(int index)
         if ((btif_avk_rc_cb[index].rc_features & BTA_AVK_FEAT_ADV_CTRL)&&
              (btif_avk_rc_cb[index].rc_features & BTA_AVK_FEAT_RCCT))
         {
-           BTIF_TRACE_DEBUG("%s: rc_features |= BTRC_FEAT_ABSOLUTE_VOLUME rc_features = %d !~", __FUNCTION__, rc_features);
+           BTIF_TRACE_DEBUG("%s: rc_features |= BTRC_FEAT_ABSOLUTE_VOLUME rc_features = %d ", __FUNCTION__, rc_features);
             rc_features |= BTRC_FEAT_ABSOLUTE_VOLUME;
         }
         if ((btif_avk_rc_cb[index].rc_features & BTA_AVK_FEAT_METADATA)&&
             (btif_avk_rc_cb[index].rc_features & BTA_AVK_FEAT_VENDOR)&&
             (btif_avk_rc_cb[index].rc_features_processed != TRUE))
         {
-            BTIF_TRACE_DEBUG("%s: rc_features |= BTRC_FEAT_METADATA rc_features = %d !~", __FUNCTION__, rc_features);
+            BTIF_TRACE_DEBUG("%s: rc_features |= BTRC_FEAT_METADATA rc_features = %d ", __FUNCTION__, rc_features);
             rc_features |= BTRC_FEAT_METADATA;
             /* Mark rc features processed to avoid repeating
              * the AVRCP procedure every time on receiving this
@@ -357,7 +359,7 @@ void btif_avk_rc_handle_rc_ctrl_features(int index)
              */
             if (btif_avk_rc_cb[index].rc_features_processed == FALSE)
             {
-                BTIF_TRACE_DEBUG("%s: getcapabilities_cmd index = %d !~", __FUNCTION__, index);
+                BTIF_TRACE_DEBUG("%s: getcapabilities_cmd index = %d ", __FUNCTION__, index);
                 btif_avk_rc_cb[index].rc_features_processed = TRUE;
                 getcapabilities_cmd(index, AVRC_CAP_COMPANY_ID);
             }
@@ -543,7 +545,7 @@ void btif_avk_rc_handle_br_connect(tBTA_AVK_RC_BROWSE_OPEN* p_rc_br_open) {
     rc_addr = p_rc_br_open->peer_addr;
     btif_avk_rc_cb[index].br_connected = TRUE;
 
-    BTIF_TRACE_IMP("%s: HAL_CBACK connection_state_cb browse channel connected!~", __FUNCTION__);
+    BTIF_TRACE_IMP("%s: HAL_CBACK connection_state_cb browse channel connected", __FUNCTION__);
     HAL_CBACK(btif_avk_rc_ctrl_vendor_callbacks, browse_connection_state_vendor_cb, TRUE, &rc_addr);
   }
 }
@@ -589,7 +591,7 @@ static void btif_avk_rc_handle_rc_connect (tBTA_AVK_RC_OPEN *p_rc_open)
         rc_addr = btif_avk_rc_cb[index].rc_addr;
 #if (AVRC_CTLR_INCLUDED == TRUE)
         if(btif_avk_rc_ctrl_callbacks != NULL) {
-            BTIF_TRACE_DEBUG("HAL_CBACK connection_state_cb: control channel connected!~ ");
+            BTIF_TRACE_DEBUG("HAL_CBACK connection_state_cb: control channel connected ");
             HAL_CBACK(btif_avk_rc_ctrl_callbacks, connection_state_cb, TRUE, FALSE, &rc_addr);
         }
         /* report connection state if remote device is AVRCP target */
@@ -705,7 +707,7 @@ static void btif_avk_rc_handle_br_disconnect (tBTA_AVK_RC_BROWSE_CLOSE *p_rc_clo
 #if (AVRC_CTLR_INCLUDED == TRUE)
     rc_addr = btif_avk_rc_cb[index].rc_addr;
 
-    BTIF_TRACE_IMP("%s: HAL_CBACK connection_state_cb browse channel disconnected peer addr: %s!~", __FUNCTION__, rc_addr.ToString().c_str());
+    BTIF_TRACE_IMP("%s: HAL_CBACK connection_state_cb browse channel disconnected peer addr: %s", __FUNCTION__, rc_addr.ToString().c_str());
     HAL_CBACK(btif_avk_rc_ctrl_vendor_callbacks, browse_connection_state_vendor_cb, FALSE, &rc_addr);
 #endif
 
@@ -816,12 +818,12 @@ void btif_avk_rc_handler(tBTA_AVK_EVT event, tBTA_AVK *p_data)
         }break;
         case BTA_AVK_RC_BROWSE_OPEN_EVT:
         {
-            BTIF_TRACE_DEBUG("btif_avk_rc_handler : BTA_AVK_RC_BROWSE_OPEN_EVT !~");
+            BTIF_TRACE_DEBUG("btif_avk_rc_handler : BTA_AVK_RC_BROWSE_OPEN_EVT ");
             btif_avk_rc_handle_br_connect( &(p_data->rc_browse_open) );
         }break;
         case BTA_AVK_RC_BROWSE_CLOSE_EVT:
         {
-            BTIF_TRACE_DEBUG("btif_avk_rc_handler : BTA_AVK_RC_BROWSE_CLOSE_EVT !~");
+            BTIF_TRACE_DEBUG("btif_avk_rc_handler : BTA_AVK_RC_BROWSE_CLOSE_EVT ");
             btif_avk_rc_handle_br_disconnect( &(p_data->rc_browse_close) );
         }break;
         case BTA_AVK_RC_CLOSE_EVT:
@@ -1099,7 +1101,7 @@ bool avk_iterate_supported_event_list_for_interim_rsp(void* data, void* cb_data)
 ***************************************************************************/
 bool avk_iterate_supported_event_list_for_timeout(void *data, void *cb_data)
 {
-    BTIF_TRACE_DEBUG("%s: !~", __FUNCTION__);
+    BTIF_TRACE_DEBUG("%s: ", __FUNCTION__);
 
     btif_avk_rc_supported_event_t *p_event = (btif_avk_rc_supported_event_t *)data;
 
@@ -1118,11 +1120,11 @@ bool avk_iterate_supported_event_list_for_timeout(void *data, void *cb_data)
 static void btif_avk_rc_get_caps_cmd_timeout_handler(UNUSED_ATTR uint16_t event,
                                                char *data)
 {
-    uint16_t uData = *(uint16_t*)data;    BTIF_TRACE_DEBUG("%s: uData=%d!~", __FUNCTION__,uData);
+    uint16_t uData = *(uint16_t*)data;    BTIF_TRACE_DEBUG("%s: uData=%d", __FUNCTION__,uData);
     uint8_t cap_id = ((uData >> 8) & 0xff);
 
     uint8_t index = (uData & 0xff);
-    BTIF_TRACE_DEBUG("%s: index = %d cap_id=%d !~", __FUNCTION__, index, cap_id);
+    BTIF_TRACE_DEBUG("%s: index = %d cap_id=%d ", __FUNCTION__, index, cap_id);
 
     if(cap_id == AVRC_CAP_COMPANY_ID)
     {
@@ -1165,7 +1167,7 @@ static void avk_rc_notification_interim_timout (uint8_t index, uint8_t label)
     list_node_t *node;
     if (btif_avk_rc_cb[index].rc_supported_event_list == NULL)
         return;
-    BTIF_TRACE_DEBUG("%s: index = %d label = %d !~", __FUNCTION__, index, label);
+    BTIF_TRACE_DEBUG("%s: index = %d label = %d ", __FUNCTION__, index, label);
 
     uint16_t data = ((((uint16_t)index << 8) & 0xff00) | (label & 0x00ff));
 
@@ -1182,7 +1184,7 @@ static void avk_rc_notification_interim_timout (uint8_t index, uint8_t label)
         p_event = (btif_avk_rc_supported_event_t *)list_node(node);
         if ((p_event != NULL) && (p_event->status == eNOT_REGISTERED))
         {
-            BTIF_TRACE_DEBUG("%s: register_for_event_notification!~", __FUNCTION__, label);
+            BTIF_TRACE_DEBUG("%s: register_for_event_notification", __FUNCTION__, label);
             register_for_event_notification(index, p_event);
             break;
         }
@@ -1215,7 +1217,7 @@ static void btif_avk_rc_status_cmd_timeout_handler(UNUSED_ATTR uint16_t event,
 
     switch (p_context->rc_status_cmd.pdu_id) {
     case AVRC_PDU_REGISTER_NOTIFICATION:
-    BTIF_TRACE_DEBUG("%s: call avk_rc_notification_interim_timout!~", __FUNCTION__);
+    BTIF_TRACE_DEBUG("%s: call avk_rc_notification_interim_timout", __FUNCTION__);
         avk_rc_notification_interim_timout(p_context->rc_status_cmd.index, p_context->rc_status_cmd.label);
         break;
 
@@ -1278,7 +1280,7 @@ static bt_status_t register_notification_cmd_vendor(bt_bdaddr_t *bd_addr, uint8_
     int index = 0;
     if(bd_addr != NULL)
         index = btif_avk_rc_idx_by_bdaddr(bd_addr);
-    BTIF_TRACE_DEBUG("%s: index = %d !~", __FUNCTION__, index);
+    BTIF_TRACE_DEBUG("%s: index = %d ", __FUNCTION__, index);
 
     BTIF_TRACE_DEBUG("%s: index = %d ", __FUNCTION__, index);
     if (index >= btif_max_rc_clients)
@@ -1311,7 +1313,7 @@ static bt_status_t register_notification_cmd_vendor(bt_bdaddr_t *bd_addr, uint8_
                 __FUNCTION__,p_transaction->lbl);
         if (p_msg != NULL)
         {
-    BTIF_TRACE_DEBUG("%s: btif_avk_rc_cb[index].rc_handle = %d p_transaction->lbl = %d!~", __FUNCTION__, btif_avk_rc_cb[index].rc_handle,p_transaction->lbl);
+    BTIF_TRACE_DEBUG("%s: btif_avk_rc_cb[index].rc_handle = %d p_transaction->lbl = %d", __FUNCTION__, btif_avk_rc_cb[index].rc_handle,p_transaction->lbl);
             BTA_AvkVendorCmd(btif_avk_rc_cb[index].rc_handle,p_transaction->lbl,AVRC_CMD_NOTIF,
                 data_start, p_msg->len);
             status =  BT_STATUS_SUCCESS;
@@ -1399,14 +1401,14 @@ static void register_for_event_notification(int index, btif_avk_rc_supported_eve
 {
     bt_status_t status;
     rc_transaction_t *p_transaction;
-    BTIF_TRACE_DEBUG("%s: !~", __FUNCTION__);
+    BTIF_TRACE_DEBUG("%s: ", __FUNCTION__);
 
     status = get_transaction(&p_transaction, index);
     if (status == BT_STATUS_SUCCESS)
     {
         btif_avk_rc_timer_context_t *p_context = &p_transaction->txn_timer_context;
 
-        BTIF_TRACE_DEBUG("%s: call register_notification_cmd index=%d btif_avk_rc_cb[index].rc_handle=%d p_transaction->lbl=%d!~",
+        BTIF_TRACE_DEBUG("%s: call register_notification_cmd index=%d btif_avk_rc_cb[index].rc_handle=%d p_transaction->lbl=%d",
             __FUNCTION__,index,btif_avk_rc_cb[index].rc_handle,p_transaction->lbl);
         status = register_notification_cmd(btif_avk_rc_cb[index].rc_handle, p_transaction->lbl, p_event->event_id, 0);
         if (status != BT_STATUS_SUCCESS)
@@ -1425,7 +1427,7 @@ static void register_for_event_notification(int index, btif_avk_rc_supported_eve
         alarm_free(p_transaction->txn_timer);
         p_transaction->txn_timer =
             alarm_new("btif_avk_rc.status_command_txn_timer");
-        BTIF_TRACE_DEBUG("%s: call btif_avk_rc_status_cmd_timer_timeout !~", __FUNCTION__);
+        BTIF_TRACE_DEBUG("%s: call btif_avk_rc_status_cmd_timer_timeout ", __FUNCTION__);
 
         alarm_set_on_mloop(p_transaction->txn_timer,
                            BTIF_TIMEOUT_RC_INTERIM_RSP_MS,
@@ -1713,20 +1715,20 @@ static void btif_avk_rc_ctrl_upstreams_rsp_evt(uint16_t event, tAVRC_RESPONSE *p
     {
         case AVRC_PDU_GET_CAPABILITIES:
         {
-            BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES !~", __FUNCTION__);
+            BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES ", __FUNCTION__);
             btif_avk_rc_supported_event_t *p_event;
 
 
             int xx = 0;
             if (pavrc_resp->get_caps.capability_id == AVRC_CAP_COMPANY_ID)
             {
-                BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES AVRC_CAP_COMPANY_ID !~", __FUNCTION__);
+                BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES AVRC_CAP_COMPANY_ID ", __FUNCTION__);
                 getcapabilities_cmd(index, AVRC_CAP_EVENTS_SUPPORTED);
                 btif_avk_rc_cb[index].rc_caps_company.count = pavrc_resp->get_caps.count;
                 for (xx = 0; xx < pavrc_resp->get_caps.count; xx++)
                     btif_avk_rc_cb[index].rc_caps_company.param.company_id[xx] = pavrc_resp->get_caps.param.company_id[xx];
 
-                BTIF_TRACE_IMP("btif_avk_rc_ctrl_upstreams_rsp_evt HAL_CBACK AVRC_CAP_EVENTS_SUPPORTED!~");
+                BTIF_TRACE_IMP("btif_avk_rc_ctrl_upstreams_rsp_evt HAL_CBACK AVRC_CAP_EVENTS_SUPPORTED");
                 HAL_CBACK(btif_avk_rc_ctrl_vendor_callbacks, getcap_rsp_vendor_cb, &rc_addr,
                 AVRC_CAP_COMPANY_ID,(uint32_t *)btif_avk_rc_cb[index].rc_caps_company.param.company_id,
                 btif_avk_rc_cb[index].rc_caps_company.count, rsp_type);
@@ -1734,36 +1736,57 @@ static void btif_avk_rc_ctrl_upstreams_rsp_evt(uint16_t event, tAVRC_RESPONSE *p
             else if (pavrc_resp->get_caps.capability_id == AVRC_CAP_EVENTS_SUPPORTED)
             {
                 btif_avk_rc_cb[index].rc_caps_event.count = pavrc_resp->get_caps.count;            
-                BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES AVRC_CAP_EVENTS_SUPPORTED pavrc_resp->get_caps.count = %d!~", __FUNCTION__,pavrc_resp->get_caps.count);                
-                for (xx = 0; xx < pavrc_resp->get_caps.count; xx++)
+                BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES AVRC_CAP_EVENTS_SUPPORTED pavrc_resp->get_caps.count = %d", __FUNCTION__,pavrc_resp->get_caps.count);
+                // if browsing is not enabled on DUT, then don't register for browsing related events
+                if(enable_avrc_browsing)
                 {
-                    /* Skip registering for Play position change notification */
-                    if ((pavrc_resp->get_caps.param.event_id[xx] == AVRC_EVT_PLAY_STATUS_CHANGE)||
-                        (pavrc_resp->get_caps.param.event_id[xx] == AVRC_EVT_TRACK_CHANGE)||
-                        (pavrc_resp->get_caps.param.event_id[xx] == AVRC_EVT_APP_SETTING_CHANGE)||
-                        (pavrc_resp->get_caps.param.event_id[xx] ==AVRC_EVT_ADDR_PLAYER_CHANGE)||
-                        (pavrc_resp->get_caps.param.event_id[xx] ==AVRC_EVT_AVAL_PLAYERS_CHANGE)||
-                        (pavrc_resp->get_caps.param.event_id[xx] ==AVRC_EVT_NOW_PLAYING_CHANGE))
+                    for (xx = 0; xx < pavrc_resp->get_caps.count; xx++)
                     {
-                        BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES AVRC_CAP_EVENTS_SUPPORTED event_id%d = 0x%x !~", __FUNCTION__,xx,pavrc_resp->get_caps.param.event_id[xx]);
-                        p_event = (btif_avk_rc_supported_event_t *)osi_malloc(sizeof(btif_avk_rc_supported_event_t));
-                        p_event->event_id = pavrc_resp->get_caps.param.event_id[xx];
-                        p_event->status = eNOT_REGISTERED;
-                        list_append(btif_avk_rc_cb[index].rc_supported_event_list, p_event);
+                        /* Skip registering for Play position change notification */
+                        if ((pavrc_resp->get_caps.param.event_id[xx] == AVRC_EVT_PLAY_STATUS_CHANGE)||
+                            (pavrc_resp->get_caps.param.event_id[xx] == AVRC_EVT_TRACK_CHANGE)||
+                            (pavrc_resp->get_caps.param.event_id[xx] == AVRC_EVT_APP_SETTING_CHANGE)||
+                            (pavrc_resp->get_caps.param.event_id[xx] ==AVRC_EVT_ADDR_PLAYER_CHANGE)||
+                            (pavrc_resp->get_caps.param.event_id[xx] ==AVRC_EVT_AVAL_PLAYERS_CHANGE)||
+                            (pavrc_resp->get_caps.param.event_id[xx] ==AVRC_EVT_NOW_PLAYING_CHANGE))
+                        {
+                            BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES AVRC_CAP_EVENTS_SUPPORTED event_id%d = 0x%x", __FUNCTION__,xx,pavrc_resp->get_caps.param.event_id[xx]);
+                            p_event = (btif_avk_rc_supported_event_t *)osi_malloc(sizeof(btif_avk_rc_supported_event_t));
+                            p_event->event_id = pavrc_resp->get_caps.param.event_id[xx];
+                            p_event->status = eNOT_REGISTERED;
+                            list_append(btif_avk_rc_cb[index].rc_supported_event_list, p_event);
+                        }
+                        btif_avk_rc_cb[index].rc_caps_event.param.event_id[xx] = pavrc_resp->get_caps.param.event_id[xx];
                     }
-                    btif_avk_rc_cb[index].rc_caps_event.param.event_id[xx] = pavrc_resp->get_caps.param.event_id[xx];
+                }
+                else
+                {
+                    for (xx = 0; xx < pavrc_resp->get_caps.count; xx++)
+                    {
+                        /* Skip registering for Play position change notification */
+                        if ((pavrc_resp->get_caps.param.event_id[xx] == AVRC_EVT_PLAY_STATUS_CHANGE)||
+                            (pavrc_resp->get_caps.param.event_id[xx] == AVRC_EVT_TRACK_CHANGE))
+                        {
+                            BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES AVRC_CAP_EVENTS_SUPPORTED event_id%d = 0x%x ", __FUNCTION__,xx,pavrc_resp->get_caps.param.event_id[xx]);
+                            p_event = (btif_avk_rc_supported_event_t *)osi_malloc(sizeof(btif_avk_rc_supported_event_t));
+                            p_event->event_id = pavrc_resp->get_caps.param.event_id[xx];
+                            p_event->status = eNOT_REGISTERED;
+                            list_append(btif_avk_rc_cb[index].rc_supported_event_list, p_event);
+                        }
+                        btif_avk_rc_cb[index].rc_caps_event.param.event_id[xx] = pavrc_resp->get_caps.param.event_id[xx];
+                    }
                 }
                 if (!list_is_empty(btif_avk_rc_cb[index].rc_supported_event_list))
                 {
                     p_event = (btif_avk_rc_supported_event_t *)list_front(btif_avk_rc_cb[index].rc_supported_event_list);
                     if (p_event != NULL)
                     {
-                         BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES AVRC_CAP_EVENTS_SUPPORTED register_for_event_notification!~", __FUNCTION__);
+                         BTIF_TRACE_DEBUG("%s: case AVRC_PDU_GET_CAPABILITIES AVRC_CAP_EVENTS_SUPPORTED register_for_event_notification", __FUNCTION__);
                          register_for_event_notification(index, p_event);
                     }
                 }
 
-                BTIF_TRACE_IMP("btif_avk_rc_ctrl_upstreams_rsp_evt HAL_CBACK AVRC_CAP_EVENTS_SUPPORTED!~");
+                BTIF_TRACE_IMP("btif_avk_rc_ctrl_upstreams_rsp_evt HAL_CBACK AVRC_CAP_EVENTS_SUPPORTED");
                 HAL_CBACK(btif_avk_rc_ctrl_vendor_callbacks, getcap_rsp_vendor_cb, &rc_addr,
                 AVRC_CAP_EVENTS_SUPPORTED,(uint32_t *)btif_avk_rc_cb[index].rc_caps_event.param.event_id,
                 btif_avk_rc_cb[index].rc_caps_event.count, rsp_type);               
@@ -1851,10 +1874,20 @@ static void btif_avk_rc_ctrl_upstreams_rsp_evt(uint16_t event, tAVRC_RESPONSE *p
             break;
         case AVRC_PDU_REGISTER_NOTIFICATION:
         {
-            BTIF_TRACE_EVENT(" %s AVRC_PDU_REGISTER_NOTIFICATION %d!~", __FUNCTION__, buf_len);
+            BTIF_TRACE_EVENT(" %s AVRC_PDU_REGISTER_NOTIFICATION %d", __FUNCTION__, buf_len);
 
             btrc_event_id_t event_id = (btrc_event_id_t)pavrc_resp->reg_notif.event_id;
             btrc_notification_type_t type = (btrc_notification_type_t)rsp_type;
+            // map rsp_type to hal values for interim and changed.
+            //If something else, send raw values.
+            switch(rsp_type) {
+                case AVRC_RSP_INTERIM:
+                    type =  BTRC_NOTIFICATION_TYPE_INTERIM;
+                break;
+                case AVRC_RSP_CHANGED:
+                    type = BTRC_NOTIFICATION_TYPE_CHANGED;
+                break;
+            }
             btrc_register_notification_t param;
 
             switch(event_id)
@@ -2025,6 +2058,7 @@ static bt_status_t init_ctrl(btrc_ctrl_callbacks_t* callbacks )
 static bt_status_t init_ctrl_vendor(btrc_ctrl_vendor_callbacks_t* callbacks, int max_connections )
 {
     int i;
+    char value[PROPERTY_VALUE_MAX] = {'\0'};
     bt_status_t result = BT_STATUS_SUCCESS;
     btif_avk_rc_ctrl_vendor_callbacks = callbacks;
     btif_max_rc_clients = max_connections;
@@ -2034,6 +2068,8 @@ static bt_status_t init_ctrl_vendor(btrc_ctrl_vendor_callbacks_t* callbacks, int
        btif_avk_rc_cb[i].rc_vol_label=MAX_LABEL;
        btif_avk_rc_cb[i].rc_supported_event_list = list_new(osi_free);
     }
+    property_get("persist.bluetooth.disablebrowsing", value, "false");
+    enable_avrc_browsing = (strcmp(value, "false") == 0);
     lbl_init();
     return result;
 }
@@ -2127,7 +2163,7 @@ static void handle_notification_response(tBTA_AVK_META_MSG* pmeta_msg,
       p_event = (btif_avk_rc_supported_event_t*)list_node(node);
       if (p_event != NULL && p_event->event_id == p_rsp->event_id) {
         p_event->status = eNOT_REGISTERED;
-        BTIF_TRACE_DEBUG(" re-register for changed notification !~ ");
+        BTIF_TRACE_DEBUG(" re-register for changed notification  ");
         register_for_event_notification(index, p_event);
         break;
       }
@@ -2181,7 +2217,7 @@ static void handle_avk_rc_metamsg_rsp(tBTA_AVK_META_MSG *pmeta_msg)
             BTIF_TRACE_DEBUG(" Releasing label = %d",pmeta_msg->label);
             release_transaction(pmeta_msg->label, index);
         }
-        BTIF_TRACE_DEBUG("%s: btif_avk_rc_ctrl_upstreams_rsp_evt !~", __FUNCTION__);
+        BTIF_TRACE_DEBUG("%s: btif_avk_rc_ctrl_upstreams_rsp_evt ", __FUNCTION__);
         btif_avk_rc_ctrl_upstreams_rsp_evt((uint16_t)avrc_response.rsp.pdu, &avrc_response,
                                scratch_buf, buf_len,pmeta_msg->p_msg->vendor.hdr.ctype, index);
     }
@@ -2346,16 +2382,16 @@ static bt_status_t getcapabilities_cmd_vendor (bt_bdaddr_t *bd_addr, uint8_t cap
 
     if(btif_avk_rc_cb[index].rc_caps_company.count !=0)
     {
-         BTIF_TRACE_ERROR("%s: found the catched caps values, will return these values directly!~",
+         BTIF_TRACE_ERROR("%s: found the catched caps values, will return these values directly",
                              __FUNCTION__);
 
         if(p_cap_rsp_timer != NULL)
             alarm_free(p_cap_rsp_timer);
         p_cap_rsp_timer = alarm_new("btif_avk_rc.cap_rsp_timer");
-        BTIF_TRACE_DEBUG("%s: btif_avk_rc_status_cmd_timer_timeout !~", __FUNCTION__);
+        BTIF_TRACE_DEBUG("%s: btif_avk_rc_status_cmd_timer_timeout ", __FUNCTION__);
         uint16_t* pData = (uint16_t *)osi_malloc(sizeof(uint16_t));
         *pData = ((((uint16_t)cap_id << 8) & 0xff00) | (index & 0x00ff));
-        BTIF_TRACE_DEBUG("%s: avk_rc_get_caps_cmd_timer_timeout data=%d!~", __FUNCTION__,*pData);
+        BTIF_TRACE_DEBUG("%s: avk_rc_get_caps_cmd_timer_timeout data=%d", __FUNCTION__,*pData);
         alarm_set_on_mloop(p_cap_rsp_timer,
                            BTIF_TIMEOUT_RC_INTERIM_RSP_MS,
                            btif_avk_rc_get_caps_cmd_timer_timeout, (void*)pData);
@@ -2365,7 +2401,7 @@ static bt_status_t getcapabilities_cmd_vendor (bt_bdaddr_t *bd_addr, uint8_t cap
     else
     {
          status = BT_STATUS_NOT_READY;
-         BTIF_TRACE_ERROR("%s: no caps value catched, proviously get capabilities process is not finish yet!~",
+         BTIF_TRACE_ERROR("%s: no caps value catched, proviously get capabilities process is not finish yet",
                              __FUNCTION__);
     }
 #else
