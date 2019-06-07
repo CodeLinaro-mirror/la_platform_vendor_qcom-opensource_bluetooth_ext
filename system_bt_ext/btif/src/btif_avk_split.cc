@@ -1555,9 +1555,11 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
             }
              break;
          default:
-             break;
-
+             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
+                                dump_avk_sm_event_name((btif_avk_sm_event_t)event));
+             return FALSE;
     }
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -1615,6 +1617,7 @@ static bool btif_avk_split_state_vsc_handler(btif_sm_event_t event, void *p_data
             memorize_msg(index,event,BTIF_AVK_STATE_HDL_VSC, p_data);
             break;
     }
+    return TRUE;
 }
 /*****************************************************************************
 **
