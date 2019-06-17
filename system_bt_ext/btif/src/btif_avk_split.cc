@@ -315,6 +315,7 @@ static const char *dump_avk_sm_event_name(btif_avk_sm_event_t event)
         CASE_RETURN_STR(BTA_AVK_OFFLOAD_STOP_RSP_EVT)
         CASE_RETURN_STR(BTIF_AVK_SPLIT_PENDING_START_ALARM_TIMEOUT)
         CASE_RETURN_STR(BTIF_AVK_SPLIT_PENDING_SUSPEND_ALARM_TIMEOUT)
+        CASE_RETURN_STR(BTA_AVK_MTU_CONFIG_EVT)
         default: return "UNKNOWN_EVENT";
    }
 }
@@ -806,6 +807,14 @@ static bool btif_avk_split_state_opening_handler(btif_sm_event_t event, void *p_
             btif_queue_advance();
         } break;
 
+        case BTA_AVK_MTU_CONFIG_EVT:
+        {
+            tBTA_AVK *p_av = (tBTA_AVK*)p_data;
+            BTIF_TRACE_DEBUG("%s: BTA_AVK_MTU_CONFIG_EVT", __func__);
+            HAL_CBACK(bt_av_sink_vendor_callbacks, mtu_config_cb,
+                      p_av->mtu_config.mtu,btif_avk_cb[index].peer_bda);
+        } break;
+
         case BTIF_AVK_SINK_CONFIG_REQ_EVT:
         {
             btif_avk_config_req_t req;
@@ -1250,6 +1259,13 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
                 HAL_CBACK(bt_av_sink_vendor_callbacks, audio_codec_config_vendor_cb,
                         &(btif_avk_cb[index].peer_bda), req.codec_type, req.codec_info);
             }
+        } break;
+
+        case BTA_AVK_MTU_CONFIG_EVT:
+        {
+            BTIF_TRACE_DEBUG("%s: BTA_AVK_MTU_CONFIG_EVT", __func__);
+            HAL_CBACK(bt_av_sink_vendor_callbacks, mtu_config_cb,
+                      p_av->mtu_config.mtu,btif_avk_cb[index].peer_bda);
         } break;
 
         default:
@@ -2092,6 +2108,9 @@ static void btif_avk_handle_event(uint16_t event, char* p_param)
             break;
         case BTA_AVK_OPEN_EVT:
             index = HANDLE_TO_INDEX(p_bta_data->open.hndl);
+            break;
+        case BTA_AVK_MTU_CONFIG_EVT:
+            index = HANDLE_TO_INDEX(p_bta_data->mtu_config.hndl);
             break;
         case BTA_AVK_ROLE_CHANGED_EVT:
             index = HANDLE_TO_INDEX(p_bta_data->role_changed.hndl);
