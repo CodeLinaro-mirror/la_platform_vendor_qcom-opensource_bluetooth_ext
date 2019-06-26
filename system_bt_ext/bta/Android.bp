@@ -13,6 +13,7 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys/system/bt/bta/include/",
         "vendor/qcom/opensource/commonsys/system/bt/bta/ag/",
         "vendor/qcom/opensource/commonsys/system/bt/bta/sys/",
+        "vendor/qcom/opensource/commonsys/system/bt/bta/av/",
         "vendor/qcom/opensource/commonsys/system/bt/stack/btm/",
         "vendor/qcom/opensource/commonsys/system/bt/utils/include/",
         "vendor/qcom/opensource/commonsys/system/bt/stack/l2cap/",
