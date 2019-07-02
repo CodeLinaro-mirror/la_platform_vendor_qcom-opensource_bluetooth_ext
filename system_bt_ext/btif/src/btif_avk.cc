@@ -1439,7 +1439,7 @@ static bool btif_avk_state_started_handler(btif_sm_event_t event, void* p_data,
             }
           }
           BTIF_TRACE_DEBUG("%s: is_playing: %d", __func__, is_playing);
-          if (!is_playing) {
+          if ((!is_playing) && (btif_avk_is_connected_on_other_idx(index))) {
             BTIF_TRACE_DEBUG("%s: start streaming when both are in opened state", __func__);
           if (btif_avk_is_a2dp_sink_handoff_required(index)) {
             btif_avk_initiate_sink_handoff(index, true);
@@ -2574,8 +2574,8 @@ static void bte_avk_sink_media_callback(tBTA_AVK_EVT event,
   switch (event) {
     case BTA_AVK_SINK_MEDIA_DATA_EVT: {
       btif_sm_state_t state = btif_sm_get_state(btif_avk_cb[index].sm_handle);
-      if (((state == BTIF_AVK_STATE_STARTED) || (state == BTIF_AVK_STATE_OPENED))
-            && (index == cur_playing_index)) {
+      if (((state == BTIF_AVK_STATE_STARTED) || (state == BTIF_AVK_STATE_OPENED)) &&
+            ((index == cur_playing_index) && (cur_playing_index != btif_max_avk_clients))) {
         uint8_t queue_len = btif_a2dp_sink_enqueue_buf((BT_HDR*)p_data);
         BTIF_TRACE_DEBUG("%s: index = %d, packets in sink queue %d", __func__, index, queue_len);
       }
@@ -3378,8 +3378,8 @@ int btif_avk_get_current_playing_dev_idx(void)
       return i;
     }
   }
-
-  return 0;
+  BTIF_TRACE_DEBUG("current playing device not set on any idx");
+  return i;
 }
 
 /******************************************************************************
@@ -3401,7 +3401,7 @@ tBTA_AVK_LATENCY btif_avk_get_sink_latency() {
     index = btif_avk_get_current_playing_dev_idx();
     /* Set sink latency to be latency reported from sink if delay reporting
      * is enabled, or else set sink latency to be default sink latency value */
-    if (btif_avk_cb[index].sink_latency > 0)
+    if ((index >= 0 && index < btif_max_avk_clients) && btif_avk_cb[index].sink_latency > 0)
       sink_latency = btif_avk_cb[index].sink_latency;
     else
       sink_latency = BTIF_AVK_DEFAULT_SINK_LATENCY;
@@ -3978,7 +3978,10 @@ bool btif_avk_is_tws_enable_monocfg() {
 /*SPLITA2DP*/
 
 bool btif_avk_is_state_opened(int i) {
-  return (btif_sm_get_state(btif_avk_cb[i].sm_handle) == BTIF_AVK_STATE_OPENED);
+  if (i >= 0 && i < btif_max_avk_clients)
+    return (btif_sm_get_state(btif_avk_cb[i].sm_handle) == BTIF_AVK_STATE_OPENED);
+  else
+    return false;
 }
 
 void btif_avk_set_audio_delay(uint16_t delay, tBTA_AVK_HNDL hndl) {
@@ -4005,9 +4008,13 @@ uint16_t btif_avk_get_audio_delay(int index) {
   A2dpCodecConfig* current_codec = bta_avk_get_a2dp_current_codec();
   if(current_codec != nullptr) {
     if(current_codec->codecIndex() == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE) {
-      BTIF_TRACE_WARNING("%s: Updating Aptx Adaptive specific delay: %d",
-            __func__, btif_avk_cb[index].codec_latency);
-      return btif_avk_cb[index].codec_latency;
+      if (index >= 0 && index < btif_max_avk_clients) {
+        BTIF_TRACE_WARNING("%s: Updating Aptx Adaptive specific delay: %d",
+              __func__, btif_avk_cb[index].codec_latency);
+        return btif_avk_cb[index].codec_latency;
+      } else {
+        return 0;
+      }
     }
   }
 
@@ -4120,7 +4127,7 @@ bool btif_avk_device_in_sink_role() {
 bool btif_avk_is_a2dp_sink_handoff_required(int idx) {
   int cur_idx = btif_avk_get_current_playing_dev_idx();
   BTIF_TRACE_DEBUG("%s: index = %d, current_index= %d" ,__func__, idx, cur_idx);
-  if (idx != cur_idx) {
+  if (idx != btif_max_avk_clients && idx != cur_idx) {
     return true;
   }
   return false;
