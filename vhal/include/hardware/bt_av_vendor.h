@@ -42,8 +42,8 @@ __BEGIN_DECLS
 #define A2DP_SINK_RETREIVE_RTP_HEADER       0x02
 #define A2DP_SINK_ENABLE_DELAY_REPORTING    0X04
 #define A2DP_SINK_ENABLE_NOTIFICATION_CB    0x08
-#define A2DP_SRC_ENABLE_DELAY_REPORTING     0x01
-#define A2DP_SRC_PUMP_ENCODED_DATA          0x02
+#define A2DP_SINK_ENABLE_TIMESTAMP          0x10
+#define A2DP_SRC_PUMP_ENCODED_DATA          0x01
 
 #define A2DP_SINK_AUDIO_CODEC_SBC          0x00
 #define A2DP_SINK_AUDIO_CODEC_MP3          0x01
@@ -239,6 +239,9 @@ typedef void (*btav_audio_split_sink_start_ind_callback)(const RawAddress& bd_ad
 /** Callback for informing suspend indication to application.*/
 typedef void (*btav_audio_split_sink_suspend_ind_callback)(const RawAddress& bd_addr );
 
+typedef void (*btav_audio_mtu_config_vendor_callback) (uint16_t mtu, const RawAddress& bd_addr);
+
+
 /** BT-AV Vendor callback structure. */
 typedef struct {
     /** set to sizeof(btav_vendor_callbacks_t) */
@@ -262,6 +265,7 @@ typedef struct {
     btav_audio_registration_vendor_callback registration_vendor_cb;
     btav_audio_split_sink_start_ind_callback start_ind_cb;
     btav_audio_split_sink_suspend_ind_callback suspend_ind_cb;
+    btav_audio_mtu_config_vendor_callback mtu_config_cb;
 } btav_sink_vendor_callbacks_t;
 
 /** Represents the standard BT-AV interface.

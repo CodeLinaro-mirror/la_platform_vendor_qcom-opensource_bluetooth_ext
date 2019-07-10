@@ -97,7 +97,7 @@ typedef enum {
 
 #define MAX_A2DP_SINK_DATA_QUEUE_SZ         20
 
-#define DEFAULT_RENDERING_DELAY            200      //define a fix rendering delay
+#define DEFAULT_RENDERING_DELAY            140      //define a fix rendering delay
 #define APTX_RENDERING_DELAY               200
 #define AAC_RENDERING_DELAY                180
 
@@ -127,7 +127,8 @@ typedef struct
     bool is_slave;
     uint16_t sink_codec_type;
     bool avdt_sync;    //for AVDT1.3 delay reporting
-    uint64_t delay;    // value used for delay reporting in case of split
+    uint32_t delay;    // value used for delay reporting in case of split
+    uint32_t qahw_delay;
     uint8_t prev_state;
     uint8_t vsc_command_status;
     btif_avk_msg_t rem_msg[MSG_QUE_LEN];
@@ -163,6 +164,7 @@ static alarm_t *avk_pending_start_timer = NULL;
 static alarm_t *avk_pending_suspend_timer = NULL;
 
 static uint16_t enable_delay_reporting = 0; // by default disable it
+static uint16_t enable_avrc_browsing = 0;
 static RawAddress streaming_bda;
 extern tBTA_AVK_CO_CODEC_CAP_LIST *p_bta_avk_codec_pri_list;
 extern tBTA_AVK_CO_CODEC_CAP_LIST bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_SEP_INDEX];
@@ -313,6 +315,7 @@ static const char *dump_avk_sm_event_name(btif_avk_sm_event_t event)
         CASE_RETURN_STR(BTA_AVK_OFFLOAD_STOP_RSP_EVT)
         CASE_RETURN_STR(BTIF_AVK_SPLIT_PENDING_START_ALARM_TIMEOUT)
         CASE_RETURN_STR(BTIF_AVK_SPLIT_PENDING_SUSPEND_ALARM_TIMEOUT)
+        CASE_RETURN_STR(BTA_AVK_MTU_CONFIG_EVT)
         default: return "UNKNOWN_EVENT";
    }
 }
@@ -512,6 +515,7 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
             btif_avk_cb[index].sink_codec_type = 0xFF;
             btif_avk_cb[index].avdt_sync = FALSE;
             btif_avk_cb[index].delay = 0;
+            btif_avk_cb[index].qahw_delay = 0;
             btif_avk_cb[index].vsc_command_status = BTIF_AVK_VSC_STOP;
 
             /* This API will be called twice at initialization
@@ -547,8 +551,8 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
                     HAL_CBACK(bt_av_sink_vendor_callbacks, registration_vendor_cb, TRUE);
                 }
             }
+            btif_read_adapter_property(BT_PROPERTY_CLASS_OF_DEVICE);
             break;
-
         case BTIF_AVK_CONNECT_REQ_EVT:
             /* For outgoing connect stack and app are in sync.
             */
@@ -803,6 +807,14 @@ static bool btif_avk_split_state_opening_handler(btif_sm_event_t event, void *p_
             btif_queue_advance();
         } break;
 
+        case BTA_AVK_MTU_CONFIG_EVT:
+        {
+            tBTA_AVK *p_av = (tBTA_AVK*)p_data;
+            BTIF_TRACE_DEBUG("%s: BTA_AVK_MTU_CONFIG_EVT", __func__);
+            HAL_CBACK(bt_av_sink_vendor_callbacks, mtu_config_cb,
+                      p_av->mtu_config.mtu,btif_avk_cb[index].peer_bda);
+        } break;
+
         case BTIF_AVK_SINK_CONFIG_REQ_EVT:
         {
             btif_avk_config_req_t req;
@@ -995,11 +1007,22 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
             }
             break;
         case BTIF_AVK_SPLIT_SINK_SETUP_COMPLETE:
+        {
+            uint8_t latency[8];
+            memcpy(latency, p_data, 8);
             if((btif_avk_cb[index].flags & BTIF_AVK_FLAG_PENDING_START)) {
                 // if start request is sent earlier, we were waiting for session
                 // complete to happen to send START_REQUEST.
                 BTA_AvkStart(btif_avk_cb[index].bta_handle);
                 btif_avk_cb[index].flags &= ~ BTIF_AVK_FLAG_PENDING_START;
+                btif_avk_cb[index].delay = 0;
+                btif_avk_cb[index].delay = (latency[0] & 0x000000FF) |
+                                           ((latency[1] << 8) & 0x0000FF00) |
+                                           ((latency[2] << 16) & 0x00FF0000) |
+                                           ((latency[3] << 32) & 0xFF000000);
+                if(btif_avk_cb[index].avdt_sync) {
+                    BTA_AvkUpdateDelayReport(btif_avk_cb[index].bta_handle);
+                }
             } else {
                 BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
                              btif_avk_cb[index].vsc_command_status);
@@ -1007,6 +1030,14 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
                     case BTIF_AVK_VSC_STARTED:
                         btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE,
                                         A2DP_CTRL_ACK_SUCCESS);
+                        btif_avk_cb[index].delay = 0;
+                        btif_avk_cb[index].delay = (latency[0] & 0x000000FF) |
+                                                   ((latency[1] << 8) & 0x0000FF00) |
+                                                   ((latency[2] << 16) & 0x00FF0000) |
+                                                   ((latency[3] << 32) & 0xFF000000);
+                        if(btif_avk_cb[index].avdt_sync) {
+                            BTA_AvkUpdateDelayReport(btif_avk_cb[index].bta_handle);
+                        }
                         break;
                     case BTIF_AVK_VSC_STOP:
                         // VSC would have failed, by this time
@@ -1020,6 +1051,7 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
                 }
             }
             break;
+        }
         case BTIF_AVK_SINK_START_STREAM_REQ_EVT:
             //check if AVRCP connection is there, send AVRCP_PLAY, otherwise send AVDTP_START
             // check if rc connected
@@ -1229,6 +1261,13 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
             }
         } break;
 
+        case BTA_AVK_MTU_CONFIG_EVT:
+        {
+            BTIF_TRACE_DEBUG("%s: BTA_AVK_MTU_CONFIG_EVT", __func__);
+            HAL_CBACK(bt_av_sink_vendor_callbacks, mtu_config_cb,
+                      p_av->mtu_config.mtu,btif_avk_cb[index].peer_bda);
+        } break;
+
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
                                dump_avk_sm_event_name((btif_avk_sm_event_t)event));
@@ -1404,11 +1443,23 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
             // once we receive setup complete, we send Start Confirm to remote
             // we will move to started states
         case BTIF_AVK_SPLIT_SINK_SETUP_COMPLETE:
+        {
+            uint8_t latency[8];
+            memcpy(latency, p_data, 8);
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_STARTED);
             //BTA_AvkSendPedingStartCnf(btif_avk_cb[index].bta_handle);
             btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE, A2DP_CTRL_ACK_SUCCESS);
+            btif_avk_cb[index].delay = 0;
+            btif_avk_cb[index].delay = (latency[0] & 0x000000FF) |
+                                       ((latency[1] << 8) & 0x0000FF00) |
+                                       ((latency[2] << 16) & 0x00FF0000) |
+                                       ((latency[3] << 32) & 0xFF000000);
+            if(btif_avk_cb[index].avdt_sync) {
+                BTA_AvkUpdateDelayReport(btif_avk_cb[index].bta_handle);
+            }
             break;
-            // if we are in this state, VSC command has already been sent 
+            // if we are in this state, VSC command has already been sent
+        }
         case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
             BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
             switch(btif_avk_cb[index].vsc_command_status) {
@@ -1520,9 +1571,11 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
             }
              break;
          default:
-             break;
-
+             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
+                                dump_avk_sm_event_name((btif_avk_sm_event_t)event));
+             return FALSE;
     }
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -1580,6 +1633,7 @@ static bool btif_avk_split_state_vsc_handler(btif_sm_event_t event, void *p_data
             memorize_msg(index,event,BTIF_AVK_STATE_HDL_VSC, p_data);
             break;
     }
+    return TRUE;
 }
 /*****************************************************************************
 **
@@ -1652,9 +1706,21 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
         case BTIF_AVK_SPLIT_SINK_SETUP_COMPLETE:
             switch(btif_avk_cb[index].vsc_command_status) {
                 case BTIF_AVK_VSC_STARTED:
+                {
+                    uint8_t latency[8];
+                    memcpy(latency, p_data, 8);
                     btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE,
                                     A2DP_CTRL_ACK_SUCCESS);
+                    btif_avk_cb[index].delay = 0;
+                    btif_avk_cb[index].delay = (latency[0] & 0x000000FF) |
+                                               ((latency[1] << 8) & 0x0000FF00) |
+                                               ((latency[2] << 16) & 0x00FF0000) |
+                                               ((latency[3] << 32) & 0xFF000000);
+                    if(btif_avk_cb[index].avdt_sync) {
+                        BTA_AvkUpdateDelayReport(btif_avk_cb[index].bta_handle);
+                    }
                     break;
+                }
                 default:
                     btif_update_cmd_status(A2DP_AVK_CTRL_SESSION_SETUP_COMPLETE,
                                     A2DP_CTRL_ACK_FAILURE);
@@ -2042,6 +2108,9 @@ static void btif_avk_handle_event(uint16_t event, char* p_param)
             break;
         case BTA_AVK_OPEN_EVT:
             index = HANDLE_TO_INDEX(p_bta_data->open.hndl);
+            break;
+        case BTA_AVK_MTU_CONFIG_EVT:
+            index = HANDLE_TO_INDEX(p_bta_data->mtu_config.hndl);
             break;
         case BTA_AVK_ROLE_CHANGED_EVT:
             index = HANDLE_TO_INDEX(p_bta_data->role_changed.hndl);
@@ -2581,8 +2650,11 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
 
     property_get("persist.bluetooth.disabledelayreports", value, "false");
     enable_delay_reporting = (strcmp(value, "false") == 0);
+    property_get("persist.bluetooth.disablebrowsing", value, "false");
+    enable_avrc_browsing = (strcmp(value, "false") == 0);
 
-    BTIF_TRACE_IMP(" %s enable_delay_reporting = %d",__FUNCTION__,enable_delay_reporting);
+    BTIF_TRACE_IMP(" %s enable_delay_reporting = %d, enable_avrc_browsing = %d",
+                   __FUNCTION__,enable_delay_reporting, enable_avrc_browsing);
 
     return status;
 }
@@ -2684,8 +2756,17 @@ static void update_streaming_device_vendor(bt_bdaddr_t *bd_addr)
 *******************************************************************************/
 static void update_qahw_delay_vendor(uint16_t qahwdelay)
 {
-    // dummy api for split
-    BTIF_TRACE_DEBUG(" %s  NOT Implemented ", __FUNCTION__);
+    uint8_t index = btif_max_avk_clients;
+    BTIF_TRACE_DEBUG(" %s delay: %d ", __FUNCTION__,qahwdelay);
+    for(int i = 0;i < btif_max_avk_clients; i++) {
+        btif_avk_cb[i].qahw_delay = qahwdelay;
+    }
+    if(btif_avk_split_get_started_device_idx(&index) && btif_avk_cb[index].avdt_sync) {
+        /*This is to handle special scenarios,
+          where qahw delay is updated after started state.*/
+        BTA_AvkUpdateDelayReport(btif_avk_cb[index].bta_handle);
+    }
+    return;
 }
 
 static void is_value_to_be_updated(void *ptr1, void *ptr2, uint8_t num_of_bytes)
@@ -3413,31 +3494,29 @@ void btif_avk_split_dispatch_sm_event(btif_avk_sm_event_t event, void *p_data, i
 bt_status_t btif_avk_split_sink_execute_service(bool b_enable)
 {
      int i;
+     uint16_t features = 0;
+     features = BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
+                BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|BTA_AVK_FEAT_ADV_CTRL|
+                BTA_AVK_FEAT_RCTG|BTA_AVK_FEAT_SPLIT_ENABLED;
      if (b_enable)
      {
          /* Added BTA_AVK_FEAT_NO_SCO_SSPD - this ensures that the BTA does not
           * auto-suspend av streaming on AG events(SCO or Call). The suspend shall
           * be initiated by the app/audioflinger layers */
 
-        if(enable_delay_reporting) {
-         BTA_AvkEnable(BTA_SEC_AUTHENTICATE, BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
-                                            BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|BTA_AVK_FEAT_BROWSE|
-                BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG|BTA_AVK_FEAT_DELAY_RPT|BTA_AVK_FEAT_SPLIT_ENABLED,
-                bte_avk_callback);
-        BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable Added BTA_AVk_FEAT_DELAY_RPT!", __FUNCTION__);
-        }
-        else
-        {
-            BTA_AvkEnable(BTA_SEC_AUTHENTICATE, BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
-                BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|BTA_AVK_FEAT_BROWSE|
-                                            BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG|BTA_AVK_FEAT_SPLIT_ENABLED,
-                                                                        bte_avk_callback);
-            BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable NOT Added BTA_AVk_FEAT_DELAY_RPT!", __FUNCTION__);
-        }
+         if(enable_delay_reporting) {
+             features |= BTA_AVK_FEAT_DELAY_RPT;
+             BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable Added BTA_AVK_FEAT_DELAY_RPT!", __FUNCTION__);
+         }
+         if(enable_avrc_browsing) {
+             features |= BTA_AVK_FEAT_BROWSE;
+             BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable NOT Added BTA_AVK_FEAT_BROWSE!", __FUNCTION__);
+         }
+         BTA_AvkEnable(BTA_SEC_AUTHENTICATE, features, bte_avk_callback);
          for (i = 0; i < btif_max_avk_clients; i++)
          {
              BTA_AvkRegister(BTA_AVK_CHNL_AUDIO, BTIF_AVK_SERVICE_NAME, 0, bte_avk_media_callback,
-                                                                UUID_SERVCLASS_AUDIO_SINK);
+                             UUID_SERVCLASS_AUDIO_SINK);
          }
      }
      else 
@@ -3541,16 +3620,17 @@ static bool btif_avk_is_playing_on_other_idx(int current_index)
 
 /******************************************************************************
 **
-** Function        btif_avk_split_get_rendering_delay
+** Function        btif_avk_split_get_delay
 **
 ** Description     returns delay for split a2dp sink.
 **
-** Returns         bool
+** Returns         integer
 ******************************************************************************/
-int btif_avk_split_get_rendering_delay(RawAddress bd_addr) {
+uint32_t btif_avk_split_get_delay(RawAddress bd_addr) {
     int index = btif_avk_idx_by_bdaddr(&bd_addr);
-    BTIF_TRACE_ERROR("%s rendering delay of index %d : %d",__func__, index, btif_avk_cb[index].delay);
-    return btif_avk_cb[index].delay;
+    BTIF_TRACE_ERROR("%s delay, qahwdelay of index %d : %d, %d",
+                     __func__, index, btif_avk_cb[index].delay,btif_avk_cb[index].qahw_delay);
+    return (btif_avk_cb[index].delay + btif_avk_cb[index].qahw_delay);
 }
 
 void btif_avk_pending_start_timeout_handler(void* data) {

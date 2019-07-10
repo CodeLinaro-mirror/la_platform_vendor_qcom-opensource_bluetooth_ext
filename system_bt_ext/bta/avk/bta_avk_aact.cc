@@ -184,6 +184,7 @@ const tBTA_AVK_SACT bta_avk_a2d_action[] =
     bta_avk_send_pending_start_rej, /* BTA_AVK_SEND_PENDING_START_REJ */
     bta_avk_send_pending_suspend_cnf, /* BTA_AVK_SEND_PENDING_SUSPEND_CNF */
     bta_avk_send_pending_suspend_rej, /* BTA_AVK_SEND_PENDING_SUSPEND_REJ */
+    bta_avk_update_delay_report, /*BTA_AVK_UPDATE_DELAY_REPORT*/
     NULL
 };
 
@@ -1553,6 +1554,7 @@ void bta_avk_str_opened (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
     uint8_t *p;
     uint16_t mtu;
     uint8_t cur_role;
+    tBTA_AVK_MTU_CONFIG mtu_config;
 
     msg.hdr.layer_specific = p_scb->hndl;
     msg.is_up = TRUE;
@@ -1564,6 +1566,8 @@ void bta_avk_str_opened (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
 
 
     p_scb->stream_mtu = p_data->str_msg.msg.open_ind.peer_mtu - AVDT_MEDIA_HDR_SIZE;
+    mtu_config.mtu = p_data->str_msg.msg.open_ind.peer_mtu;
+    mtu_config.hndl = p_scb->hndl;
     mtu = bta_avk_chk_mtu(p_scb, p_scb->stream_mtu);
     APPL_TRACE_DEBUG("bta_avk_str_opened l2c_cid: 0x%x stream_mtu: %d mtu: %d",
         p_scb->l2c_cid, p_scb->stream_mtu, mtu);
@@ -1618,6 +1622,7 @@ void bta_avk_str_opened (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
             open.sep = AVDT_TSEP_SRC;
 
         (*bta_avk_cb.p_cback)(BTA_AVK_OPEN_EVT, (tBTA_AVK *) &open);
+        (*bta_avk_cb.p_cback)(BTA_AVK_MTU_CONFIG_EVT, (tBTA_AVK *) &mtu_config);
         if(open.starting)
         {
             bta_avk_ssm_execute(p_scb, BTA_AVK_AP_START_EVT, NULL);
@@ -2538,6 +2543,12 @@ void bta_avk_send_pending_suspend_rej (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_dat
 {
     APPL_TRACE_DEBUG(" %s ",__func__);
     AVDT_SndPendingSigSuspend_Rsp(p_scb->avdt_handle, FALSE);
+}
+
+void bta_avk_update_delay_report (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
+{
+    APPL_TRACE_DEBUG(" %s ",__func__);
+    AVDT_UpdateDelayReport(p_scb->avdt_handle);
 }
 
 /*******************************************************************************

@@ -270,9 +270,10 @@ typedef uint8_t tBTA_AVK_ERR;
 #define BTA_AVK_RC_BROWSE_CLOSE_EVT  25       /* remote control browse channel closed */
 #define BTA_AVK_OFFLOAD_START_RSP_EVT 26    /* a2dp offload start response */
 #define BTA_AVK_OFFLOAD_STOP_RSP_EVT 27    /* a2dp offload stop response */
+#define BTA_AVK_MTU_CONFIG_EVT   28     /*Update mtu value to btif*/
 
 /* Max BTA event */
-#define BTA_AVK_MAX_EVT          28
+#define BTA_AVK_MAX_EVT          29
 
 typedef uint8_t tBTA_AVK_EVT;
 
@@ -494,6 +495,13 @@ typedef struct
     tBTA_AVK_HNDL    hndl;       /* Handle associated with role change event */
 } tBTA_AVK_ROLE_CHANGED;
 
+/* data associated with MTU callback*/
+typedef struct
+{
+    uint16_t mtu;
+    tBTA_AVK_HNDL    hndl;
+} tBTA_AVK_MTU_CONFIG;
+
 /* union of data associated with AV callback */
 typedef union
 {
@@ -524,6 +532,7 @@ typedef union
     tBTA_AVK_OFFLOAD_RSP offload_rsp;
     tBTA_AVK_START_RSP   start_rsp;// to handle response from btapp for start ind
     tBTA_AVK_SUSPEND_RSP   suspend_rsp; // to handle response from btapp for suspend ind
+    tBTA_AVK_MTU_CONFIG  mtu_config;
 } tBTA_AVK;
 
 typedef struct
@@ -899,7 +908,7 @@ bool bta_avk_is_avdt_sync(uint16_t handle);
 void BTA_AvkUpdateCodecSupport(uint8_t *p_codec_type_list, uint8_t *p_vnd_list, uint8_t *p_codec_id_list,
                                    uint8_t codec_info[][AVDT_CODEC_SIZE], uint8_t num_codec_configs);
 
-
+void BTA_AvkUpdateDelayReport(tBTA_AVK_HNDL  hndl);
 void BTA_AvkOffloadStart(tBTA_AVK_HNDL hndl);
 void BTA_AvkOffloadStop(tBTA_AVK_HNDL hndl);
 void BTA_AvkSendPedingStartCnf(tBTA_AVK_HNDL hndl);
