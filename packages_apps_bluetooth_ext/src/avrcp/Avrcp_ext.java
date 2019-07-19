@@ -235,6 +235,7 @@ public final class Avrcp_ext {
     private final static int MSG_SET_AVRCP_CONNECTED_DEVICE = 25;
     private final static int MESSAGE_UPDATE_ABS_VOLUME_STATUS = 31;
     private static final int MSG_PLAY_STATUS_CMD_TIMEOUT = 33;
+    private static final int MSG_SET_ACTIVE_DEVICE = 34;
 
     private static final int STACK_CLEANUP = 0;
     private static final int APP_CLEANUP = 1;
@@ -786,20 +787,17 @@ public final class Avrcp_ext {
                     break;
                 mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
                                                           isAbsoluteVolumeSupported(deviceIndex));
-                if (isAbsoluteVolumeSupported(deviceIndex)) {
-                    if (mAbsVolThreshold > 0 && mAbsVolThreshold < mAudioStreamMax &&
+                if (mAbsVolThreshold > 0 && mAbsVolThreshold < mAudioStreamMax &&
                         vol > mAbsVolThreshold) {
                         if (DEBUG) Log.v(TAG, "remote inital volume too high " + vol + ">" +
                             mAbsVolThreshold);
                         vol = mAbsVolThreshold;
                         notifyVolumeChanged(vol, false);
-                    }
                 }
                 if (vol >= 0) {
                     vol = convertToAvrcpVolume(vol);
                     Log.d(TAG,"vol = " + vol + "rem vol = " + deviceFeatures[deviceIndex].mRemoteVolume);
                     if(vol != deviceFeatures[deviceIndex].mRemoteVolume &&
-                       deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice &&
                        deviceFeatures[deviceIndex].mCurrentDevice != null) {
                        setVolumeNative(vol , getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
                        if (deviceFeatures[deviceIndex].mCurrentDevice.isTwsPlusDevice()) {
@@ -853,7 +851,7 @@ public final class Avrcp_ext {
                     Log.v(TAG,"TWS+ device, update abs vol as true ");
                     mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
                             true);
-                } else {
+                } else if (deviceFeatures[deviceIndex].isActiveDevice) {
                     mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
                         isAbsoluteVolumeSupported(deviceIndex));
                     Log.v(TAG,"update audio manager for abs vol state = "
@@ -1131,7 +1129,8 @@ public final class Avrcp_ext {
                     //Don't show media UI when device connected.
                     isShowUI = false;
                     deviceFeatures[deviceIndex].mInitialRemoteVolume = absVol;
-                    //Avoid fluction of volume during device add in blacklist
+                    //Avoid fluctuation of volume during device add in blacklist
+                    // use send setAbsolute volume for blacklisted volume
                     if(deviceFeatures[deviceIndex].mBlackListVolume != -1 &&
                        deviceFeatures[deviceIndex].isActiveDevice) {
                         resetBlackList(address);
@@ -1145,18 +1144,29 @@ public final class Avrcp_ext {
                         deviceFeatures[deviceIndex].mLocalVolume = deviceFeatures[deviceIndex].mBlackListVolume;
                         deviceFeatures[deviceIndex].mBlackListVolume = -1;
                         break;
-                    }
-                    else if (mAbsVolThreshold > 0 && mAbsVolThreshold < mAudioStreamMax &&
-                        volIndex > mAbsVolThreshold && deviceFeatures[deviceIndex].isActiveDevice) {
-                        if (DEBUG) Log.v(TAG, "remote inital volume too high " + volIndex + ">" +
-                            mAbsVolThreshold);
-                        Message msg1 = mHandler.obtainMessage(MSG_SET_ABSOLUTE_VOLUME,
-                            mAbsVolThreshold , 0);
-                        mHandler.sendMessage(msg1);
-                        deviceFeatures[deviceIndex].mRemoteVolume = absVol;
-                        deviceFeatures[deviceIndex].mLocalVolume = volIndex;
-                        deviceFeatures[deviceIndex].mLastRequestedVolume = -1;
-                        break;
+                    } else if (deviceFeatures[deviceIndex].isActiveDevice) {
+                        /*Avoid send set absolute volume for store volume untill volume registration
+                        complete and making synchronization to send only one setAbsolute volume
+                        during connection*/
+                        if(getVolume(deviceFeatures[deviceIndex].mCurrentDevice) != -1) {
+                            setAbsVolumeFlag(deviceFeatures[deviceIndex].mCurrentDevice);
+                            break;
+                        }
+                        /*if volume is stored than no need to send setAbsoluteVolume use register volume*/
+                        else if(mAbsVolThreshold > 0 && mAbsVolThreshold < mAudioStreamMax &&
+                          volIndex > mAbsVolThreshold) {
+                            //To handle volume when device volume is not stored during
+                            // pairing
+                            if (DEBUG) Log.v(TAG, "remote inital volume too high " + volIndex + ">" +
+                               mAbsVolThreshold);
+                            Message msg1 = mHandler.obtainMessage(MSG_SET_ABSOLUTE_VOLUME,
+                                mAbsVolThreshold , 0);
+                            mHandler.sendMessage(msg1);
+                            deviceFeatures[deviceIndex].mRemoteVolume = absVol;
+                            deviceFeatures[deviceIndex].mLocalVolume = volIndex;
+                            deviceFeatures[deviceIndex].mLastRequestedVolume = -1;
+                            break;
+                        }
                     }
                 }
                 if (deviceFeatures[deviceIndex].mLocalVolume != volIndex &&
@@ -1483,6 +1493,81 @@ public final class Avrcp_ext {
                 }
                 deviceFeatures[deviceIndex].isPlayStatusTimeOut = true;
                 break;
+
+            case MSG_SET_ACTIVE_DEVICE:
+                Log.d(TAG, "MSG_SET_ACTIVE_DEVICE");
+                BluetoothDevice bt_device = (BluetoothDevice) msg.obj;
+                if (bt_device == null) {
+                    for (int i = 0; i < maxAvrcpConnections; i++) {
+                        deviceFeatures[i].isActiveDevice = false;
+                    }
+                    break;
+                }
+                deviceIndex = getIndexForDevice(bt_device);
+                if (deviceIndex == INVALID_DEVICE_INDEX) {
+                    Log.e(TAG,"Invalid device index for setActiveDevice");
+                    for (int i = 0; i < maxAvrcpConnections; i++) {
+                        deviceFeatures[i].isActiveDevice = false;
+                    }
+                    break;
+                }
+                deviceFeatures[deviceIndex].isActiveDevice = true;
+
+                Log.w(TAG, "Active device Calling SetBrowsePackage for " + mCachedBrowsePlayer);
+                if (mCachedBrowsePlayer != null && is_player_updated_for_browse == false) {
+                    SetBrowsePackage(mCachedBrowsePlayer);
+                }
+
+                if (maxAvrcpConnections > 1) {
+                    if (deviceFeatures[1-deviceIndex].mCurrentDevice != null &&
+                            deviceFeatures[1-deviceIndex].mCurrentDevice.isTwsPlusDevice() &&
+                            isTwsPlusPair(deviceFeatures[1-deviceIndex].mCurrentDevice,bt_device)) {
+                        Log.d(TAG,"TWS+ pair connected, keep both devices active");
+                        //Explicitly set it to true for usecase streaming handoff between
+                        // speaker and TWS+ earbuds
+                        deviceFeatures[1-deviceIndex].isActiveDevice = true;
+                    } else {
+                        deviceFeatures[1-deviceIndex].isActiveDevice = false;
+                    }
+                }
+                Log.e(TAG,"AVRCP setActive  addr " +
+                        deviceFeatures[deviceIndex].mCurrentDevice.getAddress() +
+                        " isActive device index " + deviceIndex);
+
+                //to keep volume copy for setting volume
+                deviceFeatures[deviceIndex].mLocalVolume = getVolume(bt_device);
+                if((maxAvrcpConnections > 1) && (deviceFeatures[deviceIndex].mCurrentDevice != null)
+                        && (deviceFeatures[deviceIndex].mReportedPlayerID != mCurrAddrPlayerID)) {
+                    Log.d(TAG,"Update cache browsing event to last active device, deviceFeatures[" +
+                            deviceIndex + "].mReportedPlayerID: " +
+                            deviceFeatures[deviceIndex].mReportedPlayerID +
+                            ", mCurrAddrPlayerID: " + mCurrAddrPlayerID);
+                    if (deviceFeatures[deviceIndex].mAvailablePlayersChangedNT ==
+                            AvrcpConstants.NOTIFICATION_TYPE_INTERIM) {
+                        registerNotificationRspAvalPlayerChangedNative(
+                                AvrcpConstants.NOTIFICATION_TYPE_CHANGED,
+                                getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
+                        mAvailablePlayerViewChanged = false;
+                        deviceFeatures[deviceIndex].mAvailablePlayersChangedNT =
+                                AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
+                    }
+                    if (deviceFeatures[deviceIndex].mAddrPlayerChangedNT ==
+                            AvrcpConstants.NOTIFICATION_TYPE_INTERIM) {
+                        registerNotificationRspAddrPlayerChangedNative(
+                                AvrcpConstants.NOTIFICATION_TYPE_CHANGED,
+                                mCurrAddrPlayerID, sUIDCounter,
+                                getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
+                        deviceFeatures[deviceIndex].mAddrPlayerChangedNT =
+                                AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
+                    // send track change event becasue some carkits will refresh metadata
+                    // while receive addressed player change event. Track change event to
+                    // make remote get metadata correctly.
+                        sendTrackChangedRsp(false, deviceFeatures[deviceIndex].mCurrentDevice);
+                    }
+
+                    deviceFeatures[deviceIndex].mReportedPlayerID = mCurrAddrPlayerID;
+                    break;
+                }
 
             default:
                 Log.e(TAG, "unknown message! msg.what=" + msg.what);
@@ -3119,8 +3204,6 @@ public final class Avrcp_ext {
             (mDevice.isTwsPlusDevice() && device.isTwsPlusDevice()))) {
             setActiveDevice(mDevice);
             //below line to send setAbsolute volume if device is suporting absolute volume
-            if (mDevice.equals(deviceFeatures[index].mCurrentDevice))
-                setAbsVolumeFlag(mDevice);//Do not call this funciton for second EB connect
             //When A2dp playing on DUT and Remote got connected, send proper playstatus
             if (isPlayingState(mCurrentPlayerState) &&
                 mA2dpService.isA2dpPlaying(device)) {
@@ -3140,9 +3223,6 @@ public final class Avrcp_ext {
         for (int i = 0; i < maxAvrcpConnections; i++ ) {
             if (deviceFeatures[i].mCurrentDevice !=null &&
                     deviceFeatures[i].mCurrentDevice.equals(device)) {
-                //for BT ON/OFF case sometime disconnect is coming for 1 or all device
-                //so storing volume before disconnect
-                storeVolumeForAllDevice(device);
                 // initiate cleanup for all variables;
                 Message msg = mHandler.obtainMessage(MESSAGE_DEVICE_RC_CLEANUP, STACK_CLEANUP,
                        0, device);
@@ -4737,27 +4817,6 @@ public final class Avrcp_ext {
         return INVALID_DEVICE_INDEX;
     }
 
-    public void storeVolumeForAllDevice(BluetoothDevice device) {
-        SharedPreferences.Editor pref = getVolumeMap().edit();
-        for (int i = 0; i < maxAvrcpConnections; i++) {
-            if (deviceFeatures[i].mCurrentDevice != null &&
-               deviceFeatures[i].mLocalVolume != -1) { //2nd condition to avoid -1 update to audio
-                if(deviceFeatures[i].isActiveDevice)//to get exact volume for active device
-                    deviceFeatures[i].mLocalVolume =
-                        mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-                if(getVolume(deviceFeatures[i].mCurrentDevice) != deviceFeatures[i].mLocalVolume) {
-                    Log.i(TAG, "storeVolumeForAllDevice: Storing stream volume level for device " +
-                        deviceFeatures[i].mCurrentDevice + " : " + deviceFeatures[i].mLocalVolume);
-                    mVolumeMap.put(deviceFeatures[i].mCurrentDevice, deviceFeatures[i].mLocalVolume);
-                    pref.putInt(deviceFeatures[i].mCurrentDevice.getAddress(),
-                        deviceFeatures[i].mLocalVolume);
-                    // Always use apply() since it is asynchronous, otherwise the call
-                    //can hang waiting for storage to be written.
-                    pref.apply();
-                }
-            }
-        }
-   }
 
     public void storeVolumeForDevice(BluetoothDevice device) {
         SharedPreferences.Editor pref = getVolumeMap().edit();
@@ -4783,80 +4842,9 @@ public final class Avrcp_ext {
     }
 
     public void setActiveDevice(BluetoothDevice device) {
-        if (device == null) {
-          for (int i = 0; i < maxAvrcpConnections; i++) {
-              deviceFeatures[i].isActiveDevice = false;
-          }
-          return;
-        }
-        int deviceIndex = getIndexForDevice(device);
-        if (deviceIndex == INVALID_DEVICE_INDEX) {
-            Log.e(TAG,"Invalid device index for setActiveDevice");
-            for (int i = 0; i < maxAvrcpConnections; i++) {
-                deviceFeatures[i].isActiveDevice = false;
-            }
-            return;
-        }
-        deviceFeatures[deviceIndex].isActiveDevice = true;
-
-        Log.w(TAG, "Active device Calling SetBrowsePackage for " + mCachedBrowsePlayer);
-        if (mCachedBrowsePlayer != null && is_player_updated_for_browse == false) {
-            SetBrowsePackage(mCachedBrowsePlayer);
-        }
-
-        if (maxAvrcpConnections > 1) {
-            if (deviceFeatures[1-deviceIndex].mCurrentDevice != null &&
-                deviceFeatures[1-deviceIndex].mCurrentDevice.isTwsPlusDevice() &&
-                isTwsPlusPair(deviceFeatures[1-deviceIndex].mCurrentDevice, device)) {
-                Log.d(TAG,"TWS+ pair connected, keep both devices active");
-                //Explicitly set it to true for usecase streaming handoff between
-                // speaker and TWS+ earbuds
-                deviceFeatures[1-deviceIndex].isActiveDevice = true;
-            } else {
-                deviceFeatures[1-deviceIndex].isActiveDevice = false;
-            }
-        }
-        Log.e(TAG,"AVRCP setActive  addr " + deviceFeatures[deviceIndex].mCurrentDevice.getAddress() +
-                    " isActive device index " + deviceIndex);
-
-        //to keep volume copy for setting volume
-        deviceFeatures[deviceIndex].mLocalVolume = getVolume(device);
-        if(deviceFeatures[deviceIndex].mLocalVolume == -1) {
-            //volume is not stored so need to copy stream music
-            //to send setAbsolute request
-            deviceFeatures[deviceIndex].mLocalVolume =
-                mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        }
-        if ((maxAvrcpConnections > 1) && (deviceFeatures[deviceIndex].mCurrentDevice != null) &&
-                (deviceFeatures[deviceIndex].mReportedPlayerID != mCurrAddrPlayerID)) {
-            Log.d(TAG,"Update cached browsing events to latest active device, deviceFeatures[" +
-                    deviceIndex + "].mReportedPlayerID: " +
-                    deviceFeatures[deviceIndex].mReportedPlayerID +
-                    ", mCurrAddrPlayerID: " + mCurrAddrPlayerID);
-            if (deviceFeatures[deviceIndex].mAvailablePlayersChangedNT ==
-                    AvrcpConstants.NOTIFICATION_TYPE_INTERIM) {
-                registerNotificationRspAvalPlayerChangedNative(
-                        AvrcpConstants.NOTIFICATION_TYPE_CHANGED,
-                        getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
-                mAvailablePlayerViewChanged = false;
-                deviceFeatures[deviceIndex].mAvailablePlayersChangedNT =
-                        AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
-            }
-            if (deviceFeatures[deviceIndex].mAddrPlayerChangedNT ==
-                    AvrcpConstants.NOTIFICATION_TYPE_INTERIM) {
-                registerNotificationRspAddrPlayerChangedNative(
-                        AvrcpConstants.NOTIFICATION_TYPE_CHANGED, mCurrAddrPlayerID,
-                        sUIDCounter, getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
-                deviceFeatures[deviceIndex].mAddrPlayerChangedNT =
-                        AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
-                // send track change event becasue some carkits will refresh metadata
-                // while receive addressed player change event. Track change event to
-                // make remote get metadata correctly.
-                sendTrackChangedRsp(false, deviceFeatures[deviceIndex].mCurrentDevice);
-            }
-
-            deviceFeatures[deviceIndex].mReportedPlayerID = mCurrAddrPlayerID;
-        }
+        Log.w(TAG, "setActiveDevice call for device " + device);
+        Message msg = mHandler.obtainMessage(MSG_SET_ACTIVE_DEVICE, 0, 0, device);
+        mHandler.sendMessage(msg);
     }
 
     private SharedPreferences getVolumeMap() {
@@ -4900,16 +4888,22 @@ public final class Avrcp_ext {
             Log.e(TAG,"Invalid device index for setAbsVolumeFlag");
             return;
         }
-        /* Delay updating absVolume support notification to audiomanager
-         * as absVolume flag in audio audioservice is reset when device disconnect is
-         * notified to audiomanager in SHO is processed late. Resulting in not sending
-         * setABsVolume cmd to remote
-         */
+        //updating abs volume supported or not to audio when active device change is success
+        mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
+            isAbsoluteVolumeSupported(deviceIndex));
+        if(deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice == false) {
+            Log.d(TAG,"isAbsoluteVolumeSupportingDevice is false");
+            return;
+        }
+        if(deviceFeatures[deviceIndex].mInitialRemoteVolume == -1 || getVolume(device) == -1) {
+            Log.e(TAG,"intial volume is not updated");
+            return;
+        }
         Message msg = mHandler.obtainMessage();
         msg.what = MESSAGE_UPDATE_ABS_VOLUME_STATUS;
         msg.arg1 = deviceIndex;
         msg.arg2 = deviceFeatures[deviceIndex].mLocalVolume;
-        mHandler.sendMessageDelayed(msg, 100);
+        mHandler.sendMessage(msg);
         Log.d(TAG,"setAbsVolumeFlag = " + isAbsoluteVolumeSupported(deviceIndex));
         return;
     }
