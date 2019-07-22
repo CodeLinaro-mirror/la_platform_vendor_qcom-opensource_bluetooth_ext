@@ -2665,18 +2665,20 @@ static bt_status_t start_ind_rsp(const RawAddress& bd_addr, int accepted) {
     BTIF_TRACE_DEBUG("%s accepted  = %d for device =%s ", __FUNCTION__, accepted,
                      bd_addr.ToString().c_str());
     if (accepted == CMD_ACCEPTED) {
-        BTIF_TRACE_DEBUG(" %s current streaming bda %s ", __FUNCTION__,
-                     streaming_bda.ToString().c_str());
         streaming_bda = bd_addr;
         // nothing to do, wait for MM-Audio Session establishment
     } else if (accepted == CMD_REJECTED) {
-       // send cmd reject :BTIF_AVK_SPLIT_SINK_START_IND_RSP
-       cmd.index = btif_avk_idx_by_bdaddr(&bd_addr);
-       cmd.accepted = accepted;
-       btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_START_IND_RSP, &cmd,
+        // send cmd reject :BTIF_AVK_SPLIT_SINK_START_IND_RSP
+        cmd.index = btif_avk_idx_by_bdaddr(&bd_addr);
+        cmd.accepted = accepted;
+        btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_START_IND_RSP, &cmd,
                                   sizeof(tBTA_AVK_START_RSP));
     }
-    BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__, streaming_bda.ToString().c_str());
+    if(!streaming_bda.IsEmpty()) {
+        BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__,
+                         streaming_bda.ToString().c_str());
+    }
+    return BT_STATUS_SUCCESS;
 }
 
 static bt_status_t suspend_ind_rsp (const RawAddress& bd_addr, int accepted) {
@@ -2692,11 +2694,15 @@ static bt_status_t suspend_ind_rsp (const RawAddress& bd_addr, int accepted) {
        btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SUSPEND_IND_RSP, &cmd,
                                   sizeof(tBTA_AVK_SUSPEND_RSP));
     }
-    BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__, streaming_bda.ToString().c_str());
+    if(!streaming_bda.IsEmpty()) {
+        BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__,
+                         streaming_bda.ToString().c_str());
+    }
+    return BT_STATUS_SUCCESS;
 }
 
 static bt_status_t start_req(const RawAddress& bd_addr) {
-    BTIF_TRACE_DEBUG("%s for device  str_bda %s", __FUNCTION__,streaming_bda.ToString().c_str());
+    BTIF_TRACE_DEBUG("%s for device  str_bda %s", __FUNCTION__,bd_addr.ToString().c_str());
     // start request from app. First check if other index is in started state.
     uint8_t index = btif_avk_idx_by_bdaddr(&bd_addr);
 
@@ -2713,10 +2719,17 @@ static bt_status_t start_req(const RawAddress& bd_addr) {
     streaming_bda = bd_addr;
     btif_transfer_context(btif_avk_handle_event, BTIF_AVK_START_STREAM_REQ_EVT,
                                  NULL, 0, NULL);
+
+    if(!streaming_bda.IsEmpty()) {
+        BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__,
+                         streaming_bda.ToString().c_str());
+    }
+
+    return BT_STATUS_SUCCESS;
 }
 
 static bt_status_t suspend_req(const RawAddress& bd_addr) {
-    BTIF_TRACE_DEBUG("%s for device  str_bda %s", __FUNCTION__,streaming_bda.ToString().c_str());
+    BTIF_TRACE_DEBUG("%s for device  str_bda %s", __FUNCTION__,bd_addr.ToString().c_str());
     // start request from app. First check if other index is in started state.
     uint8_t index = btif_avk_idx_by_bdaddr(&bd_addr);
     if(index >= btif_max_avk_clients) {
@@ -2725,6 +2738,13 @@ static bt_status_t suspend_req(const RawAddress& bd_addr) {
     }
     btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SUSPEND_STREAM_REQ_EVT,
                                  (char*)&index, sizeof(uint8_t), NULL);
+
+    if(!streaming_bda.IsEmpty()) {
+        BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__,
+                         streaming_bda.ToString().c_str());
+    }
+
+    return BT_STATUS_SUCCESS;
 }
 
 
