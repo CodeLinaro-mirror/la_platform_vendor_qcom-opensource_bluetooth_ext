@@ -168,11 +168,7 @@ static inline int create_server_socket(const char* name)
         return -1;
     }
 
-    if (chown(name, -1, 5003)) {
-        BTIF_TRACE_EVENT("Unable to own socket (%s)", strerror(errno));
-    }
-
-    if (chmod(name, 0660)) {
+    if (chmod(name, 0777)) {
         BTIF_TRACE_EVENT("Unable to change permissions for socket (%s)", strerror(errno));
         return -1;
     }

@@ -29,9 +29,12 @@
 
 #include <assert.h>
 #include <string.h>
+#include <dlfcn.h>
+
 
 #include "bt_target.h"
 #include "osi/include/log.h"
+#include "osi/include/properties.h"
 
 #if defined(BTA_AV_INCLUDED) && (BTA_AV_INCLUDED == TRUE)
 #include "bta_avk_int.h"
@@ -218,6 +221,10 @@ const tBTA_AVK_NSM_ACT bta_avk_nsm_act[] =
 /*****************************************************************************
 ** Global data
 *****************************************************************************/
+/* APTX Feature Id */
+static unsigned int APTX_FEATRE_ID = 910;
+#define LIB_ALM "libalm.so"
+
 
 /* AV control block */
 #if BTA_DYNAMIC_MEMORY == FALSE
@@ -229,6 +236,61 @@ static char *bta_avk_st_code(uint8_t state);
 #endif
 
 static bool is_multicast_enabled = FALSE;
+
+/*******************************************************************************
+**
+** Function         bta_avk_api_enable
+**
+** Description      This API used to check presenece of valid license for a particular feature Id.
+**
+** @param[in]       feature_id is the id of the requester product/feature eg. Feature Id of APTX.
+**
+** Returns          0 = if valid license present, otherwise not present
+**
+*******************************************************************************/
+
+uint32_t check_haven_license() {
+
+    char value[PROPERTY_VALUE_MAX] = {'\0'};
+    property_get("persist.bt.haven_license", value, "true");
+    APPL_TRACE_DEBUG("%s haven_licensing_property = %s",__func__,value);
+    // if propety set to false, always return success (0)
+    if(!strcmp(value, "false")) {
+        return 0;
+    }
+
+    typedef int (*alm_check_license_t)( uint32_t feature_id);
+    alm_check_license_t verify_haven_license = NULL;
+
+    void *alm_handle = dlopen(LIB_ALM, RTLD_NOW);
+
+    if (alm_handle == NULL) {
+        APPL_TRACE_ERROR(" %s Could not find: %s",__func__,LIB_ALM);
+        return 1;
+    }
+
+    verify_haven_license = (alm_check_license_t)dlsym(alm_handle, "alm_check_license");
+    if (verify_haven_license == NULL) {
+        APPL_TRACE_ERROR(" %s Could not find the symbol alm_check_license from %s",__func__,LIB_ALM);
+        dlclose(alm_handle);
+        return 1;
+    }
+
+    APPL_TRACE_DEBUG("%s Verifying Haven license... ",__func__);
+    uint8_t ret = verify_haven_license(APTX_FEATRE_ID);
+    if ( ret == 2 )
+    {
+        APPL_TRACE_DEBUG(" %s Socket Error, retrying ",__func__);
+        usleep(50);
+        ret = verify_haven_license(APTX_FEATRE_ID);
+    }
+
+    dlclose(alm_handle);
+
+    APPL_TRACE_DEBUG("%s haven license ret %d ",__func__,ret);
+    return ret;
+}
+
 
 /*******************************************************************************
 **
@@ -604,7 +666,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
     uint8_t           endIndex = 0;
     uint8_t           index;
     uint16_t          profile_initialized;
-
+    uint32_t          haven_license_status;
     memset(&cs,0,sizeof(tAVDT_CS));
 
     registr.status = BTA_AVK_FAIL_RESOURCES;
@@ -764,6 +826,16 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
                 if (!is_split_enabled()) {
                     /* APTX-Adaptive Decoder is enabled only in Split Mode */
                     if(index ==  BTIF_SV_AVK_AA_APTX_AD_INDEX) {
+                        index ++;
+                        continue;
+                    }
+                }
+                if((index ==  BTIF_SV_AVK_AA_APTX_AD_INDEX) ||
+                   (index ==  BTIF_SV_AVK_AA_APTX_INDEX))
+                {
+                    if(check_haven_license())
+                    {
+                        APPL_TRACE_DEBUG(" APTX Licensing Failed ");
                         index ++;
                         continue;
                     }
