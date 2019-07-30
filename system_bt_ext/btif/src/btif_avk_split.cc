@@ -1565,15 +1565,25 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
                 memorize_msg(index,event,BTIF_AVK_STATE_STARTING, p_data);
                 btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_STARTED);
             }
-            if(btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTING) {
+            if(btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTING ||
+               btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STOPPING) {
                 // VSC command is in progress, just memorize this message
                 memorize_msg(index,event,BTIF_AVK_STATE_STARTING, p_data);
+            } else {
+                // cancel start_pending alarm and move to idle state
+                if(alarm_is_scheduled(avk_pending_start_timer)) {
+                    alarm_cancel(avk_pending_start_timer);
+                }
+                /* inform the application that we are disconnected */
+                btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
+                                         (bt_bdaddr_t *)&(btif_avk_cb[index].peer_bda));
+                btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
             }
-             break;
-         default:
-             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
-                                dump_avk_sm_event_name((btif_avk_sm_event_t)event));
-             return FALSE;
+            break;
+        default:
+            BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
+                               dump_avk_sm_event_name((btif_avk_sm_event_t)event));
+            return FALSE;
     }
     return TRUE;
 }
