@@ -55,7 +55,6 @@
 **  Constants & Macros
 ******************************************************************************/
 #define BTIF_AVK_SERVICE_NAME "Advanced Audio Sink"
-#define BTIF_TIMEOUT_AV_OPEN_ON_RC_SECS  2
 
 /* Number of BTIF-AV control blocks */
 /* Now supports Two AV connections. */
@@ -697,7 +696,9 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
 
         case BTA_AVK_RC_CLOSE_EVT:
             BTIF_TRACE_DEBUG("BTA_AV_RC_CLOSE_EVT: Stopping AV timer.");
-            alarm_cancel(avk_open_on_rc_timer);
+            if(alarm_is_scheduled(avk_open_on_rc_timer)) {
+                alarm_cancel(avk_open_on_rc_timer);
+            }
             btif_avk_rc_handler(event, (tBTA_AVK*)p_data);
             break;
 
@@ -970,6 +971,10 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
     {
         case BTIF_SM_ENTER_EVT:
             btif_avk_cb[index].flags &= ~BTIF_AVK_FLAG_PENDING_STOP;
+            //Cancel avk_open_on_rc_timer after a2dp connection
+            if(alarm_is_scheduled(avk_open_on_rc_timer)) {
+                alarm_cancel(avk_open_on_rc_timer);
+            }
             handle_memorized_msgs(index);
             break;
 
