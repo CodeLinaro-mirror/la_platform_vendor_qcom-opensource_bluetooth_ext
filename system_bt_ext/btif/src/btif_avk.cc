@@ -228,7 +228,8 @@ static bool enable_multicast = false;
 static bool isA2dpSink = false;
 static bool codec_config_update_enabled = false;
 extern bool is_codec_config_dump;
-extern alarm_t* config_alarm;
+static alarm_t* config_alarm = NULL;
+static alarm_t* sink_config_alarm = NULL;
 
 /*SPLITA2DP */
 extern bool bt_split_a2dp_enabled;
@@ -267,6 +268,7 @@ extern int64_t average_delay;
 static int64_t delay_record[DELAY_RECORD_COUNT] = {0}; /* store latest packets delay */
 static int delay_record_idx = 0;
 
+static void btif_avk_sink_media_config_delay(tBTA_AVK_SINK_MEDIA *p_data);
 static bool btif_avk_state_idle_handler(btif_sm_event_t event, void* data, int idx);
 static bool btif_avk_state_opening_handler(btif_sm_event_t event, void* data, int idx);
 static bool btif_avk_state_opened_handler(btif_sm_event_t event, void* data, int idx);
@@ -340,6 +342,7 @@ extern void btif_media_send_reset_vendor_state();
 extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
 extern uint8_t* bta_avk_co_get_peer_codec_info(uint8_t hdl);
 extern bool bta_avk_is_avdt_sync(uint16_t handle);
+extern bool bta_avk_co_save_config(uint8_t index, const uint8_t* pdata);
 
 /*****************************************************************************
  * Local helper functions
@@ -2014,7 +2017,13 @@ static void btif_avk_handle_event(uint16_t event, char* p_param) {
       index = btif_avk_get_latest_device_idx_to_start();
       break;
     case BTA_AVK_SINK_MEDIA_CFG_EVT:
-      index = btif_avk_get_current_playing_dev_idx();
+      bt_addr = &(((tBTA_AVK_SINK_MEDIA*)p_param)->avk_config.bd_addr);
+      if (bt_addr != NULL) {
+        index = btif_avk_idx_by_bdaddr(bt_addr);
+      } else {
+        index = btif_max_avk_clients;
+      }
+      BTIF_TRACE_EVENT("Sink events: BTA_AVK_SINK_MEDIA_CFG_EVT on index = %d", index);
       break;
   /* FALLTHROUGH */
   default:
@@ -2564,12 +2573,30 @@ static void bte_avk_callback(tBTA_AVK_EVT event, tBTA_AVK* p_data) {
                         sizeof(tBTA_AVK), btif_avk_event_deep_copy);
 }
 
+static void btif_avk_sink_save_update_config_delay(uint8_t *p_data) {
+  uint8_t idx = p_data[0];
+  BTIF_TRACE_DEBUG("%s", __func__);
+
+  if (bta_avk_co_save_config(idx, p_data+1)==false) {
+    BTIF_TRACE_ERROR("%s: cannot save sink config", __func__);
+  }
+  uint8_t* a2dp_codec_config = bta_avk_co_get_peer_codec_info(btif_avk_cb[idx].bta_handle);
+  if (a2dp_codec_config) {
+    btif_a2dp_sink_update_decoder(a2dp_codec_config);
+  }
+  if (p_data) {
+    delete p_data;
+  }
+
+}
+
 static void bte_avk_sink_media_callback(tBTA_AVK_EVT event,
                                        tBTA_AVK_SINK_MEDIA* p_data, RawAddress bd_addr) {
   int index = btif_avk_idx_by_bdaddr(&bd_addr);
   int cur_playing_index = btif_avk_get_current_playing_dev_idx();
   BTIF_TRACE_DEBUG("%s: index = %d, cur_playing_index: %d", 
                                            __func__, index, cur_playing_index);
+  static bool alarm_is_set = false;
 
   switch (event) {
     case BTA_AVK_SINK_MEDIA_DATA_EVT: {
@@ -2584,6 +2611,27 @@ static void bte_avk_sink_media_callback(tBTA_AVK_EVT event,
     case BTA_AVK_SINK_MEDIA_CFG_EVT: {
       btif_avk_sink_config_req_t config_req;
 
+      /* In case of remote reconfig, if the event is received in AV idle state
+       * after BTIF_SM_ENTER_EVT BD address has been cleared, the index found by
+       * btif_avk_idx_by_bdaddr will be btif_max_avk_clients, delay the event or the
+       * configuration will be lost
+       */
+      if (index == btif_max_avk_clients && !btif_avk_is_connected_on_other_idx(index)) {
+        if (sink_config_alarm != NULL) {
+          BTIF_TRACE_DEBUG("%s: set_alarm sink_config_alarm", __func__);
+          tBTA_AVK_SINK_MEDIA *p_buf = new tBTA_AVK_SINK_MEDIA;
+          if (p_buf) {
+            p_buf->avk_config.codec_info = new uint8_t[AVDT_CODEC_SIZE];
+            p_buf->avk_config.bd_addr = p_data->avk_config.bd_addr;
+            memcpy(p_buf->avk_config.codec_info, p_data->avk_config.codec_info, AVDT_CODEC_SIZE);
+            alarm_set_on_mloop(sink_config_alarm, BTIF_DELAYED_UPDATE_DECODER_MS,
+                  (alarm_callback_t)btif_avk_sink_media_config_delay, (uint8_t *)p_buf);
+            alarm_is_set = true;
+          }
+          break;
+        }
+      }
+
       /* send a command to BT Media Task */
       btif_sm_state_t av_state = btif_sm_get_state(btif_avk_cb[index].sm_handle);
       BTIF_TRACE_DEBUG("%s: AV State = %d", __func__, av_state);
@@ -2595,18 +2643,32 @@ static void bte_avk_sink_media_callback(tBTA_AVK_EVT event,
        *    OPENING/IDLE   - Run btif_a2dp_sink_update_decoder in AV State Machine Context
        *                     so that it is scheduled after previous configuarion is cleared.
        */
-      if (av_state == BTIF_AVK_STATE_STARTED || av_state == BTIF_AVK_STATE_OPENED) {
-        config_alarm = alarm_new("btif.a2dp_sink_set_config");
-        if (config_alarm != NULL) {
-          alarm_set(config_alarm, BTIF_DELAYED_UPDATE_DECODER_MS,
-             (alarm_callback_t)btif_a2dp_sink_update_decoder,
-             (uint8_t*)(p_data->avk_config.codec_info));
+      if ((av_state == BTIF_AVK_STATE_STARTED || av_state == BTIF_AVK_STATE_OPENED)
+        && !btif_avk_is_connected_on_other_idx(index)) {
+        if (!alarm_is_set) {
+          if (config_alarm != NULL) {
+            uint8_t *p_buf = new uint8_t[AVDT_CODEC_SIZE+1];
+            if (p_buf) {
+              p_buf[0] = index;
+              memcpy((p_buf+1), (uint8_t*)(p_data->avk_config.codec_info), AVDT_CODEC_SIZE);
+              BTIF_TRACE_DEBUG("%s: alarm_set config_alarm index:%d", __func__, index);
+              alarm_set_on_mloop(config_alarm, BTIF_DELAYED_UPDATE_DECODER_MS,
+                    (alarm_callback_t)btif_avk_sink_save_update_config_delay, p_buf);
+            }
+          } else {
+            btif_a2dp_sink_update_decoder((uint8_t*)(p_data->avk_config.codec_info));
+          }
         } else {
+          bta_avk_co_save_config(index, (uint8_t*)(p_data->avk_config.codec_info));
           btif_a2dp_sink_update_decoder((uint8_t*)(p_data->avk_config.codec_info));
+          alarm_is_set = false;
         }
       } else {
-        btif_transfer_context(btif_avk_handle_event, BTA_AVK_SINK_MEDIA_CFG_EVT,
+        bta_avk_co_save_config(index, (uint8_t*)(p_data->avk_config.codec_info));
+        btif_transfer_context(btif_avk_handle_event, BTA_AV_SINK_MEDIA_CFG_EVT,
             (char *)p_data, sizeof(tBTA_AVK_SINK_MEDIA), NULL);
+        if (alarm_is_set)
+          alarm_is_set = false;
       }
       /* Switch to BTIF context */
       config_req.sample_rate =
@@ -2632,6 +2694,17 @@ static void bte_avk_sink_media_callback(tBTA_AVK_EVT event,
   }
 }
 
+static void btif_avk_sink_media_config_delay(tBTA_AVK_SINK_MEDIA *p_data) {
+  BTIF_TRACE_DEBUG("%s", __func__);
+  bte_avk_sink_media_callback(BTA_AVK_SINK_MEDIA_CFG_EVT, p_data, p_data->avk_config.bd_addr);
+
+  if (p_data) {
+    if (p_data->avk_config.codec_info)
+      delete p_data->avk_config.codec_info;
+    delete p_data;
+  }
+}
+
 /*******************************************************************************
  *
  * Function         btif_avk_init
@@ -2646,6 +2719,10 @@ bt_status_t btif_avk_init(int service_id) {
   if (btif_avk_cb[0].sm_handle == NULL) {
     alarm_free(avk_open_on_rc_timer);
     avk_open_on_rc_timer = alarm_new("btif_av.avk_open_on_rc_timer");
+    alarm_free(config_alarm);
+    config_alarm = alarm_new("btif.a2dp_sink_set_config");
+    alarm_free(sink_config_alarm);
+    sink_config_alarm = alarm_new("btif.a2dp_sink_media_config");
 
     BTIF_TRACE_DEBUG("%s; service Id: %d", __func__, service_id);
 
@@ -2891,6 +2968,12 @@ static void cleanup(int service_uuid) {
 
   alarm_free(avk_open_on_rc_timer);
   avk_open_on_rc_timer = NULL;
+
+  alarm_free(config_alarm);
+  config_alarm = NULL;
+
+  alarm_free(sink_config_alarm);
+  sink_config_alarm = NULL;
 }
 
 static void cleanup_sink(void) {
