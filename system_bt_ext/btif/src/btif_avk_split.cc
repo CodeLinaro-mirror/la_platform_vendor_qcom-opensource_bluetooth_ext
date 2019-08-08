@@ -100,7 +100,7 @@ typedef enum {
 #define APTX_RENDERING_DELAY               200
 #define AAC_RENDERING_DELAY                180
 
-#define BTIF_AVK_PENDING_RESPONSE_TIMEOUT     10000 // 10 seconds
+#define BTIF_AVK_PENDING_RESPONSE_TIMEOUT     7000 // 7 seconds
 #define APTX_AD_RENDERING_DELAY            150
 /*****************************************************************************
 **  Local type definitions
@@ -1400,7 +1400,7 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
                 btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
              }
              break;
-
+        CHECK_AVK_RC_EVENT(event, (tBTA_AVK*)p_data);
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
                                dump_avk_sm_event_name((btif_avk_sm_event_t)event));
@@ -1585,6 +1585,7 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
                 btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
             }
             break;
+        CHECK_AVK_RC_EVENT(event, (tBTA_AVK*)p_data);
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
                                dump_avk_sm_event_name((btif_avk_sm_event_t)event));
