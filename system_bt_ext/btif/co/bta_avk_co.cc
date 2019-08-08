@@ -1339,6 +1339,28 @@ static void bta_avk_co_save_new_codec_config(tBTA_AVK_CO_PEER* p_peer,
   mutex_global_unlock();
 }
 
+bool bta_avk_co_save_config(uint8_t index, const uint8_t* pdata) {
+  tBTA_AVK_CO_PEER *p_peer;
+  APPL_TRACE_EVENT("%s save config to index:%d", __func__, index);
+
+  /* Sanity check */
+  if (index >= BTA_AVK_CO_NUM_ELEMENTS(bta_avk_co_cb.peers)) {
+    APPL_TRACE_ERROR("%s: peer index out of bounds: %d", __func__, index);
+    return false;
+  }
+
+  /* Protect access to bta_av_co_cb.peers*/
+  mutex_global_lock();
+
+  p_peer = &bta_avk_co_cb.peers[index];
+  memcpy(p_peer->codec_config, pdata, AVDT_CODEC_SIZE);
+
+  /*Protect access to bta_av_co_cb.peers*/
+  mutex_global_unlock();
+
+  return true;
+}
+
 void bta_avk_co_get_peer_params(tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params) {
   uint16_t min_mtu = 0xFFFF;
   int index = btif_max_avk_clients;
