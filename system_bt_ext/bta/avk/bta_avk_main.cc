@@ -508,6 +508,8 @@ static void bta_avk_api_register(tBTA_AVK_DATA* p_data) {
   tAVDT_CS cs;
   char* p_service_name;
   tBTA_UTL_COD cod;
+  bool isA2dpConcurrency = false;
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
 
   memset(&cs, 0, sizeof(tAVDT_CS));
 
@@ -570,6 +572,13 @@ static void bta_avk_api_register(tBTA_AVK_DATA* p_data) {
 #endif
       }
 
+      osi_property_get("persist.vendor.service.bt.a2dp_concurrency", value, "false");
+      isA2dpConcurrency = (strcmp(value, "true") == 0);
+      if(!isA2dpConcurrency) {
+          /* Clear the Capturing service class bit */
+          cod.service = BTM_COD_SERVICE_CAPTURING;
+          utl_set_device_class(&cod, BTA_UTL_CLR_COD_SERVICE_CLASS);
+      }
       /* Set the Capturing service class bit */
       cod.service = BTM_COD_SERVICE_RENDERING;
       utl_set_device_class(&cod, BTA_UTL_SET_COD_SERVICE_CLASS);
