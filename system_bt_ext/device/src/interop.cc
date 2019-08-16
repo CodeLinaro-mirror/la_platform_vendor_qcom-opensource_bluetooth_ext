@@ -412,6 +412,7 @@ static void interop_database_add_( interop_db_entry_t *db_entry,
   } else {
     //return as the entry is already present
     LOG_DEBUG(LOG_TAG, "Entry is already present in the list");
+    osi_free(db_entry);
     return;
   }
 
