@@ -3101,7 +3101,7 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
     uint8_t codec_type_list[BTIF_SV_AVK_AA_SEP_INDEX];
     uint8_t vnd_id_list[BTIF_SV_AVK_AA_SEP_INDEX];
     uint8_t codec_id_list[BTIF_SV_AVK_AA_SEP_INDEX];
-    uint32_t codec_type_added;
+    uint32_t codec_type_added = 0;
     memset(codec_type_list, A2DP_SINK_AUDIO_CODEC_SBC, BTIF_SV_AVK_AA_SEP_INDEX);
     memset(vnd_id_list, 0, BTIF_SV_AVK_AA_SEP_INDEX);
     memset(codec_id_list, 0, BTIF_SV_AVK_AA_SEP_INDEX);
