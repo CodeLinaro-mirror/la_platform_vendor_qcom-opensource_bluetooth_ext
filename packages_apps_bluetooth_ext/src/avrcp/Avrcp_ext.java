@@ -195,7 +195,8 @@ public final class Avrcp_ext {
     public static final int BTRC_FEAT_METADATA = 0x01;
     public static final int BTRC_FEAT_ABSOLUTE_VOLUME = 0x02;
     public static final int BTRC_FEAT_BROWSE = 0x04;
-    public static final int BTRC_FEAT_AVRC_UI_UPDATE = 0x08;
+    public static final int BTRC_FEAT_COVER_ART = 0x08;
+    public static final int BTRC_FEAT_AVRC_UI_UPDATE = 0x10;
 
     /* AVRC response codes, from avrc_defs */
     private static final int AVRC_RSP_NOT_IMPL = 8;
@@ -670,6 +671,30 @@ public final class Avrcp_ext {
         Log.d(TAG, "Exit cleanup()");
     }
 
+    public boolean isCoverArtFeatureSupported(byte[] bdaddr) {
+        Log.w(TAG, "isCoverArtFeatureSupported");
+        String address = Utils.getAddressStringFromByte((byte[]) bdaddr);
+        BluetoothDevice device = mAdapter.getRemoteDevice(address);
+        if (device == null)
+            return false;
+        MediaPlayerInfo player = mMediaPlayerInfoList.getOrDefault(mCurrAddrPlayerID, null);
+        int index = getIndexForDevice(device);
+        if ((index == INVALID_DEVICE_INDEX) || (player == null))
+            return false;
+
+        short[] featureBits = player.getFeatureBitMask();
+        boolean playerSupportsCA = false;
+        for (int i = 0; i < featureBits.length; i++) {
+            if (featureBits[i] == AvrcpConstants.AVRC_PF_COVER_ART_BIT_NO) {
+                playerSupportsCA = true;
+                break;
+            }
+        }
+        boolean peerSupprtsCA = ((deviceFeatures[index].mFeatures & BTRC_FEAT_COVER_ART) != 0);
+        Log.w(TAG, "playersupportCA " + playerSupportsCA + " peersupportCA " + peerSupprtsCA);
+        return (peerSupprtsCA && playerSupportsCA);
+    }
+
     private class AudioManagerPlaybackListener extends AudioManager.AudioPlaybackCallback {
         @Override
         public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
@@ -795,11 +820,16 @@ public final class Avrcp_ext {
                         notifyVolumeChanged(vol, false);
                 }
                 if (vol >= 0) {
-                    vol = convertToAvrcpVolume(vol);
-                    Log.d(TAG,"vol = " + vol + "rem vol = " + deviceFeatures[deviceIndex].mRemoteVolume);
-                    if(vol != deviceFeatures[deviceIndex].mRemoteVolume &&
+                    int volume = convertToAvrcpVolume(vol);
+                    int remVol = deviceFeatures[deviceIndex].mRemoteVolume;
+                    if (remVol != -1) {
+                        remVol = convertToAudioStreamVolume(remVol);
+                    }
+                    Log.d(TAG,"vol = " + vol + "remVol = " + remVol);
+                    if (vol != remVol &&
                        deviceFeatures[deviceIndex].mCurrentDevice != null) {
-                       setVolumeNative(vol , getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
+                       setVolumeNative(volume , getByteAddress(deviceFeatures[deviceIndex].mCurrentDevice));
+                       deviceFeatures[deviceIndex].mRemoteVolume = volume;
                        if (deviceFeatures[deviceIndex].mCurrentDevice.isTwsPlusDevice()) {
                            AdapterService adapterService = AdapterService.getAdapterService();
                            BluetoothDevice peer_device =
@@ -808,7 +838,7 @@ public final class Avrcp_ext {
                              getIndexForDevice(peer_device) != INVALID_DEVICE_INDEX) {
                                // Change volume to peer earbud as well
                                Log.d(TAG,"setting volume to TWS+ peer also");
-                               setVolumeNative(vol, getByteAddress(peer_device));
+                               setVolumeNative(volume, getByteAddress(peer_device));
                            }
                        }
                     }
@@ -820,9 +850,8 @@ public final class Avrcp_ext {
             case MSG_NATIVE_REQ_GET_RC_FEATURES:
             {
                 String address = (String) msg.obj;
-                if (DEBUG)
-                    Log.v(TAG, "MSG_GET_RC_FEATURES: address="+address+
-                            ", features="+msg.arg1);
+                Log.w(TAG, "MSG_GET_RC_FEATURES: address="+address+
+                        ", features="+msg.arg1);
                 BluetoothDevice device = mAdapter.getRemoteDevice(address);
                 deviceIndex = getIndexForDevice(device);
                 if (deviceIndex == INVALID_DEVICE_INDEX) {
@@ -1049,15 +1078,18 @@ public final class Avrcp_ext {
                     Log.e(TAG,"invalid index for device");
                     break;
                 }
+                byte absVol = (byte) ((byte) msg.arg1 & 0x7f); // discard MSB as it is RFD
                 if (DEBUG) Log.v(TAG, "MSG_NATIVE_REQ_VOLUME_CHANGE addr: " + address);
 
                 if (((!(deviceFeatures[deviceIndex].isActiveDevice)) &&
                     (deviceFeatures[deviceIndex].mInitialRemoteVolume != -1)) ||
                     (!deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice)) {
+                        if (deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice) {
+                           deviceFeatures[deviceIndex].mRemoteVolume = absVol;
+                        }
                         if (DEBUG) Log.v(TAG, "MSG_NATIVE_REQ_VOLUME_CHANGE ignored");
                         break;
                 }
-                byte absVol = (byte) ((byte) msg.arg1 & 0x7f); // discard MSB as it is RFD
                 int absolutevol = absVol;
                 if (DEBUG)
                     Log.v(TAG, "MSG_NATIVE_REQ_VOLUME_CHANGE: volume=" + absVol + " ctype="
@@ -1149,6 +1181,7 @@ public final class Avrcp_ext {
                         complete and making synchronization to send only one setAbsolute volume
                         during connection*/
                         if(getVolume(deviceFeatures[deviceIndex].mCurrentDevice) != -1) {
+                            deviceFeatures[deviceIndex].mRemoteVolume = absVol;
                             setAbsVolumeFlag(deviceFeatures[deviceIndex].mCurrentDevice);
                             break;
                         }
