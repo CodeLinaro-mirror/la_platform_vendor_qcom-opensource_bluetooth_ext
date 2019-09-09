@@ -34,6 +34,7 @@
 #include "btif/include/btif_api.h"
 
 #define BTIF_AVK_RC_HANDLE_NONE 0xFF
+#define BTIF_TIMEOUT_AV_OPEN_ON_RC_SECS  2000 //2 secs
 
 /*******************************************************************************
 **  Type definitions for callback functions
