@@ -237,7 +237,7 @@ public class AvrcpPlayerAppSettings {
                         boolean send_change_rsp_only = true;
                         data = intent.getByteArrayExtra(EXTRA_ATTRIB_VALUE_PAIRS);
                         updateLocalPlayerSettings(data);
-                        if (isSetAttrValRsp) {
+                        if (isSetAttrValRsp && device != null) {
                             isSetAttrValRsp = false;
                             send_change_rsp_only = false;
                             Log.v(TAG,"Respond to SET_ATTRIBUTE_VALUES request");
