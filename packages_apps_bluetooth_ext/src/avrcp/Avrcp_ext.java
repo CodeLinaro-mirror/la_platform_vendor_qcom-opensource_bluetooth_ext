@@ -1083,12 +1083,13 @@ public final class Avrcp_ext {
                     Log.e(TAG,"invalid index for device");
                     break;
                 }
+                device = deviceFeatures[deviceIndex].mCurrentDevice;
                 activeDevice = mA2dpService.getActiveDevice();
                 byte absVol = (byte) ((byte) msg.arg1 & 0x7f); // discard MSB as it is RFD
                 if (DEBUG) Log.v(TAG, "MSG_NATIVE_REQ_VOLUME_CHANGE addr: " + address);
 
-                if (((!(activeDevice != null
-                    && Objects.equals(deviceFeatures[deviceIndex].mCurrentDevice, activeDevice))) &&
+                if (((!(activeDevice != null && (isTwsPlusPair(activeDevice, device)
+                    || Objects.equals(device, activeDevice)))) &&
                     (deviceFeatures[deviceIndex].mInitialRemoteVolume != -1)) ||
                     (!deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice)) {
                         if (deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice) {
@@ -1144,6 +1145,7 @@ public final class Avrcp_ext {
                 }
 
                 if (msg.arg2 == AVRC_RSP_INTERIM && areMultipleDevicesConnected() &&
+                    !(activeDevice != null && Objects.equals(deviceFeatures[deviceIndex].mCurrentDevice, activeDevice)) &&
                     deviceFeatures[deviceIndex].mInitialRemoteVolume == -1 &&
                     deviceFeatures[deviceIndex].mCurrentDevice.isTwsPlusDevice()) {
                     device = deviceFeatures[deviceIndex].mCurrentDevice;
@@ -1185,7 +1187,7 @@ public final class Avrcp_ext {
                         deviceFeatures[deviceIndex].mBlackListVolume = -1;
                         break;
                     } else if (activeDevice != null &&
-                          Objects.equals(activeDevice, deviceFeatures[deviceIndex].mCurrentDevice)) {
+                          (Objects.equals(activeDevice, device) || isTwsPlusPair(activeDevice, device))) {
                         /*Avoid send set absolute volume for store volume untill volume registration
                         complete and making synchronization to send only one setAbsolute volume
                         during connection*/
@@ -1219,11 +1221,16 @@ public final class Avrcp_ext {
                         Log.d(TAG, "Don't show media UI when slide volume bar");
                         isShowUI = false;
                     }
-                    device = mA2dpService.getActiveDevice();
+                    if (device.isTwsPlusDevice() &&
+                        activeDevice != null && !activeDevice.isTwsPlusDevice()) {
+                        Log.d(TAG,"TWS+ device is not active, ignore volume change type: " + msg.arg2);
+                        break;
+                    }
                     /* If the volume has successfully changed */
-                    if (device != null && !(activeDevice != null &&
-                           Objects.equals(activeDevice, deviceFeatures[deviceIndex].mCurrentDevice)) &&
-                           (msg.arg2 == AVRC_RSP_CHANGED || msg.arg2 == AVRC_RSP_INTERIM)) {
+                    if (!(activeDevice != null &&
+                        (isTwsPlusPair(activeDevice, device) ||
+                        Objects.equals(activeDevice, device))) &&
+                        (msg.arg2 == AVRC_RSP_CHANGED || msg.arg2 == AVRC_RSP_INTERIM)) {
                         Log.d(TAG, "Do not change volume from an inactive device");
                         break;
                     }
@@ -1286,8 +1293,9 @@ public final class Avrcp_ext {
                 avrcpVolume = Math.min(AVRCP_MAX_VOL, Math.max(0, avrcpVolume));
                 for (int i = 0; i < maxAvrcpConnections; i++) {
                     if (deviceFeatures[i].mCurrentDevice != null && activeDevice != null &&
-                            Objects.equals(activeDevice, deviceFeatures[i].mCurrentDevice) &&
-                            deviceFeatures[i].isAbsoluteVolumeSupportingDevice) {
+                        (isTwsPlusPair(activeDevice, deviceFeatures[i].mCurrentDevice) ||
+                         Objects.equals(activeDevice, deviceFeatures[i].mCurrentDevice)) &&
+                         deviceFeatures[i].isAbsoluteVolumeSupportingDevice) {
 
                           deviceIndex = i;
 
@@ -2685,7 +2693,8 @@ public final class Avrcp_ext {
         BluetoothDevice activeDevice = mA2dpService.getActiveDevice();
         for (int i = 0; i < maxAvrcpConnections; i++) {
             if (deviceFeatures[i].mCurrentDevice != null && activeDevice != null &&
-                    Objects.equals(deviceFeatures[i].mCurrentDevice, activeDevice)) {
+                (isTwsPlusPair(activeDevice, deviceFeatures[i].mCurrentDevice) ||
+                Objects.equals(deviceFeatures[i].mCurrentDevice, activeDevice))) {
                 if ((deviceFeatures[i].mFeatures &
                         BTRC_FEAT_ABSOLUTE_VOLUME) != 0) {
                     status = true;
