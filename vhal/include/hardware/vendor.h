@@ -128,6 +128,13 @@ typedef void (* hci_event_recv_callback)(uint8_t event_code, uint8_t *buf, uint8
  */
 typedef void (*  btvendor_ssr_cleanup_callback)(void);
 
+/** Bluetooth ACL connection state changed with reason callback */
+typedef void (*btvendor_acl_state_changed_with_reason_callback)(bt_status_t status,
+                                                       bt_bdaddr_t *remote_bd_addr,
+                                                       bt_acl_state_t state,
+                                                       uint8_t reason,
+                                                       uint8_t transport_type);
+
 /** BT-Vendor callback structure. */
 typedef struct {
     /** set to sizeof(BtVendorCallbacks) */
@@ -137,6 +144,7 @@ typedef struct {
     remote_dev_prop_callback         rmt_dev_prop_cb;
     hci_event_recv_callback          hci_event_recv_cb;
     btvendor_ssr_cleanup_callback    ssr_cleanup_cb;
+    btvendor_acl_state_changed_with_reason_callback acl_state_changed_with_reason_cb;
 } btvendor_callbacks_t;
 
 typedef int (*property_set_callout)(const char* key, const char* value);

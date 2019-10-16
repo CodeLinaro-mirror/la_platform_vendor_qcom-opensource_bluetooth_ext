@@ -285,6 +285,8 @@ static bool bta_avk_co_audio_supports_config(uint8_t codec_type, const uint8_t *
 tBTA_AVK_CO_CODEC_CAP_LIST *p_bta_avk_codec_pri_list = NULL;
 tBTA_AVK_CO_CODEC_CAP_LIST bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_SEP_INDEX];
 uint8_t bta_avk_num_codec_configs;
+uint8_t codec_initialized[BTIF_SV_AVK_AA_SEP_INDEX];
+bool is_codec_enabled(uint8_t codec_index);
 extern bool is_a2dp_split_sink_enabled();
 extern pthread_mutex_t sink_codec_q_lock;
 extern pthread_mutex_t split_sink_codec_q_lock;
@@ -448,6 +450,42 @@ static bool append_codec(tBTA_AVK_CODEC codec_type, tBTA_AVK_HNDL hndl, uint8_t 
     p_peer = bta_avk_co_get_peer(hndl);
     if (p_peer == NULL)
         return FALSE;
+
+    // if codec is not enabled during initialization, return from here itself.
+    APPL_TRACE_DEBUG(" %s add codec_type %d in peer->p_src ",__func__,codec_type)
+    if((codec_type == BTA_AVK_CODEC_SBC) && (!is_codec_enabled(BTIF_SV_AVK_AA_SBC_INDEX)))
+        return FALSE;
+    if((codec_type == BTA_AVK_CODEC_M24) && (!is_codec_enabled(BTIF_SV_AVK_AA_AAC_INDEX)))
+        return FALSE;
+    if((codec_type == BTA_AVK_CODEC_M12) && (!is_codec_enabled(BTIF_SV_AVK_AA_MP3_INDEX)))
+        return FALSE;
+    if(codec_type == A2D_NON_A2DP_MEDIA_CT)
+    {
+        if ((A2D_VENDOR_CODEC_APTX_CL == get_vendor_specific_codec(p_codec_info)) &&
+            (!is_codec_enabled(BTIF_SV_AVK_AA_APTX_INDEX)))
+            {
+                APPL_TRACE_DEBUG(" %s  APTX-CL is not enabled ",__func__);
+                return FALSE;
+            }
+            else
+            {
+                APPL_TRACE_DEBUG(" %s  add codec_type %d in peer->p_src ",
+                                              __func__,BTIF_SV_AVK_AA_APTX_INDEX);
+            }
+
+        if ((A2D_VENDOR_CODEC_APTX_AD == get_vendor_specific_codec(p_codec_info)) &&
+            (!is_codec_enabled(BTIF_SV_AVK_AA_APTX_AD_INDEX)))
+            {
+                APPL_TRACE_DEBUG(" %s  APTX-AD is not enabled ",__func__);
+                return FALSE;
+            }
+            else
+            {
+                APPL_TRACE_DEBUG(" %s  add codec_type %d in peer->p_src ",
+                                           __func__, BTIF_SV_AVK_AA_APTX_AD_INDEX);
+            }
+    }
+
     for (index = 0; index < p_peer->num_sup_srcs; index++)
     {
         /* Iterate through all current entries */
@@ -506,6 +544,7 @@ bool bta_avk_co_audio_init(uint8_t *p_codec_type, uint8_t *p_codec_info, uint8_t
 
     /* reset remote preference through setconfig */
     bta_avk_co_cb.codec_cfg_setconfig.id = BTIF_AVK_CODEC_NONE;
+    codec_initialized[index] = 1;
 
     switch (index)
     {
@@ -996,6 +1035,13 @@ bool bta_avk_co_audio_get_aptx_ad_config(tA2DP_AVK_APTX_AD_CIE* p_aptxad_config)
     return result;
 }
 #endif
+
+bool is_codec_enabled(uint8_t codec_index)
+{
+    APPL_TRACE_DEBUG("%s codec_index %d  enabled %d",__func__,codec_index,
+                                                codec_initialized[codec_index]);
+    return codec_initialized[codec_index];
+}
 
 /*******************************************************************************
  **

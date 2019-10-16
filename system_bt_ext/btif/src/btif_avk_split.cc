@@ -55,7 +55,6 @@
 **  Constants & Macros
 ******************************************************************************/
 #define BTIF_AVK_SERVICE_NAME "Advanced Audio Sink"
-#define BTIF_TIMEOUT_AV_OPEN_ON_RC_SECS  2
 
 /* Number of BTIF-AV control blocks */
 /* Now supports Two AV connections. */
@@ -101,7 +100,7 @@ typedef enum {
 #define APTX_RENDERING_DELAY               200
 #define AAC_RENDERING_DELAY                180
 
-#define BTIF_AVK_PENDING_RESPONSE_TIMEOUT     10000 // 10 seconds
+#define BTIF_AVK_PENDING_RESPONSE_TIMEOUT     7000 // 7 seconds
 #define APTX_AD_RENDERING_DELAY            150
 /*****************************************************************************
 **  Local type definitions
@@ -697,7 +696,9 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
 
         case BTA_AVK_RC_CLOSE_EVT:
             BTIF_TRACE_DEBUG("BTA_AV_RC_CLOSE_EVT: Stopping AV timer.");
-            alarm_cancel(avk_open_on_rc_timer);
+            if(alarm_is_scheduled(avk_open_on_rc_timer)) {
+                alarm_cancel(avk_open_on_rc_timer);
+            }
             btif_avk_rc_handler(event, (tBTA_AVK*)p_data);
             break;
 
@@ -970,6 +971,10 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
     {
         case BTIF_SM_ENTER_EVT:
             btif_avk_cb[index].flags &= ~BTIF_AVK_FLAG_PENDING_STOP;
+            //Cancel avk_open_on_rc_timer after a2dp connection
+            if(alarm_is_scheduled(avk_open_on_rc_timer)) {
+                alarm_cancel(avk_open_on_rc_timer);
+            }
             handle_memorized_msgs(index);
             break;
 
@@ -1395,7 +1400,7 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
                 btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_OPENED);
              }
              break;
-
+        CHECK_AVK_RC_EVENT(event, (tBTA_AVK*)p_data);
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
                                dump_avk_sm_event_name((btif_avk_sm_event_t)event));
@@ -1565,15 +1570,26 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
                 memorize_msg(index,event,BTIF_AVK_STATE_STARTING, p_data);
                 btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_STARTED);
             }
-            if(btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTING) {
+            if(btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTING ||
+               btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STOPPING) {
                 // VSC command is in progress, just memorize this message
                 memorize_msg(index,event,BTIF_AVK_STATE_STARTING, p_data);
+            } else {
+                // cancel start_pending alarm and move to idle state
+                if(alarm_is_scheduled(avk_pending_start_timer)) {
+                    alarm_cancel(avk_pending_start_timer);
+                }
+                /* inform the application that we are disconnected */
+                btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
+                                         (bt_bdaddr_t *)&(btif_avk_cb[index].peer_bda));
+                btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
             }
-             break;
-         default:
-             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
-                                dump_avk_sm_event_name((btif_avk_sm_event_t)event));
-             return FALSE;
+            break;
+        CHECK_AVK_RC_EVENT(event, (tBTA_AVK*)p_data);
+        default:
+            BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
+                               dump_avk_sm_event_name((btif_avk_sm_event_t)event));
+            return FALSE;
     }
     return TRUE;
 }
@@ -2665,18 +2681,20 @@ static bt_status_t start_ind_rsp(const RawAddress& bd_addr, int accepted) {
     BTIF_TRACE_DEBUG("%s accepted  = %d for device =%s ", __FUNCTION__, accepted,
                      bd_addr.ToString().c_str());
     if (accepted == CMD_ACCEPTED) {
-        BTIF_TRACE_DEBUG(" %s current streaming bda %s ", __FUNCTION__,
-                     streaming_bda.ToString().c_str());
         streaming_bda = bd_addr;
         // nothing to do, wait for MM-Audio Session establishment
     } else if (accepted == CMD_REJECTED) {
-       // send cmd reject :BTIF_AVK_SPLIT_SINK_START_IND_RSP
-       cmd.index = btif_avk_idx_by_bdaddr(&bd_addr);
-       cmd.accepted = accepted;
-       btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_START_IND_RSP, &cmd,
+        // send cmd reject :BTIF_AVK_SPLIT_SINK_START_IND_RSP
+        cmd.index = btif_avk_idx_by_bdaddr(&bd_addr);
+        cmd.accepted = accepted;
+        btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_START_IND_RSP, &cmd,
                                   sizeof(tBTA_AVK_START_RSP));
     }
-    BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__, streaming_bda.ToString().c_str());
+    if(!streaming_bda.IsEmpty()) {
+        BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__,
+                         streaming_bda.ToString().c_str());
+    }
+    return BT_STATUS_SUCCESS;
 }
 
 static bt_status_t suspend_ind_rsp (const RawAddress& bd_addr, int accepted) {
@@ -2692,11 +2710,15 @@ static bt_status_t suspend_ind_rsp (const RawAddress& bd_addr, int accepted) {
        btif_avk_split_dispatch_sm_event(BTIF_AVK_SPLIT_SINK_SUSPEND_IND_RSP, &cmd,
                                   sizeof(tBTA_AVK_SUSPEND_RSP));
     }
-    BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__, streaming_bda.ToString().c_str());
+    if(!streaming_bda.IsEmpty()) {
+        BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__,
+                         streaming_bda.ToString().c_str());
+    }
+    return BT_STATUS_SUCCESS;
 }
 
 static bt_status_t start_req(const RawAddress& bd_addr) {
-    BTIF_TRACE_DEBUG("%s for device  str_bda %s", __FUNCTION__,streaming_bda.ToString().c_str());
+    BTIF_TRACE_DEBUG("%s for device  str_bda %s", __FUNCTION__,bd_addr.ToString().c_str());
     // start request from app. First check if other index is in started state.
     uint8_t index = btif_avk_idx_by_bdaddr(&bd_addr);
 
@@ -2713,10 +2735,17 @@ static bt_status_t start_req(const RawAddress& bd_addr) {
     streaming_bda = bd_addr;
     btif_transfer_context(btif_avk_handle_event, BTIF_AVK_START_STREAM_REQ_EVT,
                                  NULL, 0, NULL);
+
+    if(!streaming_bda.IsEmpty()) {
+        BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__,
+                         streaming_bda.ToString().c_str());
+    }
+
+    return BT_STATUS_SUCCESS;
 }
 
 static bt_status_t suspend_req(const RawAddress& bd_addr) {
-    BTIF_TRACE_DEBUG("%s for device  str_bda %s", __FUNCTION__,streaming_bda.ToString().c_str());
+    BTIF_TRACE_DEBUG("%s for device  str_bda %s", __FUNCTION__,bd_addr.ToString().c_str());
     // start request from app. First check if other index is in started state.
     uint8_t index = btif_avk_idx_by_bdaddr(&bd_addr);
     if(index >= btif_max_avk_clients) {
@@ -2725,6 +2754,13 @@ static bt_status_t suspend_req(const RawAddress& bd_addr) {
     }
     btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SUSPEND_STREAM_REQ_EVT,
                                  (char*)&index, sizeof(uint8_t), NULL);
+
+    if(!streaming_bda.IsEmpty()) {
+        BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__,
+                         streaming_bda.ToString().c_str());
+    }
+
+    return BT_STATUS_SUCCESS;
 }
 
 
@@ -3065,7 +3101,7 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
     uint8_t codec_type_list[BTIF_SV_AVK_AA_SEP_INDEX];
     uint8_t vnd_id_list[BTIF_SV_AVK_AA_SEP_INDEX];
     uint8_t codec_id_list[BTIF_SV_AVK_AA_SEP_INDEX];
-    uint32_t codec_type_added;
+    uint32_t codec_type_added = 0;
     memset(codec_type_list, A2DP_SINK_AUDIO_CODEC_SBC, BTIF_SV_AVK_AA_SEP_INDEX);
     memset(vnd_id_list, 0, BTIF_SV_AVK_AA_SEP_INDEX);
     memset(codec_id_list, 0, BTIF_SV_AVK_AA_SEP_INDEX);
@@ -3412,6 +3448,13 @@ static void cleanup(int service_uuid)
     btif_transfer_context(btif_avk_handle_event, BTIF_AVK_CLEANUP_REQ_EVT,
             (char*)&service_uuid, sizeof(int), NULL);
     btif_disable_service(service_uuid);
+
+    alarm_free(avk_open_on_rc_timer);
+    avk_open_on_rc_timer = NULL;
+    alarm_free(avk_pending_start_timer);
+    avk_pending_start_timer = NULL;
+    alarm_free(avk_pending_suspend_timer);
+    avk_pending_suspend_timer = NULL;
 }
 
 static void cleanup_sink(void) {

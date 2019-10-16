@@ -244,6 +244,7 @@ static const char* interop_feature_string_(const interop_feature_t feature)
     CASE_RETURN_STR(END_OF_INTEROP_LIST)
     CASE_RETURN_STR(INTEROP_ADV_PBAP_VER_1_2)
     CASE_RETURN_STR(INTEROP_DISABLE_RESOLVING)
+    CASE_RETURN_STR(INTEROP_PINKEY_MISSING)
   }
   return "UNKNOWN";
 }
@@ -411,6 +412,7 @@ static void interop_database_add_( interop_db_entry_t *db_entry,
   } else {
     //return as the entry is already present
     LOG_DEBUG(LOG_TAG, "Entry is already present in the list");
+    osi_free(db_entry);
     return;
   }
 
