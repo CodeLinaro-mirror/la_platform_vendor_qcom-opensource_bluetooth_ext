@@ -294,6 +294,12 @@ typedef void (* bthf_client_cgmi_indication_callback) (const RawAddress *bd_addr
  */
 typedef void (* bthf_client_cgmm_indication_callback) (const RawAddress *bd_addr, const char *str);
 
+/**
+ * Callback for sending unknown (vendor specific) event
+ */
+typedef void (*bthf_client_unknown_event_callback)(const RawAddress* bd_addr,
+                                                   const char* unknow_event);
+
 /** BT-HF callback structure. */
 typedef struct {
     /** set to sizeof(BtHfClientCallbacks) */
@@ -321,6 +327,7 @@ typedef struct {
     bthf_client_ring_indication_callback   ring_indication_cb;
     bthf_client_cgmi_indication_callback   cgmi_cb;
     bthf_client_cgmm_indication_callback   cgmm_cb;
+    bthf_client_unknown_event_callback unknown_event_cb;
 } bthf_client_callbacks_t;
 
 /** Represents the standard BT-HF interface. */
