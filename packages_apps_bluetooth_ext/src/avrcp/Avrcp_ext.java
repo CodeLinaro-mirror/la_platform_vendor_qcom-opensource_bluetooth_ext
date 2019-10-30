@@ -782,7 +782,9 @@ public final class Avrcp_ext {
                 deviceIndex = msg.arg1;
                 int vol = msg.arg2;
                 BluetoothDevice device = mA2dpService.getActiveDevice();
-                if(device == null)
+                boolean a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_mode", false);
+                Log.v(TAG," get the multicast statue " + a2dpMulticast);
+                if(device == null || a2dpMulticast)
                     break;
                 mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
                                                           isAbsoluteVolumeSupported(deviceIndex));
@@ -831,6 +833,7 @@ public final class Avrcp_ext {
                     Log.v(TAG,"device entry not present, bailing out");
                     return;
                 }
+                boolean a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_mode", false);
                 deviceFeatures[deviceIndex].mFeatures = msg.arg1;
                 deviceFeatures[deviceIndex].mFeatures =
                     modifyRcFeatureFromBlacklist(deviceFeatures[deviceIndex].mFeatures,
@@ -844,20 +847,23 @@ public final class Avrcp_ext {
                 deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice =
                         ((deviceFeatures[deviceIndex].mFeatures &
                         BTRC_FEAT_ABSOLUTE_VOLUME) != 0);
-                BATService mBatService = BATService.getBATService();
-                if ((mBatService != null) && mBatService.isBATActive()) {
-                    Log.d(TAG,"MSG_NATIVE_REQ_GET_RC_FEATURES BA Active, update absvol support as true  ");
-                    mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
-                            true);
-                } else if (device.isTwsPlusDevice()) {
-                    Log.v(TAG,"TWS+ device, update abs vol as true ");
-                    mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
-                            true);
-                } else {
-                    mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
-                        isAbsoluteVolumeSupported(deviceIndex));
-                    Log.v(TAG,"update audio manager for abs vol state = "
-                            + isAbsoluteVolumeSupported(deviceIndex));
+                //Do not update the absolute volume in multicast mode
+                if (!a2dpMulticast) {
+                    BATService mBatService = BATService.getBATService();
+                    if ((mBatService != null) && mBatService.isBATActive()) {
+                        Log.d(TAG,"MSG_NATIVE_REQ_GET_RC_FEATURES BA Active, update absvol support as true  ");
+                        mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
+                                true);
+                    } else if (device.isTwsPlusDevice()) {
+                        Log.v(TAG,"TWS+ device, update abs vol as true ");
+                        mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
+                                true);
+                    } else {
+                        mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
+                            isAbsoluteVolumeSupported(deviceIndex));
+                        Log.v(TAG,"update audio manager for abs vol state = "
+                                + isAbsoluteVolumeSupported(deviceIndex));
+                    }
                 }
                 deviceFeatures[deviceIndex].mLastPassthroughcmd = KeyEvent.KEYCODE_UNKNOWN;
 
@@ -1053,8 +1059,10 @@ public final class Avrcp_ext {
                 }
                 if (DEBUG) Log.v(TAG, "MSG_NATIVE_REQ_VOLUME_CHANGE addr: " + address);
 
+                boolean a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_mode", false);
+                Log.v(TAG," get the multicast statue " + a2dpMulticast);
                 if (((!(deviceFeatures[deviceIndex].isActiveDevice)) &&
-                    (deviceFeatures[deviceIndex].mInitialRemoteVolume != -1)) ||
+                    (deviceFeatures[deviceIndex].mInitialRemoteVolume != -1)) || (a2dpMulticast) ||
                     (!deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice)) {
                         if (DEBUG) Log.v(TAG, "MSG_NATIVE_REQ_VOLUME_CHANGE ignored");
                         break;
@@ -1228,6 +1236,9 @@ public final class Avrcp_ext {
 
                 if (DEBUG) Log.v(TAG, "MSG_SET_ABSOLUTE_VOLUME");
 
+                boolean a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_mode", false);
+                Log.v(TAG," get the multicast statue " + a2dpMulticast);
+                if (a2dpMulticast) break;
                 int avrcpVolume = convertToAvrcpVolume(msg.arg1);
                 avrcpVolume = Math.min(AVRCP_MAX_VOL, Math.max(0, avrcpVolume));
                 for (int i = 0; i < maxAvrcpConnections; i++) {
@@ -2556,12 +2567,17 @@ public final class Avrcp_ext {
             return false;
       }*/
         boolean status = false;
-        for (int i = 0; i < maxAvrcpConnections; i++) {
-            if (deviceFeatures[i].mCurrentDevice != null &&
-                    deviceFeatures[i].isActiveDevice) {
-                if ((deviceFeatures[i].mFeatures &
-                        BTRC_FEAT_ABSOLUTE_VOLUME) != 0) {
-                    status = true;
+        boolean a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_mode", false);
+        Log.v(TAG," get the multicast statue " + a2dpMulticast);
+        if (!a2dpMulticast)
+        {
+            for (int i = 0; i < maxAvrcpConnections; i++) {
+                if (deviceFeatures[i].mCurrentDevice != null &&
+                        deviceFeatures[i].isActiveDevice) {
+                    if ((deviceFeatures[i].mFeatures &
+                            BTRC_FEAT_ABSOLUTE_VOLUME) != 0) {
+                        status = true;
+                    }
                 }
             }
         }
@@ -2573,12 +2589,17 @@ public final class Avrcp_ext {
 
  public boolean isAbsoluteVolumeSupported(int index) {
         boolean status = false;
+        boolean a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_mode", false);
+        Log.v(TAG," get the multicast statue " + a2dpMulticast);
         Log.v(TAG, "Enter isAbsoluteVolumeSupported with index " + index);
-        if (deviceFeatures[index].mCurrentDevice != null) {
+        if (!a2dpMulticast)
+        {
+            if (deviceFeatures[index].mCurrentDevice != null) {
 
-            if (deviceFeatures[index].isAbsoluteVolumeSupportingDevice) {
-                Log.v(TAG, "isAbsoluteVolumeSupported: yes, for dev: " + index);
-                status = true;
+                if (deviceFeatures[index].isAbsoluteVolumeSupportingDevice) {
+                    Log.v(TAG, "isAbsoluteVolumeSupported: yes, for dev: " + index);
+                    status = true;
+                }
             }
         }
         Log.v(TAG, "Exit isAbsoluteVolumeSupported with index " + index);
@@ -4653,7 +4674,7 @@ public final class Avrcp_ext {
                     deviceFeatures[i].isActiveDevice) {
                     addr = getByteAddress(deviceFeatures[i].mCurrentDevice);
                     index = i;
-                    break; 
+                    break;
                 }
             }
 
@@ -4684,7 +4705,7 @@ public final class Avrcp_ext {
                 if (deviceFeatures[i].isActiveDevice) {
                     addr = getByteAddress(deviceFeatures[i].mCurrentDevice);
                     deviceFeatures[i].mNowPlayingListChangedNT = type;
-                    break; 
+                    break;
                 }
             }
             if (addr == null) {
@@ -4960,21 +4981,28 @@ public final class Avrcp_ext {
         }
         if (!skip && (mA2dpService != null) && !Objects.equals(a2dp_active_device, device)) {
             Log.w(TAG, "code " + code + " action " + action + " from inactive device");
-            if (code == KeyEvent.KEYCODE_MEDIA_PLAY) {
-                if (isPlayingState(mCurrentPlayerState) &&
-                        mAudioManager.isMusicActive() &&
-                        (mA2dpState == BluetoothA2dp.STATE_PLAYING)) {
-                    ignore_play = true;
-                }
-                if (action == KeyEvent.ACTION_DOWN) {
-                    Log.d(TAG, "AVRCP Trigger Handoff");
-                    mA2dpService.setActiveDevice(device);
+            boolean a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_mode", false);
+            Log.v(TAG," get the multicast statue " + a2dpMulticast);
+            List<BluetoothDevice> a2dp_connected_devices = mA2dpService.getConnectedDevices();
+            if (!a2dpMulticast || !a2dp_connected_devices.contains(device) ||
+                    mA2dpService.getConnectionState(device) != BluetoothProfile.STATE_CONNECTED)
+            {
+                if (code == KeyEvent.KEYCODE_MEDIA_PLAY) {
+                    if (isPlayingState(mCurrentPlayerState) &&
+                            mAudioManager.isMusicActive() &&
+                            (mA2dpState == BluetoothA2dp.STATE_PLAYING)) {
+                        ignore_play = true;
+                    }
+                    if (action == KeyEvent.ACTION_DOWN) {
+                        Log.d(TAG, "AVRCP Trigger Handoff");
+                        mA2dpService.setActiveDevice(device);
+                    } else {
+                        Log.d(TAG, "release for play PT from inactive device");
+                    }
                 } else {
-                    Log.d(TAG, "release for play PT from inactive device");
+                    Log.d(TAG, "Ignore passthrough from inactive device");
+                    return;
                 }
-            } else {
-                Log.d(TAG, "Ignore passthrough from inactive device");
-                return;
             }
         }
 
