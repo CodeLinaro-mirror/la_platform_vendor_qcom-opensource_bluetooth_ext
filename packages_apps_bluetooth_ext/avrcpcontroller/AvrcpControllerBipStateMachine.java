@@ -61,6 +61,7 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
     public static final int MESSAGE_CLEAR_COVEARART_CACHE                        = 5;
     // Messages for handling error conditions.
     private static final int MSG_DISCONNECT_TIMEOUT                              = 6;
+    private static final int MSG_CONNECT_TIMEOUT                                 = 7;
 
     // messages to obex handler
     public static final int MESSAGE_OBEX_CONNECT                                 = 101;
@@ -75,6 +76,7 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
 
     public static final String COVER_ART_HANDLE                                  = "CA_HANDLE";
     public static final String COVER_ART_IMAGE_LOCATION                          = "IMG_LOC";
+    static final int CONNECT_TIMEOUT                                             = 1000;
     static final int DISCONNECT_TIMEOUT                                          = 3000;
 
     public static  String mSupportedCoverArtMimetype;
@@ -193,6 +195,9 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
             case MSG_DISCONNECT_TIMEOUT:
                 str = "MSG_DISCONNECT_TIMEOUT";
                 break;
+            case MSG_CONNECT_TIMEOUT:
+                str = "MSG_CONNECT_TIMEOUT";
+                break;
             case MESSAGE_OBEX_CONNECT:
                 str = "REQ_OBEX_CONNECT";
                 break;
@@ -258,7 +263,14 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
                     mAvrcpCtrlBipObexHandler
                         .obtainMessage(MESSAGE_OBEX_CONNECT, message.arg1, 0, mDevice)
                         .sendToTarget();
+                    sendMessageDelayed(MSG_CONNECT_TIMEOUT, CONNECT_TIMEOUT);
                     transitionTo(mConnecting);
+                    break;
+
+                case MSG_CONNECT_TIMEOUT:
+                    Log.w(STATE_TAG,"Connect Timeout");
+                    mAvrcpCtrlStateMachine.sendMessage(
+                        AvrcpControllerStateMachine.MESSAGE_BIP_CONNECT_TIMEOUT);
                     break;
 
                 default:
@@ -283,6 +295,7 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
             }
             switch (message.what) {
                 case MESSAGE_OBEX_CONNECTED:
+                    removeMessages(MSG_CONNECT_TIMEOUT);
                     mAvrcpCtrlStateMachine.sendMessage(
                             AvrcpControllerStateMachine.MESSAGE_BIP_CONNECTED);
                     transitionTo(mConnected);
@@ -324,6 +337,13 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
                     msg.sendToTarget();
                     sendMessageDelayed(MSG_DISCONNECT_TIMEOUT, DISCONNECT_TIMEOUT);
                     transitionTo(mDisconnecting);
+                    break;
+
+                case MSG_CONNECT_TIMEOUT:
+                    Log.w(STATE_TAG,"Connect Timeout");
+                    mAvrcpCtrlStateMachine.sendMessage(
+                        AvrcpControllerStateMachine.MESSAGE_BIP_CONNECT_TIMEOUT);
+                    transitionTo(mDisconnected);
                     break;
 
                 default:
