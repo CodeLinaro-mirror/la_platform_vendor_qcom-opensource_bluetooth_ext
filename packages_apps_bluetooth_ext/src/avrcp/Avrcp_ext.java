@@ -1898,6 +1898,11 @@ public final class Avrcp_ext {
                 String CurrentPackageName = (mMediaController != null) ? mMediaController.getPackageName():null;
                 artistName = stringOrBlank(data.getString(MediaMetadata.METADATA_KEY_ARTIST));
                 albumName = stringOrBlank(data.getString(MediaMetadata.METADATA_KEY_ALBUM));
+                if (albumName.isEmpty()) {
+                  albumName =
+                      stringOrBlank(data.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST));
+                  Log.d(TAG,"overwrite album_artist :" + albumName + "if album is blank");
+                }
                 if (CurrentPackageName != null && !(CurrentPackageName.equals("com.android.music"))) {
                     mediaNumber = longStringOrBlank((data.getLong(MediaMetadata.METADATA_KEY_TRACK_NUMBER)));
                 } else {
@@ -1907,6 +1912,7 @@ public final class Avrcp_ext {
                 mediaTotalNumber = longStringOrBlank(data.getLong(MediaMetadata.METADATA_KEY_NUM_TRACKS));
                 genre = stringOrBlank(data.getString(MediaMetadata.METADATA_KEY_GENRE));
                 playingTimeMs = data.getLong(MediaMetadata.METADATA_KEY_DURATION);
+                Log.d(TAG," albumName :" + albumName);
                 if (mAvrcpBipRsp != null)
                     coverArt = stringOrBlank(mAvrcpBipRsp.getImgHandle(albumName));
                 else coverArt = stringOrBlank(null);
