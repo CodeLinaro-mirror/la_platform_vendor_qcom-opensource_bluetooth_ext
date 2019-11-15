@@ -3300,6 +3300,9 @@ static void cleanup(int service_uuid)
     btif_transfer_context(btif_avk_handle_event, BTIF_AVK_CLEANUP_REQ_EVT,
             (char*)&service_uuid, sizeof(int), NULL);
     btif_disable_service(service_uuid);
+
+    alarm_free(avk_open_on_rc_timer);
+    avk_open_on_rc_timer = NULL;
 }
 
 static void cleanup_sink(void) {
