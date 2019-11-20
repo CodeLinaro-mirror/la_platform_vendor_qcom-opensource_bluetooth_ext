@@ -176,6 +176,10 @@ class AvrcpControllerBipObexHandler extends Handler {
                 message.setData(imageData);
                 message.sendToTarget();
                 break;
+
+            case AvrcpControllerBipStateMachine.MESSAGE_CLEAR_COVEARART_CACHE:
+                clearCoverArtMapFromLocalPath();
+                break;
         }
     }
 
