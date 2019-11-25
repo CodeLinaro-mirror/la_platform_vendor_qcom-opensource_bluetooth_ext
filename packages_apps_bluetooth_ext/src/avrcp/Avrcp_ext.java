@@ -91,6 +91,7 @@ import java.util.TreeMap;
 import java.util.Objects;
 import com.android.bluetooth.hfp.HeadsetService;
 import java.util.Arrays;
+import java.util.concurrent.ConcurrentHashMap;
 /******************************************************************************
  * support Bluetooth AVRCP profile. support metadata, play status, event
  * notifications, address player selection and browse feature implementation.
@@ -147,7 +148,6 @@ public final class Avrcp_ext {
 
     private boolean mFastforward;
     private boolean mRewind;
-    private boolean mRemotePassthroughCmd;
 
     private String mAddress;
 
@@ -487,7 +487,6 @@ public final class Avrcp_ext {
         }
         mFastforward = false;
         mRewind = false;
-        mRemotePassthroughCmd = false;
         mCurrentBrowsingDevice = null;
         mBrowsingActiveDevice = null;
 
@@ -1713,6 +1712,9 @@ public final class Avrcp_ext {
                 }
                 deviceFeatures[deviceIndex].isActiveDevice = true;
 
+                if (mFastforward)  mFastforward = false;
+                if (mRewind)  mRewind = false;
+
                 Log.w(TAG, "Active device Calling SetBrowsePackage for " + mCachedBrowsePlayer);
                 if (mCachedBrowsePlayer != null && is_player_updated_for_browse == false) {
                     SetBrowsePackage(mCachedBrowsePlayer);
@@ -2061,7 +2063,8 @@ public final class Avrcp_ext {
                 for (int i = 0; i < maxAvrcpConnections; i++) {
                      if (i != deviceIndex && !deviceFeatures[i].isActiveDevice &&
                           deviceFeatures[i].mLastRspPlayStatus == PLAYSTATUS_PLAYING &&
-                          (state != null && state.getState() == PlaybackState.STATE_PLAYING)) {
+                          (state != null && state.getState() == PlaybackState.STATE_PLAYING) &&
+                          (!isTwsPlusPair(deviceFeatures[i].mCurrentDevice, deviceFeatures[deviceIndex].mCurrentDevice))) {
                          PlaybackState.Builder playState = new PlaybackState.Builder();
                          playState.setState(PlaybackState.STATE_PAUSED,
                                           PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f);
@@ -2913,7 +2916,8 @@ public final class Avrcp_ext {
         mHandler.removeMessages(currMsgPlayIntervalTimeout);
         if ((deviceFeatures[i].mCurrentDevice != null) &&
             (deviceFeatures[i].mPlayPosChangedNT == AvrcpConstants_ext.NOTIFICATION_TYPE_INTERIM) &&
-                 (isPlayingState(deviceFeatures[i].mCurrentPlayState)) && !isPlayerPaused()) {
+            (isPlayingState(deviceFeatures[i].mCurrentPlayState)) &&
+             !isPlayerPaused() && deviceFeatures[i].isActiveDevice) {
             Message msg = mHandler.obtainMessage(currMsgPlayIntervalTimeout, 0, 0,
                                                  deviceFeatures[i].mCurrentDevice);
             long delay = deviceFeatures[i].mPlaybackIntervalMs;
@@ -3540,8 +3544,9 @@ public final class Avrcp_ext {
             //When A2dp playing on DUT and Remote got connected, send proper playstatus
             if (isPlayingState(mCurrentPlayerState) &&
                 mA2dpService.isA2dpPlaying(device)) {
+                deviceFeatures[index].mLastStateUpdate = mLastStateUpdate;
                 deviceFeatures[index].mCurrentPlayState = mCurrentPlayerState;
-                Log.i(TAG,"Send correct playstatus to remote when it gets connected: " +
+                Log.i(TAG,"Send correct playstatus and song position to remote when it gets connected: " +
                                                       deviceFeatures[index].mCurrentPlayState);
             }
         }
@@ -4830,7 +4835,7 @@ public final class Avrcp_ext {
     }
 
     public class AvrcpBrowseManager {
-        Map<String, BrowsedMediaPlayer_ext> connList = new HashMap<String, BrowsedMediaPlayer_ext>();
+        Map<String, BrowsedMediaPlayer_ext> connList = new ConcurrentHashMap<String, BrowsedMediaPlayer_ext>();
         private AvrcpMediaRspInterface_ext mMediaInterface;
         private Context mContext;
 
@@ -5275,7 +5280,8 @@ public final class Avrcp_ext {
             storeVolume = mAbsVolThreshold;
         }
         if (index == INVALID_DEVICE_INDEX && disconnectedActiveDevice != null &&
-            disconnectedActiveDevice.equals(device)) {
+            (disconnectedActiveDevice.equals(device)
+            || isTwsPlusPair(disconnectedActiveDevice, device))) {
             Log.v(TAG, "No need to store volume again during avrcp disconnect volume is stored");
             disconnectedActiveDevice = null;
             return;
@@ -5286,9 +5292,9 @@ public final class Avrcp_ext {
             AdapterService mAdapterService = AdapterService.getAdapterService();
             BluetoothDevice peerDevice = mAdapterService.getTwsPlusPeerDevice(device);
             if (peerDevice != null && getIndexForDevice(peerDevice) != INVALID_DEVICE_INDEX)
-                Log.d(TAG,"storeVolume to TWS+ pair device " + device + " : " + storeVolume);
+                Log.d(TAG,"storeVolume to TWS+ pair device " + peerDevice + " : " + storeVolume);
                 mVolumeMap.put(peerDevice, storeVolume);
-                pref.putInt(device.getAddress(), storeVolume);
+                pref.putInt(peerDevice.getAddress(), storeVolume);
         }
         // Always use apply() since it is asynchronous, otherwise the call can hang waiting for
         // storage to be written.
