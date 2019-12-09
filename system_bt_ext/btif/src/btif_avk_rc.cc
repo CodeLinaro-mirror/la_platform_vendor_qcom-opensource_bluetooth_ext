@@ -1250,7 +1250,7 @@ void handle_avk_rc_passthrough_rsp(tBTA_AVK_REMOTE_RSP* p_remote_rsp) {
   }
   release_transaction(p_remote_rsp->label, idx);
   int av_index = btif_avk_idx_by_bdaddr(&rc_addr);
-  int av_cur_index = btif_av_get_current_playing_dev_idx();
+  int av_cur_index = btif_avk_get_current_playing_dev_idx();
   if (p_remote_rsp->rc_id == AVRC_ID_PAUSE && p_remote_rsp->key_state == AVRC_STATE_RELEASE
       && av_index != av_cur_index) {
     BTIF_TRACE_DEBUG("%s: passthrough PAUSED response for released key event", __func__);
