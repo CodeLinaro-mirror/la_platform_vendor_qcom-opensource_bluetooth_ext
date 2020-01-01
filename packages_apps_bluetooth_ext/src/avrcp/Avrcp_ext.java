@@ -145,7 +145,6 @@ public final class Avrcp_ext {
 
     private boolean mFastforward;
     private boolean mRewind;
-    private boolean mRemotePassthroughCmd;
 
     private String mAddress;
 
@@ -460,7 +459,6 @@ public final class Avrcp_ext {
         }
         mFastforward = false;
         mRewind = false;
-        mRemotePassthroughCmd = false;
         mCurrentBrowsingDevice = null;
 
         initNative(maxAvrcpConnections);
@@ -1565,6 +1563,9 @@ public final class Avrcp_ext {
                     break;
                 }
                 deviceFeatures[deviceIndex].isActiveDevice = true;
+
+                if (mFastforward)  mFastforward = false;
+                if (mRewind)  mRewind = false;
 
                 Log.w(TAG, "Active device Calling SetBrowsePackage for " + mCachedBrowsePlayer);
                 if (mCachedBrowsePlayer != null && is_player_updated_for_browse == false) {
