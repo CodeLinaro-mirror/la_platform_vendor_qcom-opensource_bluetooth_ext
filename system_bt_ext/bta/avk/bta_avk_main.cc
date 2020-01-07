@@ -189,6 +189,7 @@ static void bta_avk_sys_rs_cback (tBTA_SYS_CONN_STATUS status,uint8_t id, uint8_
 
 static void bta_avk_api_enable_multicast(tBTA_AVK_DATA *p_data);
 static void bta_avk_api_update_supp_codecs(tBTA_AVK_DATA *p_data);
+static void bta_avk_api_cp_flag_update(tBTA_AVK_DATA *p_data);
 
 bool is_split_enabled();
 
@@ -215,6 +216,7 @@ const tBTA_AVK_NSM_ACT bta_avk_nsm_act[] =
     bta_avk_api_to_ssm,              /* BTA_AVK_API_START_EVT */
     bta_avk_api_to_ssm,              /* BTA_AVK_API_STOP_EVT */
     bta_avk_api_update_supp_codecs,    /* BTA_AVK_UPDATE_SUPP_CODECS */
+    bta_avk_api_cp_flag_update,      /* BTA_AVK_VSE_CP_FLAG_UPDATE_EVT */
     bta_avk_api_enable_multicast,    /* BTA_AVK_ENABLE_MULTICAST_EVT */
 };
 
@@ -1105,6 +1107,33 @@ static void bta_avk_api_enable_multicast(tBTA_AVK_DATA *p_data)
 {
     is_multicast_enabled = p_data->multicast_state.is_multicast_enabled;
     APPL_TRACE_DEBUG("is_multicast_enabled :%d", is_multicast_enabled);
+}
+
+/*******************************************************************************
+**
+** Function         bta_avk_api_cp_flag_update
+**
+** Description      Recieved SCMS-T CP flag/header from SOC
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+static void bta_avk_api_cp_flag_update(tBTA_AVK_DATA *p_data)
+{
+    APPL_TRACE_DEBUG("%s",__func__)
+    uint16_t hci_handle = p_data->cp_flag_update.hci_handle;
+    tBTA_AVK_SCB *p_scb = NULL;
+    RawAddress bd_addr = BTM_Get_btaddr_from_hcihandle(hci_handle);
+    if(!bd_addr.IsEmpty()) {
+        p_scb = bta_avk_addr_to_scb(bd_addr);
+        tBTA_AVK_CP_FLAG cp_flag_update;
+        cp_flag_update.cp_flag = p_data->cp_flag_update.cp_flag;
+        cp_flag_update.hndl    = p_scb->hndl;
+        APPL_TRACE_DEBUG("%s cp_flag :%d, hci_handle :%d", __func__,
+                         cp_flag_update.cp_flag,hci_handle);
+        (*bta_avk_cb.p_cback)(BTA_AVK_CP_FLAG_UPDATE_EVT, (tBTA_AVK *)&cp_flag_update);
+    }
 }
 
 /*******************************************************************************

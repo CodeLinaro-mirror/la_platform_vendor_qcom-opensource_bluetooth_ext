@@ -154,6 +154,7 @@ static btav_sink_vendor_callbacks_t *bt_av_sink_vendor_callbacks = NULL;
 static btif_avk_cb_t btif_avk_cb[BTIF_AVK_NUM_CB];
 static alarm_t *avk_open_on_rc_timer = NULL;
 int btif_max_avk_clients = 1;
+bool enable_scmst = false;
 static bool enable_multicast = FALSE;
 static bool is_multicast_supported = FALSE;
 static bool multicast_disabled = FALSE;
@@ -539,6 +540,10 @@ static bool btif_avk_state_idle_handler(btif_sm_event_t event, void *p_data, int
             if (bt_av_sink_vendor_callbacks != NULL) {
                 HAL_CBACK(bt_av_sink_vendor_callbacks, audio_codec_config_vendor_cb,
                         &(req.peer_bd), req.codec_type, req.codec_info);
+                if(enable_scmst) {
+                    HAL_CBACK(bt_av_sink_vendor_callbacks, scmst_capabilities_cb,
+                              &(btif_avk_cb[index].peer_bda), bta_avk_co_cp_is_active());
+                }
             }
         } break;
 
@@ -775,6 +780,10 @@ static bool btif_avk_state_opening_handler(btif_sm_event_t event, void *p_data, 
             if (bt_av_sink_vendor_callbacks != NULL) {
                 HAL_CBACK(bt_av_sink_vendor_callbacks, audio_codec_config_vendor_cb,
                         &(btif_avk_cb[index].peer_bda), req.codec_type, req.codec_info);
+                if(enable_scmst) {
+                    HAL_CBACK(bt_av_sink_vendor_callbacks, scmst_capabilities_cb,
+                              &(btif_avk_cb[index].peer_bda), bta_avk_co_cp_is_active());
+                }
             }
         } break;
 
@@ -1109,6 +1118,10 @@ static bool btif_avk_state_opened_handler(btif_sm_event_t event, void *p_data, i
             if (bt_av_sink_vendor_callbacks != NULL) {
                 HAL_CBACK(bt_av_sink_vendor_callbacks, audio_codec_config_vendor_cb,
                         &(btif_avk_cb[index].peer_bda), req.codec_type, req.codec_info);
+                if(enable_scmst) {
+                    HAL_CBACK(bt_av_sink_vendor_callbacks, scmst_capabilities_cb,
+                              &(btif_avk_cb[index].peer_bda), bta_avk_co_cp_is_active());
+                }
             }
         } break;
 
@@ -1810,8 +1823,10 @@ uint8_t get_rtp_offset(uint8_t* p_start, uint16_t codec_type)
     uint8_t offset = 0;
     uint8_t* ptr = p_start;
     // NO RTP Header for APTX classic
-    if ((codec_type == A2DP_SINK_AUDIO_CODEC_APTX) || (codec_type == A2D_NON_A2DP_MEDIA_CT))
+    if((!bta_avk_co_cp_is_active()) && ((codec_type == A2DP_SINK_AUDIO_CODEC_APTX) ||
+       (codec_type == A2D_NON_A2DP_MEDIA_CT))) {
         return 0;
+    }
     rtp_version = *(p_start) >> 6;
     padding = (*(p_start) >> 5) & 0x01;
     extension = (*(p_start) >> 4) & 0x01;
@@ -1840,6 +1855,7 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
     uint16_t data_len;
     BT_HDR* p_pkt;
     uint8_t rtp_offset = 0;
+    uint8_t cp_flag = 0;
 #if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
     tA2D_AAC_CIE aac_cie;
 #endif
@@ -1867,24 +1883,58 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
         {
             p_pkt = (BT_HDR *)p_data;
             start_ptr = (uint8_t*)(p_pkt + 1) + p_pkt->offset;
+            // If content protection is active, read cp_flag
+            if(bta_avk_co_cp_is_active()) {
+                //for all codecs, cp header is a byte next to rtp header
+                rtp_offset = get_rtp_offset(start_ptr, btif_avk_cb[index].sink_codec_type);
+                cp_flag = *(start_ptr + rtp_offset);
+                if(cp_flag != bta_avk_co_get_cp_flag())
+                {
+                    if(bta_avk_co_set_cp_flag(cp_flag)) {
+                        //send callback to inform change in cp flag to app
+                        HAL_CBACK(bt_av_sink_vendor_callbacks, update_cp,
+                                  bd_addr, bta_avk_co_get_cp_flag());
+                    }
+                }
+            }
+
             // now we would always get RTP header from bta.
             switch (btif_avk_cb[index].sink_codec_type)
             {
                 case BTIF_AVK_CODEC_SBC:
+                    rtp_offset = get_rtp_offset(start_ptr, BTIF_AVK_CODEC_SBC);
                     if (enable_stack_sbc_decoding) {
                         // in this case we have to remove RTP header and send for decoding
-                        rtp_offset = get_rtp_offset(start_ptr, BTIF_AVK_CODEC_SBC);
                         p_pkt->offset = p_pkt->offset + rtp_offset;
                         p_pkt->len = p_pkt->len - rtp_offset;
+                        /* If content protection is active, increment offset
+                           and decrement length by 1 byte for cp flag */
+                        if(bta_avk_co_cp_is_active()) {
+                            p_pkt->offset++;
+                            p_pkt->len--;
+                        }
                         que_len = btif_avk_media_sink_enque_buf((BT_HDR *)p_pkt, bd_addr, btif_avk_cb[index].avdt_sync);
                         BTIF_TRACE_DEBUG(" %s ~~ SBC btif_avk_media_sink_enque_buf que-len = %d, AVDT_SYNC = %d", __func__, que_len, btif_avk_cb[index].avdt_sync);
                         break;
                     }
                     if(!retreive_rtp_header) {
                         // host wants Raw SBC packets without RTP header
-                        rtp_offset = get_rtp_offset(start_ptr, btif_avk_cb[index].sink_codec_type);
                         p_pkt->offset = p_pkt->offset + rtp_offset;
                         p_pkt->len = p_pkt->len - rtp_offset;
+                        /* If content protection is active, increment offset
+                           and decrement length by 1 byte for cp flag */
+                        if(bta_avk_co_cp_is_active()) {
+                            p_pkt->offset++;
+                            p_pkt->len--;
+                        }
+                    } else if(bta_avk_co_cp_is_active()) {
+                        //Remove cp header
+                        for(int i = rtp_offset; i>0 ; i--) {
+                           //right shift by 1 byte
+                           *(start_ptr + i) = *(start_ptr + i - 1);
+                        }
+                        p_pkt->offset++;
+                        p_pkt->len--;
                     }
                     // adjust start and len again
                     start_ptr = (uint8_t*)(p_pkt + 1) + p_pkt->offset;
@@ -1894,16 +1944,34 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
                     break;
                 case A2D_NON_A2DP_MEDIA_CT:
                     // APTX does not have RTP header
+                    if(bta_avk_co_cp_is_active()) {
+                        rtp_offset = get_rtp_offset(start_ptr, A2D_NON_A2DP_MEDIA_CT);
+                        p_pkt->offset = p_pkt->offset + rtp_offset + 1;//1 byte for cp header
+                        p_pkt->len = p_pkt->len - rtp_offset - 1;
+                    }
+                    start_ptr  = (uint8_t*)(p_pkt + 1) + p_pkt->offset;
                     data_len = p_pkt->len;
                     que_len = btif_media_enque_sink_data(A2DP_SINK_AUDIO_CODEC_APTX,
                           start_ptr, data_len, bd_addr, 0);
                     break;
                 default: // for all other codecs
+                    rtp_offset = get_rtp_offset(start_ptr, btif_avk_cb[index].sink_codec_type);
                     if(!retreive_rtp_header) {
                         // host wants Raw SBC packets without RTP header
-                        rtp_offset = get_rtp_offset(start_ptr, btif_avk_cb[index].sink_codec_type);
                         p_pkt->offset = p_pkt->offset + rtp_offset;
                         p_pkt->len = p_pkt->len - rtp_offset;
+                        if(bta_avk_co_cp_is_active()) {
+                            p_pkt->offset++;
+                            p_pkt->len--;
+                        }
+                    } else if(bta_avk_co_cp_is_active()) {
+                        //Remove cp header
+                        for(int i = rtp_offset; i>0 ; i--) {
+                           //right shift by 1 byte
+                           *(start_ptr + i) = *(start_ptr + i - 1);
+                           p_pkt->offset++;
+                           p_pkt->len--;
+                        }
                     }
                     // adjust start and len again
                     start_ptr = (uint8_t*)(p_pkt + 1) + p_pkt->offset;
@@ -2202,14 +2270,6 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
 
     enable_multicast = FALSE; // Clear multicast flag for sink
     btif_max_avk_clients = max;
-    if (bt_avk_callbacks != NULL)
-        status = btif_avk_init(BTA_A2DP_SINK_SERVICE_ID);
-
-
-    if (status == BT_STATUS_SUCCESS) {
-        bt_av_sink_vendor_callbacks = callbacks;
-        //BTA_AvEnable_Sink(TRUE);
-    }
 
     enable_stack_sbc_decoding = streaming_prarm & A2DP_SINK_ENABLE_SBC_DECODING;
     retreive_rtp_header = streaming_prarm & A2DP_SINK_RETREIVE_RTP_HEADER;
@@ -2217,14 +2277,27 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
     enable_delay_reporting = (strcmp(value, "false") == 0);
     property_get("persist.bluetooth.disablebrowsing", value, "false");
     enable_avrc_browsing = (strcmp(value, "false") == 0);
+    property_get("persist.bluetooth.enable_scmst", value, "false");
+    enable_scmst = (strcmp(value, "true") == 0);
     enable_notification_cb = streaming_prarm & A2DP_SINK_ENABLE_NOTIFICATION_CB;
     //enable_timestamp is valid only if enable_notification_cb is enabled
     enable_timestamp = streaming_prarm & A2DP_SINK_ENABLE_TIMESTAMP;
 
     BTIF_TRACE_IMP("%s, enable_sbc_decoding = %d, retreive RTP header = %d"
                    ", enable_delay_reporting = %d, enable_avrc_browsing = %d"
-                   ",enable_timestamp = %d", __FUNCTION__,enable_stack_sbc_decoding,
-                   retreive_rtp_header,enable_delay_reporting,enable_timestamp);
+                   ",enable_timestamp = %d, enable_scmst = %d", __FUNCTION__,
+                   enable_stack_sbc_decoding,retreive_rtp_header,
+                   enable_delay_reporting,enable_avrc_browsing,
+                   enable_timestamp,enable_scmst);
+
+    if (bt_avk_callbacks != NULL) {
+        status = btif_avk_init(BTA_A2DP_SINK_SERVICE_ID);
+    }
+
+    if (status == BT_STATUS_SUCCESS) {
+        bt_av_sink_vendor_callbacks = callbacks;
+        //BTA_AvEnable_Sink(TRUE);
+    }
 
     /* initializing mutex for sink */
     pthread_mutex_init(&sink_data_q_lock, NULL);
@@ -4067,4 +4140,16 @@ void clear_delay_record(void) {
     delay_record_idx = 0;
     int index = btif_get_latest_playing_device_idx();
     btif_avk_cb[index].average_delay = 0;
+}
+
+/*******************************************************************************
+**
+** Function         btif_avk_is_cp__enabled
+**
+** Description      Returns whether content protection is enabled/disabled
+**
+** Returns          bool
+*******************************************************************************/
+bool btif_avk_is_cp_enabled() {
+    return enable_scmst;
 }
