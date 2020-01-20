@@ -37,6 +37,7 @@
 #include "bta_avk_ci.h"
 #include "bta_avk_sbc.h"
 
+#include "btif_avk.h"
 #include "btif_avk_media.h"
 #include "sbc_encoder.h"
 #include "btif_avk_co.h"
@@ -541,6 +542,11 @@ bool bta_avk_co_audio_init(uint8_t *p_codec_type, uint8_t *p_codec_info, uint8_t
     /* By default - no content protection info */
     *p_num_protect = 0;
     *p_protect_info = 0;
+
+    if(btif_avk_is_cp_enabled()) {
+        *p_num_protect = AVDT_CP_INFO_LEN;
+        memcpy(p_protect_info, bta_avk_co_cp_scmst, AVDT_CP_INFO_LEN);
+    }
 
     /* reset remote preference through setconfig */
     bta_avk_co_cb.codec_cfg_setconfig.id = BTIF_AVK_CODEC_NONE;
@@ -1073,6 +1079,65 @@ bool is_vendor_codec_supported(uint8_t * p_codec_info) {
 
 /*******************************************************************************
  **
+ ** Function         bta_av_co_cp_is_scmst
+ **
+ ** Description      Check if a content protection service is SCMS-T
+ **
+ ** Returns          true if this CP is SCMS-T, false otherwise
+ **
+ ******************************************************************************/
+static bool bta_avk_co_cp_is_scmst(const uint8_t* p_protect_info) {
+  APPL_TRACE_DEBUG("%s", __func__);
+
+  if (*p_protect_info >= AVDT_CP_LOSC) {
+    uint16_t cp_id;
+
+    p_protect_info++;
+    STREAM_TO_UINT16(cp_id, p_protect_info);
+    if (cp_id == AVDT_CP_SCMS_T_ID) {
+      APPL_TRACE_DEBUG("%s: SCMS-T found", __func__);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Check if audio protect info contains SCMS-T Copy Protection
+// Returns true if |p_protect_info| contains SCMS-T, otherwise false.
+static bool bta_avk_co_audio_protect_has_scmst(uint8_t num_protect,
+                                              const uint8_t* p_protect_info) {
+  APPL_TRACE_DEBUG("%s", __func__);
+
+  while (num_protect--) {
+    if (bta_avk_co_cp_is_scmst(p_protect_info)) return true;
+    /* Move to the next SC */
+    p_protect_info += *p_protect_info + 1;
+  }
+  APPL_TRACE_DEBUG("%s: SCMS-T not found", __func__);
+  return false;
+}
+
+uint8_t bta_avk_co_get_cp_flag() {
+  return bta_avk_co_cb.cp.flag;
+}
+
+bool bta_avk_co_set_cp_flag(uint8_t flag) {
+  APPL_TRACE_DEBUG("%s : flag = %d", __func__,flag);
+
+  if(flag < AVDT_CP_SCMS_COPY_MASK) {
+    bta_avk_co_cb.cp.flag = flag;
+    return true;
+  }
+  return false;
+}
+
+bool bta_avk_co_cp_is_active() {
+  return bta_avk_co_cb.cp.active;
+}
+
+/*******************************************************************************
+ **
  ** Function         bta_av_co_audio_getconfig
  **
  ** Description      This callout function is executed by AV to retrieve the
@@ -1225,14 +1290,20 @@ uint8_t bta_avk_co_audio_getconfig(tBTA_AVK_HNDL hndl, tBTA_AVK_CODEC codec_type
                         p_peer->codec_cfg[4], p_peer->codec_cfg[5], p_peer->codec_cfg[6]);
                 /* By default, no content protection */
                 *p_num_protect = 0;
+                p_peer->cp_active = false;
+                bta_avk_co_cb.cp.active = false;
 
-#if defined(BTA_AVK_CO_CP_SCMS_T) && (BTA_AVK_CO_CP_SCMS_T == TRUE)
-                    p_peer->cp_active = FALSE;
-                    bta_avk_co_cb.cp.active = FALSE;
-#endif
-
-                    *p_sep_info_idx = p_src->sep_info_idx;
-                    memcpy(p_codec_info, p_peer->codec_cfg, AVDT_CODEC_SIZE);
+                if(btif_avk_is_cp_enabled() &&
+                   bta_avk_co_audio_protect_has_scmst(p_src->num_protect,
+                                                      p_src->protect_info)) {
+                    p_peer->cp_active = TRUE;
+                    bta_avk_co_cb.cp.active = TRUE;
+                    bta_avk_co_cb.cp.flag = 0xff;
+                    *p_num_protect = AVDT_CP_INFO_LEN;
+                    memcpy(p_protect_info, bta_avk_co_cp_scmst, AVDT_CP_INFO_LEN);
+                }
+                *p_sep_info_idx = p_src->sep_info_idx;
+                memcpy(p_codec_info, p_peer->codec_cfg, AVDT_CODEC_SIZE);
                 result =  A2DP_SUCCESS;
             }
         }
@@ -1290,12 +1361,26 @@ void bta_avk_co_audio_setconfig(tBTA_AVK_HNDL hndl, tBTA_AVK_CODEC codec_type,
         APPL_TRACE_ERROR("bta_avk_co_audio_setconfig peer already in use");
     }
 
-    /* Do not support content protection for the time being */
+    p_peer->cp_active = false;
+    bta_avk_co_cb.cp.active = false;
+
     if (num_protect != 0)
     {
-        APPL_TRACE_ERROR("bta_av_co_audio_setconfig wrong CP configuration");
-        status = A2DP_BAD_CP_TYPE;
-        category = AVDT_ASC_PROTECT;
+        if(btif_avk_is_cp_enabled()){
+            if ((num_protect == 1) &&
+                (bta_avk_co_cp_is_scmst(p_protect_info) == true)) {
+                APPL_TRACE_ERROR("%s: SCMS is negotiated", __func__);
+                bta_avk_co_cb.cp.active = true;
+                bta_avk_co_cb.cp.flag = 0xff;
+                p_peer->cp_active = true;
+            } else {
+                APPL_TRACE_ERROR("%s: No SCMST, cp is not active", __func__);
+            }
+        } else {
+            APPL_TRACE_ERROR("bta_av_co_audio_setconfig wrong CP configuration");
+            status = A2DP_BAD_CP_TYPE;
+            category = AVDT_ASC_PROTECT;
+        }
     }
     if (status == A2DP_SUCCESS)
     {
@@ -1333,7 +1418,6 @@ void bta_avk_co_audio_setconfig(tBTA_AVK_HNDL hndl, tBTA_AVK_CODEC codec_type,
                 bta_avk_co_cb.codec_cfg_setconfig.id = codec_type;
                 memcpy(bta_avk_co_cb.codec_cfg_setconfig.info, p_codec_info, AVDT_CODEC_SIZE);
                 break;
-
 
             default:
                 APPL_TRACE_ERROR("bta_avk_co_audio_setconfig unsupported cid %d", codec_type);

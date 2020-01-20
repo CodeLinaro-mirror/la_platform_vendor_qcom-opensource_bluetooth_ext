@@ -1542,6 +1542,7 @@ static void btif_avk_media_task_aa_handle_decoder_reset(BT_HDR *p_msg)
     uint32_t          freq_multiple = 48*20; /* frequency multiple for 20ms of data , initialize with 48K*/
     uint32_t          num_blocks = 16;
     uint32_t          num_subbands = 8;
+    uint32_t          pcmStride = 0;
 
     APPL_TRACE_DEBUG("btif_avk_media_task_aa_handle_decoder_reset p_codec_info[%x:%x:%x:%x:%x:%x]",
             p_buf->codec_info[1], p_buf->codec_info[2], p_buf->codec_info[3],
@@ -1556,10 +1557,13 @@ static void btif_avk_media_task_aa_handle_decoder_reset(BT_HDR *p_msg)
 
     btif_avk_media_cb.sample_rate = btif_avk_a2dp_get_sbc_track_frequency(sbc_cie.samp_freq);
     btif_avk_media_cb.channel_count = btif_avk_a2dp_get_sbc_track_channel_count(sbc_cie.ch_mode);
+    /* If MONO channel is configured then pcmStride should be 1 and
+    * for rest of the channels pcmStride should be 2.*/
+    pcmStride = btif_avk_media_cb.channel_count;
 
     btif_avk_media_cb.rx_flush = FALSE;
     APPL_TRACE_DEBUG("Reset to sink role");
-    status = OI_CODEC_SBC_DecoderReset(&context, contextData, sizeof(contextData), 2, 2, FALSE);
+    status = OI_CODEC_SBC_DecoderReset(&context, contextData, sizeof(contextData), 2, pcmStride, FALSE);
     if (!OI_SUCCESS(status)) {
         APPL_TRACE_ERROR("OI_CODEC_SBC_DecoderReset failed with error code %d\n", status);
     }
