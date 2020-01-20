@@ -50,6 +50,7 @@
 #include "hardware/bt_av_vendor.h"
 #include "osi/include/fixed_queue.h"
 #include "osi/include/list.h"
+#include "avdt_api.h"
 
 /*****************************************************************************
 **  Constants & Macros
@@ -1972,6 +1973,7 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
         case BTA_AVK_CP_FLAG_UPDATE_EVT:
         {
             tBTA_AVK *p_av = (tBTA_AVK*)p_data;
+            p_av->cp_flag_update.cp_flag &= AVDT_CP_SCMS_COPY_MASK;
             if(p_av->cp_flag_update.cp_flag != bta_avk_co_get_cp_flag()) {
                 bta_avk_co_set_cp_flag(p_av->cp_flag_update.cp_flag);
                 //send callback to inform change in cp flag to app

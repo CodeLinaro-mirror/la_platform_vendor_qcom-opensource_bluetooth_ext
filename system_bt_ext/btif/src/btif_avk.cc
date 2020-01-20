@@ -50,7 +50,7 @@
 #include "hardware/bt_av_vendor.h"
 #include "osi/include/fixed_queue.h"
 #include "osi/include/list.h"
-
+#include "avdt_api.h"
 /*****************************************************************************
 **  Constants & Macros
 ******************************************************************************/
@@ -1888,6 +1888,7 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
                 //for all codecs, cp header is a byte next to rtp header
                 rtp_offset = get_rtp_offset(start_ptr, btif_avk_cb[index].sink_codec_type);
                 cp_flag = *(start_ptr + rtp_offset);
+                cp_flag &= AVDT_CP_SCMS_COPY_MASK;
                 if(cp_flag != bta_avk_co_get_cp_flag())
                 {
                     if(bta_avk_co_set_cp_flag(cp_flag)) {

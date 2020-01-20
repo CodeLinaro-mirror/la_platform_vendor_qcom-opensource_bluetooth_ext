@@ -1125,7 +1125,9 @@ uint8_t bta_avk_co_get_cp_flag() {
 bool bta_avk_co_set_cp_flag(uint8_t flag) {
   APPL_TRACE_DEBUG("%s : flag = %d", __func__,flag);
 
-  if(flag < AVDT_CP_SCMS_COPY_MASK) {
+  if((flag == AVDT_CP_SCMS_COPY_NEVER) ||
+     (flag == AVDT_CP_SCMS_COPY_ONCE) ||
+     (flag == AVDT_CP_SCMS_COPY_FREE)) {
     bta_avk_co_cb.cp.flag = flag;
     return true;
   }
