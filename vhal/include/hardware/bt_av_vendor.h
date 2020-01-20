@@ -324,6 +324,9 @@ typedef struct {
    /** Update SCMS-T Cp flag */
    void (*update_cp)(bt_bdaddr_t *bd_addr, uint8_t cp_header);
 
+   /** Update SCMS-T Cp flag */
+   bt_status_t (*update_cp_header) (bt_bdaddr_t *bd_addr, uint8_t cp_header);
+
 } btav_vendor_interface_t;
 
 /** Represents the standard BT-AV interface.
