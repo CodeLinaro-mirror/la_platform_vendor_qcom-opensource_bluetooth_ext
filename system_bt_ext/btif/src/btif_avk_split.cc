@@ -927,16 +927,13 @@ static bool btif_avk_split_state_closing_handler(btif_sm_event_t event, void *p_
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
             break;
 
-        /* Handle the RC_CLOSE event for the cleanup */
-        case BTA_AVK_RC_CLOSE_EVT:
-            btif_avk_rc_handler(event, (tBTA_AVK*)p_data);
-            break;
-
         case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
             BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
             // in this state, we are not ready.
             btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
             break;
+
+        CHECK_AVK_RC_EVENT(event, (tBTA_AVK *)p_data);
 
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
@@ -1659,6 +1656,9 @@ static bool btif_avk_split_state_vsc_handler(btif_sm_event_t event, void *p_data
                                        sizeof(uint8_t));
             btif_sm_change_state(btif_avk_cb[index].sm_handle, btif_avk_cb[index].prev_state);
             break;
+
+        CHECK_AVK_RC_EVENT(event, (tBTA_AVK *)p_data);
+
         // memorize all other message here, we will act on them once we move to stable state
         default:
             memorize_msg(index,event,BTIF_AVK_STATE_HDL_VSC, p_data);
