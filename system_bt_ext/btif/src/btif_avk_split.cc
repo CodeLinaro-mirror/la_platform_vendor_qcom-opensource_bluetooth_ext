@@ -927,16 +927,13 @@ static bool btif_avk_split_state_closing_handler(btif_sm_event_t event, void *p_
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
             break;
 
-        /* Handle the RC_CLOSE event for the cleanup */
-        case BTA_AVK_RC_CLOSE_EVT:
-            btif_avk_rc_handler(event, (tBTA_AVK*)p_data);
-            break;
-
         case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
             BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
             // in this state, we are not ready.
             btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
             break;
+
+        CHECK_AVK_RC_EVENT(event, (tBTA_AVK *)p_data);
 
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
@@ -1559,6 +1556,21 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
         case BTIF_SM_EXIT_EVT:
              btif_avk_cb[index].prev_state = BTIF_AVK_STATE_STARTING;
              break;
+        case BTIF_AVK_DISCONNECT_REQ_EVT:
+            BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
+                             btif_avk_cb[index].vsc_command_status);
+
+            //Cancel alarm (if schedules) and send stsrt response
+            if(alarm_is_scheduled(avk_pending_start_timer)) {
+                alarm_cancel(avk_pending_start_timer);
+            }
+            BTA_AvkSendPedingStartCnf(btif_avk_cb[index].bta_handle);
+
+            /*memorize disconnect_req and move to started state.
+             It is handled in started state*/
+            memorize_msg(index,event,BTIF_AVK_STATE_STARTING, p_data);
+            btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_STARTED);
+            break;
         case BTA_AVK_CLOSE_EVT:
         case BTA_AVK_STOP_EVT:
             BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
@@ -1644,6 +1656,9 @@ static bool btif_avk_split_state_vsc_handler(btif_sm_event_t event, void *p_data
                                        sizeof(uint8_t));
             btif_sm_change_state(btif_avk_cb[index].sm_handle, btif_avk_cb[index].prev_state);
             break;
+
+        CHECK_AVK_RC_EVENT(event, (tBTA_AVK *)p_data);
+
         // memorize all other message here, we will act on them once we move to stable state
         default:
             memorize_msg(index,event,BTIF_AVK_STATE_HDL_VSC, p_data);
