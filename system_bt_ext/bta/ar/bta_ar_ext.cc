@@ -64,16 +64,25 @@ tBTA_AR_AVDTP_CONNECTION_INFO* alloc_device(RawAddress bd_addr)
     }
     return NULL;
 }
-void dealloc_ar_device_info(RawAddress bd_addr)
+void dealloc_ar_device_info(RawAddress bd_addr, uint8_t sep_type)
 {
     tBTA_AR_AVDTP_CONNECTION_INFO* p_conn_info = &avdtp_connection_info[0];
     for(int i = 0; i < AVDT_NUM_LINKS; i++,p_conn_info++)
     {
         if (p_conn_info->allocated && (bd_addr == p_conn_info->bd_addr))
         {
-            memset(p_conn_info, 0,  sizeof(tBTA_AR_AVDTP_CONNECTION_INFO));
-            APPL_TRACE_DEBUG(" device deallocated index = %d ",i);
-            return;
+           /* Check if connection info is used for other sep type,
+            * info might be required for handling events on other sep type */
+           if (p_conn_info->sep_type & (~sep_type)) {
+              /* don't dealloc now, will dealloc once this is the only sep type */
+              APPL_TRACE_DEBUG("%s available sep_type %d ",__func__,p_conn_info->sep_type);
+              return;
+           }
+           else {
+              memset(p_conn_info, 0,  sizeof(tBTA_AR_AVDTP_CONNECTION_INFO));
+              APPL_TRACE_DEBUG(" device deallocated index = %d ",i);
+              return;
+           }
         }
     }
 }
