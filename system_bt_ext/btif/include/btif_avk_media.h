@@ -200,6 +200,10 @@ int btif_avk_a2dp_get_mp3_track_channel_count(uint8_t channeltype);
 int btif_avk_a2dp_get_aptx_track_frequency(uint8_t frequency);
 int btif_avk_a2dp_get_aptx_track_channel_count(uint8_t channeltype);
 #endif
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+int btif_avk_a2dp_get_aptx_hd_track_frequency(uint8_t frequency);
+int btif_avk_a2dp_get_aptx_hd_track_channel_count(uint8_t channeltype);
+#endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
 int btif_avk_a2dp_get_aptx_ad_track_frequency(uint8_t frequency);
 int btif_avk_a2dp_get_aptx_ad_track_channel_count(uint8_t channeltype);

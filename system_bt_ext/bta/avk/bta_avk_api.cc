@@ -668,7 +668,7 @@ void BTA_AvkUpdateCodecSupport(uint8_t *p_codec_type_list, uint8_t *p_vnd_list, 
     if (p_codec_type_list == NULL || p_vnd_list == NULL || p_codec_id_list == NULL)
         return;
 
-    if ((p_buf = (tBTA_AVK_UPDATE_SUPP_CODECS *) osi_calloc((uint8_t) (sizeof
+    if ((p_buf = (tBTA_AVK_UPDATE_SUPP_CODECS *) osi_calloc((sizeof
         (tBTA_AVK_UPDATE_SUPP_CODECS)))) != NULL)
     {
         p_buf->hdr.event = BTA_AVK_UPDATE_SUPP_CODECS;

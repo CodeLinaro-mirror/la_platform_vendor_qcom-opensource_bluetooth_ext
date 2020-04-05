@@ -43,6 +43,10 @@ extern const tA2D_MP3_CIE bta_avk_co_mp3_caps;
 #include "a2d_aptx.h"
 extern const tA2D_APTX_CIE bta_avk_co_aptx_caps;
 #endif
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+#include "a2d_aptx_hd.h"
+extern const tA2D_APTX_HD_CIE bta_avk_co_aptx_hd_caps;
+#endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
 #include "a2d_aptx_ad_decoder.h"
 extern const tA2DP_AVK_APTX_AD_CIE bta_avk_co_aptx_ad_caps;
@@ -86,6 +90,9 @@ enum
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
     BTIF_SV_AVK_AA_APTX_INDEX,
 #endif
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+    BTIF_SV_AVK_AA_APTX_HD_INDEX,
+#endif
     BTIF_SV_AVK_AA_SEP_INDEX,  /* Last index */
 };
 
@@ -100,6 +107,7 @@ typedef struct
         tA2D_AAC_CIE aac_caps;
         tA2D_MP3_CIE mp3_caps;
         tA2D_APTX_CIE aptx_caps;
+        tA2D_APTX_HD_CIE aptx_hd_caps;
         tA2DP_AVK_APTX_AD_CIE aptx_ad_caps;
     } codec_cap;
 } tBTA_AVK_CO_CODEC_CAP_LIST;

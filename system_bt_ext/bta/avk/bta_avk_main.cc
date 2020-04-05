@@ -830,13 +830,16 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
             {
                 if (!is_split_enabled()) {
                     /* APTX-Adaptive Decoder is enabled only in Split Mode */
-                    if(index ==  BTIF_SV_AVK_AA_APTX_AD_INDEX) {
+                    if((index ==  BTIF_SV_AVK_AA_APTX_AD_INDEX) ||
+                       (index ==  BTIF_SV_AVK_AA_APTX_HD_INDEX))
+                    {
                         index ++;
                         continue;
                     }
                 }
                 if((index ==  BTIF_SV_AVK_AA_APTX_AD_INDEX) ||
-                   (index ==  BTIF_SV_AVK_AA_APTX_INDEX))
+                   (index ==  BTIF_SV_AVK_AA_APTX_INDEX) ||
+                   (index ==  BTIF_SV_AVK_AA_APTX_HD_INDEX))
                 {
                     if(check_haven_license())
                     {
@@ -846,16 +849,19 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
                     }
                 }
                 // Initialize codec.
+
                 p_scb->p_cos->init(&codec_type, cs.cfg.codec_info,
                     &cs.cfg.num_protect, cs.cfg.protect_info, index);
 
                 if(AVDT_CreateStream(&p_scb->seps[index - startIndex].av_handle, &cs) ==
                                                                             AVDT_SUCCESS)
                 {
+                    //TODO: Improve this logic
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
                     /* Aptx-CL and APTX-AD has same offset for codecId and VendorId */
                    if ((index == BTIF_SV_AVK_AA_APTX_INDEX) ||
-                        (index == BTIF_SV_AVK_AA_APTX_AD_INDEX))
+                        (index == BTIF_SV_AVK_AA_APTX_AD_INDEX) ||
+                        (index == BTIF_SV_AVK_AA_APTX_HD_INDEX))
                    {
                        /*p_scb->seps[index - startIndex].vendorId = 
                                 ((tA2D_APTX_CIE*)(cs.cfg.codec_info + 3))->vendorId;
@@ -873,7 +879,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
                     p_scb->seps[index - startIndex].p_app_data_cback = p_data->api_reg.p_app_data_cback;
 
                     index++;
-                } 
+                }
                 else
                     break;
             }

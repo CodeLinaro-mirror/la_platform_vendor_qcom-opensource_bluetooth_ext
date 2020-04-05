@@ -97,6 +97,7 @@ typedef union {
     tA2D_AAC_CIE aac_caps;
     tA2D_MP3_CIE mp3_caps;
     tA2D_APTX_CIE aptx_caps;
+    tA2D_APTX_HD_CIE aptx_hd_caps;
     tA2DP_AVK_APTX_AD_CIE aptx_ad_caps;
 } codec_cap_info;
 
@@ -254,8 +255,10 @@ uint32_t get_sbc_channel_count(uint8_t channeltype);
 uint32_t get_sbc_block_len(uint8_t blocktype);
 uint32_t get_sbc_subband(uint8_t subband_type);
 uint32_t calculate_aptx_bitrate(tA2D_APTX_CIE *p_ie);
+uint32_t calculate_aptx_hd_bitrate(tA2D_APTX_HD_CIE *p_ie);
 uint32_t calculate_aptx_ad_bitrate(tA2DP_AVK_APTX_AD_CIE *p_ie);
 uint32_t get_aptx_sampling_frequency(uint8_t samp_freq);
+uint32_t get_aptx_hd_sampling_frequency(uint8_t samp_freq);
 uint32_t get_aptx_ad_sampling_frequency(uint8_t samp_freq);
 extern bool is_split_enabled();
 
@@ -2436,6 +2439,19 @@ void bta_avk_offload_start_req(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
 
     }
 #endif
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+    if ((((tA2D_APTX_HD_CIE*)(p_scb->cfg.codec_info + 3))->vendorId == A2D_APTX_HD_VENDOR_ID ) &&
+         (((tA2D_APTX_HD_CIE*)(p_scb->cfg.codec_info + 3))->codecId == A2D_APTX_HD_CODEC_ID_BLUETOOTH)) {
+        A2D_ParsAptx_hdInfo((tA2D_APTX_HD_CIE *)&codec_cap_data.aptx_hd_caps,(uint8_t *)p_scb->cfg.codec_info,FALSE);
+        offload_sink_start.codec_id = 9;
+        offload_sink_start.peak_bit_rate = calculate_aptx_hd_bitrate((tA2D_APTX_HD_CIE *)&codec_cap_data.aptx_hd_caps);
+      if (p_scb->p_cos->cp_is_active()) {
+        offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC + 1; // 1 byte CP header is added
+      } else {
+        offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC; //No header for aptx hd
+      }
+    }
+#endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
     if ((((tA2DP_AVK_APTX_AD_CIE*)(p_scb->cfg.codec_info + 3))->vendorId == A2DP_AVK_APTX_AD_VENDOR_ID) &&
          (((tA2DP_AVK_APTX_AD_CIE*)(p_scb->cfg.codec_info + 3))->codecId == A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH)) {
@@ -3747,6 +3763,35 @@ uint32_t get_aptx_sampling_frequency(uint8_t samp_freq)
             break;
     }
     APPL_TRACE_DEBUG("get_aptx_sampling_frequency: %d", sampling_frequency);
+    return sampling_frequency;
+}
+#endif
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+uint32_t calculate_aptx_hd_bitrate(tA2D_APTX_HD_CIE *p_ie)
+{
+    uint32_t peak_bit_rate , sampling_frequency;
+
+    sampling_frequency = get_aptx_hd_sampling_frequency(p_ie->sampleRate);
+
+    peak_bit_rate = sampling_frequency * p_ie->channelMode * 16;
+    peak_bit_rate = peak_bit_rate / 4;
+    APPL_TRACE_DEBUG("calculate_aptx_hd_bitrate channels: %d",p_ie->channelMode);
+    APPL_TRACE_DEBUG("calculate_aptx_hd_bitrate bitrate: %d",peak_bit_rate);
+    return peak_bit_rate;
+}
+
+uint32_t get_aptx_hd_sampling_frequency(uint8_t samp_freq)
+{
+    uint32_t sampling_frequency = 48000;
+    switch (samp_freq) {
+        case A2D_APTX_HD_SAMPLERATE_44100:
+            sampling_frequency = 44100;
+            break;
+        case A2D_APTX_HD_SAMPLERATE_48000:
+            sampling_frequency = 48000;
+            break;
+    }
+    APPL_TRACE_DEBUG("get_aptx_hd_sampling_frequency: %d", sampling_frequency);
     return sampling_frequency;
 }
 #endif

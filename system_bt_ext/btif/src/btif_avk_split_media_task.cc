@@ -62,6 +62,7 @@
 #include "a2d_sbc.h"
 #include "a2dp_int.h"
 #include "a2d_aptx.h"
+#include "a2d_aptx_hd.h"
 #include "bta_avk_sbc.h"
 #include "bta_avk_ci.h"
 #include "l2c_api.h"
@@ -117,6 +118,8 @@ char outputFilename [50] = "/etc/bluetooth/output_sample.pcm";
 #define A2DP_SINK_AUDIO_CODEC_AAC       0x02
 #define A2DP_SINK_AUDIO_CODEC_APTX      0x08
 #define A2DP_SINK_AUDIO_CODEC_APTX_AD   0x10
+#define A2DP_SINK_AUDIO_CODEC_APTX_HD   0x20
+
 #define AVDT_AVK_MEDIA_AUDIO            0x00
 
 
@@ -348,6 +351,13 @@ static void btif_split_recv_ctrl_data(void)
                      tA2D_APTX_CIE aptx_cfg;
                      bta_avk_co_audio_get_aptx_config(&aptx_cfg);
                      A2D_BldAptxInfo(AVDT_AVK_MEDIA_AUDIO,&aptx_cfg,&param[0]);
+                }
+#endif
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+                if(vendor_codec_id == A2DP_SINK_AUDIO_CODEC_APTX_HD) {
+                     tA2D_APTX_HD_CIE aptx_hd_cfg;
+                     bta_avk_co_audio_get_aptx_hd_config(&aptx_hd_cfg);
+                     A2D_BldAptx_hdInfo(AVDT_AVK_MEDIA_AUDIO,&aptx_hd_cfg,&param[0]);
                 }
 #endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)

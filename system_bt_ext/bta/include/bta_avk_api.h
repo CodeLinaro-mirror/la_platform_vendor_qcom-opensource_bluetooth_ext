@@ -109,7 +109,7 @@ typedef uint8_t tBTA_AVK_HNDL;
 #endif
 
 #ifndef BTA_AVK_MAX_SEPS
-#define BTA_AVK_MAX_SEPS         5
+#define BTA_AVK_MAX_SEPS         6
 #endif
 
 #ifndef BTA_AVK_MAX_A2DP_MTU

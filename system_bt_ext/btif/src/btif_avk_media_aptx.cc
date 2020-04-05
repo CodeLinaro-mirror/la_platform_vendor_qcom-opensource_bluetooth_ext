@@ -40,7 +40,7 @@ int btif_avk_a2dp_get_aptx_track_frequency(uint8_t frequency) {
             freq = 44100;
             break;
         case A2D_APTX_SAMPLERATE_48000:
-            freq = 4800;
+            freq = 48000;
             break;
     }
     return freq;

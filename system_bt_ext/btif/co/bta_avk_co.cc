@@ -43,6 +43,7 @@
 #include "btif_avk_co.h"
 #include "btif_util.h"
 #include "bt_utils.h"
+#include "hardware/bt_av_vendor.h"
 #if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
 #include "a2d_aac.h"
 #include "bta_avk_aac.h"
@@ -56,6 +57,9 @@
 #endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
 #include "a2d_aptx_ad_decoder.h"
+#endif
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+#include "a2d_aptx_hd.h"
 #endif
 #include "osi/include/mutex.h"
 /*****************************************************************************
@@ -175,7 +179,7 @@ const tA2D_APTX_CIE bta_avk_co_aptx_caps =
     A2D_APTX_VENDOR_ID,
     A2D_APTX_CODEC_ID_BLUETOOTH,
     A2D_APTX_SAMPLERATE_44100 | A2D_APTX_SAMPLERATE_48000,
-    A2D_APTX_CHANNELS_STEREO | A2D_APTX_CHANNELS_MONO,
+    A2D_APTX_CHANNELS_STEREO,
     A2D_APTX_FUTURE_1,
     A2D_APTX_FUTURE_2
 };
@@ -188,6 +192,33 @@ const tA2D_APTX_CIE btif_avk_aptx_default_config =
     A2D_APTX_CHANNELS_STEREO,
     A2D_APTX_FUTURE_1,
     A2D_APTX_FUTURE_2
+};
+#endif
+
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+/*  APTX HD codec capabilities */
+const tA2D_APTX_HD_CIE bta_avk_co_aptx_hd_caps =
+{
+    A2D_APTX_HD_VENDOR_ID,
+    A2D_APTX_HD_CODEC_ID_BLUETOOTH,
+    A2D_APTX_HD_SAMPLERATE_44100 | A2D_APTX_HD_SAMPLERATE_48000,
+    A2D_APTX_HD_CHANNELS_STEREO,
+    A2D_APTX_HD_ACL_SPRINT_RESERVED0,
+    A2D_APTX_HD_ACL_SPRINT_RESERVED1,
+    A2D_APTX_HD_ACL_SPRINT_RESERVED2,
+    A2D_APTX_HD_ACL_SPRINT_RESERVED3
+};
+/*  Default APTX HD codec configuration */
+const tA2D_APTX_HD_CIE btif_avk_aptx_hd_default_config =
+{
+    A2D_APTX_HD_VENDOR_ID,
+    A2D_APTX_HD_CODEC_ID_BLUETOOTH,
+    A2D_APTX_HD_SAMPLERATE_48000,
+    A2D_APTX_HD_CHANNELS_STEREO,
+    A2D_APTX_HD_ACL_SPRINT_RESERVED0,
+    A2D_APTX_HD_ACL_SPRINT_RESERVED1,
+    A2D_APTX_HD_ACL_SPRINT_RESERVED2,
+    A2D_APTX_HD_ACL_SPRINT_RESERVED3
 };
 #endif
 
@@ -304,15 +335,23 @@ uint8_t bta_avk_get_current_vendor_codec()
     if ((((tA2D_APTX_CIE*)(bta_avk_co_cb.codec_cfg.info + 3))->vendorId == A2D_APTX_VENDOR_ID) && 
      (((tA2D_APTX_CIE*)(bta_avk_co_cb.codec_cfg.info + 3))->codecId == A2D_APTX_CODEC_ID_BLUETOOTH)) {
         APPL_TRACE_ERROR("A2DP_SINK_AUDIO_CODEC_APTX");
-        return 8;
+        return A2DP_SINK_AUDIO_CODEC_APTX;
     }
 #endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
-    if ((((tA2DP_AVK_APTX_AD_CIE*)(bta_avk_co_cb.codec_cfg.info + 3))->vendorId == 
+    if ((((tA2DP_AVK_APTX_AD_CIE*)(bta_avk_co_cb.codec_cfg.info + 3))->vendorId ==
       A2DP_AVK_APTX_AD_VENDOR_ID) && (((tA2DP_AVK_APTX_AD_CIE*)
       (bta_avk_co_cb.codec_cfg.info + 3))->codecId == A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH)) {
         APPL_TRACE_ERROR("A2DP_SINK_AUDIO_CODEC_APTX_AD");
-        return 16;
+        return A2DP_SINK_AUDIO_CODEC_APTX_AD;
+    }
+#endif
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+    if ((((tA2D_APTX_HD_CIE*)(bta_avk_co_cb.codec_cfg.info + 3))->vendorId ==
+      A2D_APTX_HD_VENDOR_ID) && (((tA2D_APTX_HD_CIE*)
+      (bta_avk_co_cb.codec_cfg.info + 3))->codecId == A2D_APTX_HD_CODEC_ID_BLUETOOTH)) {
+        APPL_TRACE_ERROR("A2DP_SINK_AUDIO_CODEC_APTX_HD");
+        return A2DP_SINK_AUDIO_CODEC_APTX_HD;
     }
 #endif
     return codec_type;
@@ -369,6 +408,9 @@ uint8_t get_vendor_specific_codec(uint8_t * p_codec_info)
     if ((get_vendor_id(p_codec_info) == A2DP_AVK_APTX_AD_VENDOR_ID) &&
         (get_codec_id(p_codec_info) == A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH))
         return A2D_VENDOR_CODEC_APTX_AD;
+    if ((get_vendor_id(p_codec_info) == A2D_APTX_HD_VENDOR_ID) &&
+        (get_codec_id(p_codec_info) == A2D_APTX_HD_CODEC_ID_BLUETOOTH))
+        return A2D_VENDOR_CODEC_APTX_HD;
     return A2D_NON_A2DP_MEDIA_CT;
 }
 /*******************************************************************************
@@ -485,6 +527,17 @@ static bool append_codec(tBTA_AVK_CODEC codec_type, tBTA_AVK_HNDL hndl, uint8_t 
                 APPL_TRACE_DEBUG(" %s  add codec_type %d in peer->p_src ",
                                            __func__, BTIF_SV_AVK_AA_APTX_AD_INDEX);
             }
+        if ((A2D_VENDOR_CODEC_APTX_HD == get_vendor_specific_codec(p_codec_info)) &&
+            (!is_codec_enabled(BTIF_SV_AVK_AA_APTX_HD_INDEX)))
+            {
+                APPL_TRACE_DEBUG(" %s  APTX-HD is not enabled ",__func__);
+                return FALSE;
+            }
+            else
+            {
+                APPL_TRACE_DEBUG(" %s  add codec_type %d in peer->p_src ",
+                                           __func__, BTIF_SV_AVK_AA_APTX_HD_INDEX);
+            }
     }
 
     for (index = 0; index < p_peer->num_sup_srcs; index++)
@@ -590,6 +643,16 @@ bool bta_avk_co_audio_init(uint8_t *p_codec_type, uint8_t *p_codec_info, uint8_t
         /* Codec is valid */
         break;
 #endif/* APTX_CLASSIC_DECODER_INCLUDED */
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+    case BTIF_SV_AVK_AA_APTX_HD_INDEX:
+        *p_codec_type = A2D_NON_A2DP_MEDIA_CT;
+
+        /* This should not fail because we are using constants for parameters */
+        A2D_BldAptx_hdInfo(AVDT_MEDIA_TYPE_AUDIO,
+                           (tA2D_APTX_HD_CIE *) &bta_avk_co_aptx_hd_caps, p_codec_info);
+        /* Codec is valid */
+        break;
+#endif/* APTX_HD_DECODER_INCLUDED */
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
     case BTIF_SV_AVK_AA_APTX_AD_INDEX:
         *p_codec_type = A2D_NON_A2DP_MEDIA_CT;
@@ -976,6 +1039,65 @@ bool bta_avk_co_audio_get_aptx_config(tA2D_APTX_CIE*p_aptx_config)
 }
 #endif
 
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+
+void bta_avk_build_aptx_hd_src_cfg (uint8_t *p_pref_cfg, uint8_t *p_src_cap, uint8_t index)
+{
+    tA2D_APTX_HD_CIE    src_cap;
+    tA2D_APTX_HD_CIE    pref_cap;
+    uint8_t           status = 0;
+    acquire_codec_mutex_lock();
+    tA2D_APTX_HD_CIE    *local_cap = &p_bta_avk_codec_pri_list[index].codec_cap.aptx_hd_caps;
+    release_codec_mutex_lock();
+
+    /* initialize it to default APTX configuration */
+    A2D_BldAptx_hdInfo(AVDT_MEDIA_TYPE_AUDIO, local_cap, p_pref_cfg);
+    /* now try to build a preferred one */
+    /* parse configuration */
+    if ((status = A2D_ParsAptx_hdInfo(&src_cap, p_src_cap, TRUE)) != 0)
+    {
+         APPL_TRACE_DEBUG(" Cant parse src cap ret = %d", status);
+         return ;
+    }
+
+    memset(&pref_cap, 0, sizeof(tA2D_APTX_HD_CIE));
+    pref_cap.codecId = A2D_APTX_HD_CODEC_ID_BLUETOOTH;
+    pref_cap.vendorId = A2D_APTX_HD_VENDOR_ID;
+    /* add support here, if we add new capability */
+    if ((src_cap.sampleRate & A2D_APTX_HD_SAMPLERATE_48000) &&
+        (local_cap->sampleRate & A2D_APTX_HD_SAMPLERATE_48000))
+        pref_cap.sampleRate = A2D_APTX_HD_SAMPLERATE_48000;
+    else if ((src_cap.sampleRate & A2D_APTX_HD_SAMPLERATE_44100) &&
+        (local_cap->sampleRate & A2D_APTX_HD_SAMPLERATE_44100))
+        pref_cap.sampleRate = A2D_APTX_HD_SAMPLERATE_44100;
+
+    /* MONO is not needed, disabled in defalut caps.*/
+    if (src_cap.channelMode & A2D_APTX_HD_CHANNELS_STEREO)
+        pref_cap.channelMode = A2D_APTX_HD_CHANNELS_STEREO;
+    else if(src_cap.channelMode & A2D_APTX_HD_CHANNELS_MONO)
+        pref_cap.channelMode = A2D_APTX_HD_CHANNELS_MONO;
+
+    A2D_BldAptx_hdInfo(AVDT_MEDIA_TYPE_AUDIO, (tA2D_APTX_HD_CIE *) &pref_cap, p_pref_cfg);
+}
+
+bool bta_avk_co_audio_get_aptx_hd_config(tA2D_APTX_HD_CIE *p_aptx_hd_config)
+{
+    bool result = TRUE;
+    APPL_TRACE_DEBUG("bta_avk_co_cb.codec_cfg.id : codec 0x%x", bta_avk_co_cb.codec_cfg.id);
+    acquire_codec_mutex_lock();
+    if (A2D_ParsAptx_hdInfo(p_aptx_hd_config, bta_avk_co_cb.codec_cfg.info, FALSE) != A2DP_SUCCESS)
+    {
+        /* Not AAC, still return the default values */
+        APPL_TRACE_DEBUG("%s parse APTX hd failed,still return the default values", __func__);
+        *p_aptx_hd_config = btif_avk_aptx_hd_default_config;
+        result = FALSE;
+    }
+    release_codec_mutex_lock();
+
+    return result;
+}
+#endif
+
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
 /*******************************************************************************
  **
@@ -1072,6 +1194,8 @@ bool is_vendor_codec_supported(uint8_t * p_codec_info) {
         if (get_vendor_specific_codec(p_codec_info) == A2D_VENDOR_CODEC_APTX_CL)
             return TRUE;
         if (get_vendor_specific_codec(p_codec_info) == A2D_VENDOR_CODEC_APTX_AD)
+            return TRUE;
+        if (get_vendor_specific_codec(p_codec_info) == A2D_VENDOR_CODEC_APTX_HD)
             return TRUE;
     }
     return FALSE;
@@ -1194,7 +1318,7 @@ uint8_t bta_avk_co_audio_getconfig(tBTA_AVK_HNDL hndl, tBTA_AVK_CODEC codec_type
         case BTA_AVK_CODEC_M12:
             supported = TRUE;
             break;
-        /* from Vendor Specific, we support only APTX-CL and APTX-AD */
+        /* from Vendor Specific, we support only APTX-CL, APTX-HD and  APTX-AD */
         case A2D_NON_A2DP_MEDIA_CT:
             supported = is_vendor_codec_supported(p_codec_info);
             break;
@@ -1275,6 +1399,15 @@ uint8_t bta_avk_co_audio_getconfig(tBTA_AVK_HNDL hndl, tBTA_AVK_CODEC codec_type
                             bta_avk_build_aptx_src_cfg(pref_cfg, p_src->codec_caps, snk_index);
                         }
 #endif
+
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+                        if(get_vendor_specific_codec(p_src->codec_caps) ==
+                                                                A2D_VENDOR_CODEC_APTX_HD)
+                        {
+                            bta_avk_build_aptx_hd_src_cfg(pref_cfg, p_src->codec_caps, snk_index);
+                        }
+#endif
+
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
                         if(get_vendor_specific_codec(p_src->codec_caps) ==
                                                                 A2D_VENDOR_CODEC_APTX_AD)
@@ -1743,6 +1876,27 @@ static bool bta_avk_co_audio_codec_cfg_matches_caps(uint8_t codec_id, const uint
                 ((p_src_aptx_caps->channelMode)&(p_local_aptx_caps->channelMode)));
     }
 #endif
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+    if ((p_src_aptx_caps->vendorId == A2D_APTX_HD_VENDOR_ID) &&
+        (p_src_aptx_caps->codecId == A2D_APTX_HD_CODEC_ID_BLUETOOTH))
+    {
+        tA2D_APTX_HD_CIE  *p_src_aptx_hd_caps = (tA2D_APTX_HD_CIE*)p_src_caps;
+        tA2D_APTX_HD_CIE  *p_local_aptx_hd_caps = (tA2D_APTX_HD_CIE*)p_local_caps;
+        APPL_TRACE_EVENT("APTX HD codec_id : src %d local %d",
+                         p_src_aptx_hd_caps->codecId, p_local_aptx_hd_caps->codecId);
+        APPL_TRACE_EVENT("APTX HD VendorId : src %d local %d",
+                         p_src_aptx_hd_caps->vendorId, p_local_aptx_hd_caps->vendorId);
+        APPL_TRACE_EVENT("APTX HD samplingFreq: src %d local %d",
+                         p_src_aptx_hd_caps->sampleRate, p_local_aptx_hd_caps->sampleRate);
+        APPL_TRACE_EVENT("APTX HD Channel Count: src %d local %d",
+                         p_src_aptx_hd_caps->channelMode, p_local_aptx_hd_caps->channelMode);
+
+        return (((p_src_aptx_hd_caps->codecId)&(p_local_aptx_hd_caps->codecId))&&
+                ((p_src_aptx_hd_caps->vendorId)&(p_local_aptx_hd_caps->vendorId))&&
+                ((p_src_aptx_hd_caps->sampleRate)&(p_local_aptx_hd_caps->sampleRate))&&
+                ((p_src_aptx_hd_caps->channelMode)&(p_local_aptx_hd_caps->channelMode)));
+    }
+#endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
     if ((p_src_aptx_caps->vendorId == A2DP_AVK_APTX_AD_VENDOR_ID) &&
         (p_src_aptx_caps->codecId == A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH))
@@ -1905,6 +2059,30 @@ static bool bta_avk_co_audio_peer_supports_codec(tBTA_AVK_CO_PEER *p_peer,
                     }
                 }
 #endif
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+                if(get_vendor_specific_codec(p_peer->srcs[index].codec_caps) ==
+                     A2D_VENDOR_CODEC_APTX_HD && codec_id == A2D_APTX_HD_CODEC_ID_BLUETOOTH)
+                {
+                    tA2D_APTX_HD_CIE src_aptx_hd_cap;
+                    if(A2D_ParsAptx_hdInfo(&src_aptx_hd_cap,
+                        p_peer->srcs[index].codec_caps, TRUE)!= A2DP_SUCCESS)
+                    {
+                        APPL_TRACE_ERROR(" Error in  A2DP_ParseInfoAptxAdaptiveDecoder ");
+                        break;
+                    }
+                    if (bta_avk_co_audio_codec_cfg_matches_caps(codec_type,
+                                        (uint8_t*)&src_aptx_hd_cap,
+                                        (uint8_t*)&p_bta_avk_codec_pri_list[preference_index]
+                                        .codec_cap.aptx_hd_caps))
+                    {
+                        if (p_src_index) *p_src_index = index;
+                        if (p_snk_index) *p_snk_index = preference_index;
+                        bta_avk_co_cb.codec_cfg_setconfig.id = codec_type;
+                        release_codec_mutex_lock();
+                        return TRUE;
+                    }
+                }
+#endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
                 if(get_vendor_specific_codec(p_peer->srcs[index].codec_caps) ==
                      A2D_VENDOR_CODEC_APTX_AD && codec_id == A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH)
@@ -2015,6 +2193,21 @@ static bool bta_avk_co_audio_supports_config(uint8_t codec_type, const uint8_t *
         }
 #endif
 
+#if defined(APTX_HD_DECODER_INCLUDED) && (APTX_HD_DECODER_INCLUDED == TRUE)
+        if (get_vendor_specific_codec(p_codec_cfg) == A2D_VENDOR_CODEC_APTX_HD)
+        {
+            acquire_codec_mutex_lock();
+            if (a2d_av_aptx_hd_cfg_in_cap((uint8_t *)p_codec_cfg,
+                (tA2D_APTX_HD_CIE *)&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_APTX_HD_INDEX]
+                .codec_cap.aptx_hd_caps))
+            {
+                release_codec_mutex_lock();
+                return FALSE;
+            }
+            release_codec_mutex_lock();
+        }
+#endif
+
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
         if (get_vendor_specific_codec(p_codec_cfg) == A2D_VENDOR_CODEC_APTX_AD)
         {
@@ -2099,6 +2292,12 @@ void bta_avk_co_audio_codec_reset(void)
                     bta_avk_co_cb.codec_cfg.info) != A2DP_SUCCESS)
         {
             APPL_TRACE_ERROR("bta_avk_co_audio_codec_reset A2D_BldAptxADDecoderInfo failed");
+        }
+        if (A2D_BldAptx_hdInfo(A2D_MEDIA_TYPE_AUDIO,
+                    &p_bta_avk_codec_pri_list[0].codec_cap.aptx_hd_caps,
+                    bta_avk_co_cb.codec_cfg.info) != A2DP_SUCCESS)
+        {
+            APPL_TRACE_ERROR("bta_avk_co_audio_codec_reset A2D_BldAptx_hdInfo failed");
         }
         break;
 #endif
