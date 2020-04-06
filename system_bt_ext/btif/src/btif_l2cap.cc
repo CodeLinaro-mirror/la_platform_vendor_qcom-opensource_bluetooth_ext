@@ -83,9 +83,9 @@ static uint8_t L2cap_GetChnlFcrMode (uint16_t lcid);
 static uint16_t L2cap_SendFixedChnlData (uint16_t fixed_cid, RawAddress rem_bda, BT_HDR *p_buf);
 static bt_status_t L2cap_LE_Register (uint16_t le_psm, bool ConnType, uint16_t SecLevel, uint8_t enc_key_size);
 static bt_status_t L2cap_LE_DeRegister (uint16_t psm);
-static uint16_t L2cap_LE_Connect(uint16_t le_psm , RawAddress address, tL2CAP_LE_CFG_INFO *p_cfg);
+static uint16_t L2cap_LE_Connect(uint16_t le_psm , RawAddress address, tL2CAP_COC_CFG_INFO *p_cfg);
 static bool L2cap_LE_ConnectRsp (RawAddress p_bd_addr, uint8_t id, uint16_t lcid, uint16_t result,
-                             uint16_t status, tL2CAP_LE_CFG_INFO *p_cfg);
+                             uint16_t status, tL2CAP_COC_CFG_INFO *p_cfg);
 //static bool L2cap_LE_ConnectRsp (RawAddress p_bd_addr, uint8_t id, uint16_t lcid, tL2CAP_LE_CFG_INFO *p_cfg);
 static bool L2cap_LE_FlowControl (uint16_t lcid, uint16_t credits);
 static void L2cap_LE_freebuf(BT_HDR *p_buf);
@@ -235,7 +235,7 @@ static bt_status_t L2cap_LE_Register (uint16_t le_psm, bool ConnType, uint16_t S
     return BT_STATUS_SUCCESS;
 }
 
-static uint16_t L2cap_LE_Connect (uint16_t le_psm , RawAddress address, tL2CAP_LE_CFG_INFO *p_cfg)
+static uint16_t L2cap_LE_Connect (uint16_t le_psm , RawAddress address, tL2CAP_COC_CFG_INFO *p_cfg)
 {
     BTIF_TRACE_DEBUG("LE-L2CAP: %s:: %s", __FUNCTION__, address.ToString().c_str());
 
@@ -254,7 +254,7 @@ static uint16_t L2cap_LE_Connect (uint16_t le_psm , RawAddress address, tL2CAP_L
 }
 
 static bool L2cap_LE_ConnectRsp (RawAddress p_bd_addr, uint8_t id, uint16_t lcid, uint16_t result,
-                             uint16_t status, tL2CAP_LE_CFG_INFO *p_cfg)
+                             uint16_t status, tL2CAP_COC_CFG_INFO *p_cfg)
 {
      p_cfg->credits = L2CAP_LE_CREDIT_DEFAULT;
      p_cfg->mtu = L2CAP_LE_MIN_MTU;
@@ -285,7 +285,7 @@ static void L2cap_LE_freebuf (BT_HDR *p_buf)
 
 static bt_status_t L2cap_LE_DeRegister (uint16_t psm)
 {
-    L2CA_DeregisterLECoc(psm);
+    L2CA_DeregisterCoc(psm);
     return BT_STATUS_SUCCESS;
 }
 

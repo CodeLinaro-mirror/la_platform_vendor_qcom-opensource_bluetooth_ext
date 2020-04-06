@@ -170,7 +170,7 @@ static int rcv_itration = 0;
 static volatile bool cong_status = FALSE;
 /* Control channel LE-L2CAP default options */
 static tL2CAP_LE_CONN_INFO le_conn_info;
-static tL2CAP_LE_CFG_INFO local_coc_cfg;
+static tL2CAP_COC_CFG_INFO local_coc_cfg;
 
 /* Main API */
 const bt_interface_t* sBtInterface = NULL;
@@ -2035,7 +2035,7 @@ static void l2test_l2c_connect_ind_cb(const RawAddress& bd_addr, uint16_t lcid, 
     local_coc_cfg.mtu = L2CAP_LE_DEFAULT_MTU;
     local_coc_cfg.mps = L2CAP_LE_DEFAULT_MPS;
     /* Verify if LE PSM  */
-   if (L2C_IS_VALID_LE_PSM(psm))
+   if (L2C_IS_VALID_COC_PSM(psm))
    {
        if (psm == 200)
        {
@@ -2079,7 +2079,7 @@ static void l2test_l2c_connect_ind_cb(const RawAddress& bd_addr, uint16_t lcid, 
 static void l2test_l2c_connect_cfm_cb(uint16_t lcid, uint16_t result)
 {
     t_le_chnl_info *le_conn_info = le_get_conn_info_by_lcid(lcid);
-    if (le_conn_info&&L2C_IS_VALID_LE_PSM(le_conn_info->psm))
+    if (le_conn_info&&L2C_IS_VALID_COC_PSM(le_conn_info->psm))
     {
 
         if (result == L2CAP_LE_RESULT_CONN_OK) {

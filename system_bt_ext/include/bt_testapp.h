@@ -127,9 +127,9 @@ typedef struct {
     bt_status_t (*RegisterLePsm) (uint16_t le_psm, bool ConnType, uint16_t SecLevel,
                                     uint8_t enc_key_size);
     bt_status_t (*LeDeregister)(uint16_t psm);
-    uint16_t    (*LeConnect) (uint16_t le_psm , RawAddress address, tL2CAP_LE_CFG_INFO *p_cfg);
+    uint16_t    (*LeConnect) (uint16_t le_psm , RawAddress address, tL2CAP_COC_CFG_INFO *p_cfg);
     bool        (*LeConnectRsp) (RawAddress p_bd_addr, uint8_t id, uint16_t lcid, uint16_t result,
-                             uint16_t status, tL2CAP_LE_CFG_INFO *p_cfg);
+                             uint16_t status, tL2CAP_COC_CFG_INFO *p_cfg);
     bool        (*LeFlowControl) (uint16_t lcid, uint16_t credits);
     void        (*LeFreeBuf)(BT_HDR *p_buf);
 } btl2cap_interface_t;
