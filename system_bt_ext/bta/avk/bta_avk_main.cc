@@ -971,7 +971,14 @@ void bta_avk_api_deregister(tBTA_AVK_DATA *p_data)
     {
         p_scb->deregistring = TRUE;
         bta_avk_ssm_execute(p_scb, BTA_AVK_API_CLOSE_EVT, p_data);
-    }
+        if(p_scb->avrc_ct_timer != NULL) {
+            alarm_free(p_scb->avrc_ct_timer);
+            p_scb->avrc_ct_timer = NULL;
+        }
+
+        if((p_scb->a2d_list != NULL))
+            list_free(p_scb->a2d_list);
+     }
     else
     {
         bta_avk_dereg_comp(p_data);
