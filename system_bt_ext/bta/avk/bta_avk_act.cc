@@ -2415,6 +2415,11 @@ void bta_avk_rc_closed(tBTA_AVK_DATA *p_data)
 
             if((p_rcb->status & BTA_AVK_RC_ROLE_MASK) == BTA_AVK_RC_ROLE_INT)
             {
+                if(p_rcb->handle != BTA_AVK_RC_HANDLE_NONE)
+                {
+                    /* AVCT CCB is still there. dealloc */
+                    bta_avk_del_rc(p_rcb);
+                }
                 /* AVCT CCB is deallocated */
                 p_rcb->handle = BTA_AVK_RC_HANDLE_NONE;
                 p_rcb->status = 0;
