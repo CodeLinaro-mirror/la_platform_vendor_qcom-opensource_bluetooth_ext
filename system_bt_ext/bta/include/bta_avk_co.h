@@ -252,6 +252,42 @@ extern void * bta_avk_co_audio_sink_data_path(tBTA_AVK_CODEC codec_type,
 *******************************************************************************/
 extern void bta_avk_co_audio_delay(tBTA_AVK_HNDL hndl, uint16_t delay);
 
+/*******************************************************************************
+**
+** Function         bta_avk_co_get_cp_flag
+**
+** Description      Required to get cp flag
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+extern uint8_t bta_avk_co_get_cp_flag(void);
+
+/*******************************************************************************
+**
+** Function         bta_avk_co_set_cp_flag
+**
+** Description      Required to set cp flag
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+extern bool bta_avk_co_set_cp_flag(uint8_t flag);
+
+/*******************************************************************************
+**
+** Function         bta_avk_co_cp_is_active
+**
+** Description      reguired to whether CP is active or not
+**
+**
+** Returns          bool
+**
+*******************************************************************************/
+extern bool bta_avk_co_cp_is_active();
+
 uint16_t get_codec_id (uint8_t * p_codec_info);
 uint32_t get_vendor_id (uint8_t * p_codec_info);
 uint8_t get_vendor_specific_codec(uint8_t * p_codec_info);

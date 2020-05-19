@@ -124,7 +124,10 @@ const tBTA_AVK_CO_FUNCTS bta_avk_a2d_cos =
     bta_avk_co_audio_start,
     bta_avk_co_audio_stop,
     bta_avk_co_audio_sink_data_path,
-    bta_avk_co_audio_delay
+    bta_avk_co_audio_delay,
+    bta_avk_co_get_cp_flag,
+    bta_avk_co_set_cp_flag,
+    bta_avk_co_cp_is_active
 };
 
 /* ssm action functions for audio stream */
@@ -2383,20 +2386,32 @@ void bta_avk_offload_start_req(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
     offload_sink_start.l2cap_mtu = BTA_AVK_MAX_A2DP_MTU;
     offload_sink_start.lcid = p_scb->l2c_cid;
     offload_sink_start.codec_id = p_scb->codec_type;
-    offload_sink_start.cp_enable = 0x0;
+    if(p_scb->p_cos->cp_is_active()) {
+        offload_sink_start.cp_enable = 0x1;
+    } else {
+        offload_sink_start.cp_enable = 0x0;
+    }
     APPL_TRACE_DEBUG("%s codec_type = %04x",__func__,p_scb->codec_type);
     switch(p_scb->codec_type)
     {
         case BTA_AVK_CODEC_SBC:
         A2D_ParsSbcInfo((tA2D_SBC_CIE *)&codec_cap_data.sbc_caps,(uint8_t *)p_scb->cfg.codec_info,FALSE);
         offload_sink_start.peak_bit_rate = calculate_sbc_bitrate((tA2D_SBC_CIE *)&codec_cap_data.sbc_caps);
-        offload_sink_start.packet_header_size = AVDT_HEADER_SBC;
+        if (p_scb->p_cos->cp_is_active()) {
+          offload_sink_start.packet_header_size = AVDT_HEADER_SBC + 1; // 1 byte CP header is added
+        } else {
+          offload_sink_start.packet_header_size = AVDT_HEADER_SBC;
+        }
         break;
 #if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
     case BTA_AVK_CODEC_M24:
         A2D_ParsAacInfo((tA2D_AAC_CIE *)&codec_cap_data.aac_caps,(uint8_t *)p_scb->cfg.codec_info,FALSE);
         offload_sink_start.peak_bit_rate = codec_cap_data.aac_caps.bit_rate;
-        offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC;
+        if (p_scb->p_cos->cp_is_active()) {
+          offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC + 1; // 1 byte CP header is added
+        } else {
+          offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC;
+        }
         break;
 #endif
 #if defined(MP3_DECODER_INCLUDED) && (MP3_DECODER_INCLUDED == TRUE)
@@ -2413,7 +2428,12 @@ void bta_avk_offload_start_req(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
         A2D_ParsAptxInfo((tA2D_APTX_CIE *)&codec_cap_data.aptx_caps,(uint8_t *)p_scb->cfg.codec_info,FALSE);
         offload_sink_start.codec_id = 8;
         offload_sink_start.peak_bit_rate = calculate_aptx_bitrate((tA2D_APTX_CIE *)&codec_cap_data.aptx_caps);
-        offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC;
+      if (p_scb->p_cos->cp_is_active()) {
+        offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC + 1; // 1 byte CP header is added
+      } else {
+        offload_sink_start.packet_header_size = 0; //No header for aptx
+      }
+
     }
 #endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
@@ -2423,7 +2443,12 @@ void bta_avk_offload_start_req(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
                                                     (uint8_t *)p_scb->cfg.codec_info,FALSE);
         offload_sink_start.codec_id = 10;
         offload_sink_start.peak_bit_rate = calculate_aptx_ad_bitrate((tA2DP_AVK_APTX_AD_CIE *)&codec_cap_data.aptx_ad_caps);
+      if (p_scb->p_cos->cp_is_active()) {
+        offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC + 1; // 1 byte CP header is added
+      } else {
         offload_sink_start.packet_header_size = AVDT_HEADER_NON_SBC;
+      }
+
     }
 #endif
         break;

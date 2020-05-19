@@ -123,6 +123,7 @@ enum
     BTA_AVK_API_START_EVT,       /* the following 2 events must be in the same order as the *AP_*EVT */
     BTA_AVK_API_STOP_EVT,
     BTA_AVK_UPDATE_SUPP_CODECS,
+    BTA_AVK_VSE_CP_FLAG_UPDATE_EVT, /* Event for scmst cp_flag received from SOC */
     BTA_AVK_ENABLE_MULTICAST_EVT, /* Event for enable and disable multicast */
 
 };
@@ -198,6 +199,10 @@ typedef void * (*tBTA_AVK_CO_DATAPATH) (tBTA_AVK_CODEC codec_type,
                                        uint32_t *p_len, uint32_t *p_timestamp);
 typedef void (*tBTA_AVK_CO_DELAY) (tBTA_AVK_HNDL hndl, uint16_t delay);
 
+typedef uint8_t (*tBTA_AVK_CO_CP_GET_FLAG)(void);
+typedef bool (*tBTA_AVK_CO_CP_SET_FLAG)(uint8_t flag);
+typedef bool (*tBTA_AVK_CO_CP_IS_ACTIVE)(void);
+
 /* the call-out functions for one stream */
 typedef struct
 {
@@ -211,6 +216,9 @@ typedef struct
     tBTA_AVK_CO_STOP     stop;
     tBTA_AVK_CO_DATAPATH data;
     tBTA_AVK_CO_DELAY    delay;
+    tBTA_AVK_CO_CP_GET_FLAG  get_cp_flag;
+    tBTA_AVK_CO_CP_SET_FLAG  set_cp_flag;
+    tBTA_AVK_CO_CP_IS_ACTIVE cp_is_active;
 } tBTA_AVK_CO_FUNCTS;
 
 /* data type for BTA_AVK_API_ENABLE_EVT */
@@ -428,6 +436,13 @@ typedef struct
     uint8_t   num_codec_configs;          /* Number of codec configs */
 } tBTA_AVK_UPDATE_SUPP_CODECS;
 
+typedef struct
+{
+    BT_HDR    hdr;
+    uint8_t   cp_flag;          /* SCMST CP flag/header in a2dp media packet*/
+    uint16_t  hci_handle;       /* ACL connection handle */
+} tBTA_AVK_CP_FLAG_UPDATE;
+
 /* initiator/acceptor role for adaption */
 #define BTA_AVK_ROLE_AD_INT          0x00       /* initiator */
 #define BTA_AVK_ROLE_AD_ACP          0x01       /* acceptor */
@@ -442,7 +457,7 @@ typedef struct
 /* union of all event datatypes */
 typedef union
 {
-    BT_HDR                    hdr;
+    BT_HDR                     hdr;
     tBTA_AVK_API_ENABLE        api_enable;
     tBTA_AVK_API_REG           api_reg;
     tBTA_AVK_API_OPEN          api_open;
@@ -463,6 +478,7 @@ typedef union
     tBTA_AVK_API_META_RSP      api_meta_rsp;
     tBTA_AVK_UPDATE_SUPP_CODECS update_supp_codecs;
     tBTA_AVK_ENABLE_MULTICAST  multicast_state;
+    tBTA_AVK_CP_FLAG_UPDATE    cp_flag_update;
 } tBTA_AVK_DATA;
 
 typedef void (tBTA_AVK_VDP_DATA_ACT)(void *p_scb);
