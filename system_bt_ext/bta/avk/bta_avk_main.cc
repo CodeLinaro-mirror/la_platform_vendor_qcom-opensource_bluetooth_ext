@@ -976,8 +976,16 @@ void bta_avk_api_deregister(tBTA_AVK_DATA *p_data)
             p_scb->avrc_ct_timer = NULL;
         }
 
-        if((p_scb->a2d_list != NULL))
+        /*if(p_scb->a2d_list != NULL) {
+            BT_HDR *p_buf;
+            while (!list_is_empty(p_scb->a2d_list)) {
+                p_buf = (BT_HDR*)list_front(p_scb->a2d_list);
+                list_remove(p_scb->a2d_list, p_buf);
+                osi_free(p_buf);
+            }
             list_free(p_scb->a2d_list);
+            p_scb->a2d_list = NULL;
+        }*/
      }
     else
     {
