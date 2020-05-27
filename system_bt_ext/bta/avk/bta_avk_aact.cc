@@ -2691,7 +2691,7 @@ void bta_avk_data_path (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
     //Always get the current number of bufs que'd up
     p_scb->l2c_bufs = (uint8_t)L2CA_FlushChannel (p_scb->l2c_cid, L2CAP_FLUSH_CHANS_GET);
 
-    if (!list_is_empty(p_scb->a2d_list)) {
+    if ((p_scb->a2d_list !=NULL) && (!list_is_empty(p_scb->a2d_list))) {
         p_buf = (BT_HDR *)list_front(p_scb->a2d_list);
         list_remove(p_scb->a2d_list, p_buf);
          /* use q_info.a2d data, read the timestamp */
