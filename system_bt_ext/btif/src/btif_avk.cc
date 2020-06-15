@@ -2525,9 +2525,7 @@ static void is_value_to_be_updated(void *ptr1, void *ptr2, uint8_t num_of_bytes)
     if (p1 == NULL || p2 == NULL)
         return;
     for (i = 0; i < num_of_bytes; i ++) {
-        if (!(*p1 & *p2)) {
-            *p1 |= *p2;
-        }
+        *p1 = *p2;
         p1 ++;
         p2 ++;
         if (p1 == NULL || p2 == NULL)
@@ -2558,109 +2556,6 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
     if (!p_codec_config_list) {
         BTIF_TRACE_ERROR(" %s codec list is NULL", __func__);
         return BT_STATUS_PARM_INVALID;
-    }
-
-    // Check if the codec params sent by upper layers are valid or not.
-    for (i = 0; i < num_codec_configs; i ++) {
-        switch (p_codec_config_list[i].codec_type) {
-            case A2DP_SINK_AUDIO_CODEC_SBC:
-                switch (p_codec_config_list[i].codec_config.sbc_config.samp_freq) {
-                    case SBC_SAMP_FREQ_16:
-                    case SBC_SAMP_FREQ_32:
-                    case SBC_SAMP_FREQ_44:
-                    case SBC_SAMP_FREQ_48:
-                        break;
-                    default:
-                        BTIF_TRACE_ERROR(" %s Invalid SBC freq = %d",
-                            __func__, p_codec_config_list[i].codec_config.sbc_config.samp_freq);
-                        return BT_STATUS_PARM_INVALID;
-                }
-                break;
-#if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
-            case A2DP_SINK_AUDIO_CODEC_AAC:
-                switch (p_codec_config_list[i].codec_config.aac_config.sampling_freq) {
-                    case AAC_SAMP_FREQ_8000:
-                    case AAC_SAMP_FREQ_11025:
-                    case AAC_SAMP_FREQ_12000:
-                    case AAC_SAMP_FREQ_16000:
-                    case AAC_SAMP_FREQ_22050:
-                    case AAC_SAMP_FREQ_24000:
-                    case AAC_SAMP_FREQ_32000:
-                    case AAC_SAMP_FREQ_44100:
-                    case AAC_SAMP_FREQ_48000:
-                    case AAC_SAMP_FREQ_64000:
-                    case AAC_SAMP_FREQ_88200:
-                    case AAC_SAMP_FREQ_96000:
-                        break;
-                    default:
-                        BTIF_TRACE_ERROR(" %s Invalid AAC freq = %d",
-                            __func__, p_codec_config_list[i].codec_config.aac_config.sampling_freq);
-                        return BT_STATUS_PARM_INVALID;
-                }
-                switch (p_codec_config_list[i].codec_config.aac_config.obj_type) {
-                    case AAC_OBJ_TYPE_MPEG_2_AAC_LC:
-                    case AAC_OBJ_TYPE_MPEG_4_AAC_LC:
-                        break;
-                    case AAC_OBJ_TYPE_MPEG_4_AAC_LTP:
-                    case AAC_OBJ_TYPE_MPEG_4_AAC_SCA:
-                        BTIF_TRACE_ERROR(" %s AAC Object Type = %d currently not supported",
-                            __func__, p_codec_config_list[i].codec_config.aac_config.obj_type);
-                        return BT_STATUS_UNSUPPORTED;
-                    default:
-                        BTIF_TRACE_ERROR(" %s Invalid AAC Object Type = %d",
-                            __func__, p_codec_config_list[i].codec_config.aac_config.obj_type);
-                        return BT_STATUS_PARM_INVALID;
-                }
-                break;
-#endif
-#if defined(MP3_DECODER_INCLUDED) && (MP3_DECODER_INCLUDED == TRUE)
-            case A2DP_SINK_AUDIO_CODEC_MP3:
-                switch (p_codec_config_list[i].codec_config.mp3_config.sampling_freq) {
-                    case MP3_SAMP_FREQ_16000:
-                    case MP3_SAMP_FREQ_22050:
-                    case MP3_SAMP_FREQ_24000:
-                    case MP3_SAMP_FREQ_32000:
-                    case MP3_SAMP_FREQ_44100:
-                    case MP3_SAMP_FREQ_48000:
-                        break;
-                    default:
-                        BTIF_TRACE_ERROR(" %s Invalid MP3 freq = %d",
-                            __func__, p_codec_config_list[i].codec_config.mp3_config.sampling_freq);
-                        return BT_STATUS_PARM_INVALID;
-                }
-                switch (p_codec_config_list[i].codec_config.mp3_config.layer) {
-                    case MP3_LAYER_3:
-                        break;
-                    case MP3_LAYER_1:
-                    case MP3_LAYER_2:
-                        BTIF_TRACE_ERROR(" %s MP3 layer = %d currently not supported",
-                            __func__, p_codec_config_list[i].codec_config.mp3_config.layer);
-                        return BT_STATUS_UNSUPPORTED;
-                    default:
-                        BTIF_TRACE_ERROR(" %s Invalid MP3 layer = %d",
-                            __func__, p_codec_config_list[i].codec_config.mp3_config.layer);
-                        return BT_STATUS_PARM_INVALID;
-                }
-                break;
-#endif
-#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
-            case A2DP_SINK_AUDIO_CODEC_APTX:
-                switch (p_codec_config_list[i].codec_config.aptx_config.sampling_freq) {
-                    case APTX_SAMPLERATE_44100:
-                    case APTX_SAMPLERATE_48000:
-                        break;
-                    default:
-                        BTIF_TRACE_ERROR(" %s Invalid APTX freq = %d",
-                            __func__, p_codec_config_list[i].codec_config.aptx_config.sampling_freq);
-                        return BT_STATUS_PARM_INVALID;
-                }
-                break;
-#endif
-            default:
-                BTIF_TRACE_ERROR(" %s Invalid codec type = %d",
-                    __func__, p_codec_config_list[i].codec_type);
-                return BT_STATUS_PARM_INVALID;
-        }
     }
 
     pthread_mutex_lock(&sink_codec_q_lock);
@@ -2721,6 +2616,12 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
                 break;
 #if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
             case A2DP_SINK_AUDIO_CODEC_AAC:
+                BTIF_TRACE_DEBUG("%s AAC-param samp_freq:0x%x obj_type:0x%x bit_rate:0x%x channels:0x%x",
+                                 __func__,
+                                 p_codec_config_list[i].codec_config.aac_config.sampling_freq,
+                                 p_codec_config_list[i].codec_config.aac_config.obj_type,
+                                 p_codec_config_list[i].codec_config.aac_config.bit_rate,
+                                 p_codec_config_list[i].codec_config.aac_config.channel_count);
                 /* Copy Mandatory AAC codec parameters */
                 memcpy(&p_bta_avk_codec_pri_list[i].codec_cap.aac_caps,
                     &bta_avk_co_aac_caps, sizeof(tA2D_AAC_CIE));
@@ -2729,11 +2630,26 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
                 p_codec_config_list[i].codec_config.aac_config.sampling_freq;
                 p_bta_avk_codec_pri_list[i].codec_cap.aac_caps.object_type =
                 p_codec_config_list[i].codec_config.aac_config.obj_type;
+                p_bta_avk_codec_pri_list[i].codec_cap.aac_caps.bit_rate =
+                p_codec_config_list[i].codec_config.aac_config.bit_rate;
+                p_bta_avk_codec_pri_list[i].codec_cap.aac_caps.channels =
+                p_codec_config_list[i].codec_config.aac_config.channel_count;
                 /* Check if supported capability needs to be updated */
                 is_value_to_be_updated(&aac_supported_cap.samp_freq,
                     &p_codec_config_list[i].codec_config.aac_config.sampling_freq, 2);
                 is_value_to_be_updated(&aac_supported_cap.object_type,
                     &p_codec_config_list[i].codec_config.aac_config.obj_type, 1);
+                is_value_to_be_updated(&aac_supported_cap.bit_rate,
+                    &p_codec_config_list[i].codec_config.aac_config.bit_rate, 4);
+                is_value_to_be_updated(&aac_supported_cap.channels,
+                    &p_codec_config_list[i].codec_config.aac_config.channel_count, 1);
+                BTIF_TRACE_DEBUG("%s aac_supported_cap samp_freq:0x%x obj_type:0x%x bit_rate:0x%x channels:0x%x",
+                                 __func__,
+                                 aac_supported_cap.samp_freq,
+                                 aac_supported_cap.object_type,
+                                 aac_supported_cap.bit_rate,
+                                 aac_supported_cap.channels);
+                /* Copy Mandatory AAC codec parameters */
                 break;
 #endif
 #if defined(MP3_DECODER_INCLUDED) && (MP3_DECODER_INCLUDED == TRUE)
@@ -2795,6 +2711,7 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
             }
         }
     }
+    BTIF_TRACE_DEBUG("%s codec added:%d", __func__, j);
 
     /* Add mandatory codec for all supported codec in the end of priority list to handle
          * case if the codec parameters sent by upper layers are not capable of creating connection.
