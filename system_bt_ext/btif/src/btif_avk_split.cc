@@ -1021,7 +1021,7 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
                 btif_avk_cb[index].delay = (latency[0] & 0x000000FF) |
                                            ((latency[1] << 8) & 0x0000FF00) |
                                            ((latency[2] << 16) & 0x00FF0000) |
-                                           ((latency[3] << 32) & 0xFF000000);
+                                           ((latency[3] << 24) & 0xFF000000);
                 if(btif_avk_cb[index].avdt_sync) {
                     BTA_AvkUpdateDelayReport(btif_avk_cb[index].bta_handle);
                 }
@@ -1036,7 +1036,7 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
                         btif_avk_cb[index].delay = (latency[0] & 0x000000FF) |
                                                    ((latency[1] << 8) & 0x0000FF00) |
                                                    ((latency[2] << 16) & 0x00FF0000) |
-                                                   ((latency[3] << 32) & 0xFF000000);
+                                                   ((latency[3] << 24) & 0xFF000000);
                         if(btif_avk_cb[index].avdt_sync) {
                             BTA_AvkUpdateDelayReport(btif_avk_cb[index].bta_handle);
                         }
@@ -1455,7 +1455,7 @@ static bool btif_avk_split_state_starting_handler(btif_sm_event_t event, void *p
             btif_avk_cb[index].delay = (latency[0] & 0x000000FF) |
                                        ((latency[1] << 8) & 0x0000FF00) |
                                        ((latency[2] << 16) & 0x00FF0000) |
-                                       ((latency[3] << 32) & 0xFF000000);
+                                       ((latency[3] << 24) & 0xFF000000);
             if(btif_avk_cb[index].avdt_sync) {
                 BTA_AvkUpdateDelayReport(btif_avk_cb[index].bta_handle);
             }
@@ -1746,7 +1746,7 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
                     btif_avk_cb[index].delay = (latency[0] & 0x000000FF) |
                                                ((latency[1] << 8) & 0x0000FF00) |
                                                ((latency[2] << 16) & 0x00FF0000) |
-                                               ((latency[3] << 32) & 0xFF000000);
+                                               ((latency[3] << 24) & 0xFF000000);
                     if(btif_avk_cb[index].avdt_sync) {
                         BTA_AvkUpdateDelayReport(btif_avk_cb[index].bta_handle);
                     }
