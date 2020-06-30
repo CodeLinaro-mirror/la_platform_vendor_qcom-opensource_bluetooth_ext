@@ -664,6 +664,9 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
                      btif_avk_cb[index].edr_3mbps = TRUE;
                  }
                 btif_avk_cb[index].peer_bda = ((tBTA_AVK*)p_data)->open.bd_addr;
+                btif_avk_cb[index].avdt_sync = bta_avk_is_avdt_sync(btif_avk_cb[index].bta_handle);
+                BTIF_TRACE_DEBUG("%s, BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",
+                                 __func__,index, btif_avk_cb[index].avdt_sync);
             }
             else
             {
@@ -778,7 +781,7 @@ static bool btif_avk_split_state_opening_handler(btif_sm_event_t event, void *p_
                      btif_avk_cb[index].edr_3mbps = TRUE;
                  }
                  btif_avk_cb[index].avdt_sync = bta_avk_is_avdt_sync(btif_avk_cb[index].bta_handle);
-                 BTIF_TRACE_DEBUG(" %s ~~ BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",__func__,index, btif_avk_cb[index].avdt_sync);
+                 BTIF_TRACE_DEBUG("%s, BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",__func__,index, btif_avk_cb[index].avdt_sync);
             }
             else
             {
