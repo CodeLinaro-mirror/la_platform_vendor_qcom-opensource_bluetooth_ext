@@ -819,6 +819,9 @@ static bool btif_avk_media_task_clear_track(void)
 {
     BT_HDR *p_buf;
 
+    if (btif_avk_media_cmd_msg_queue == NULL)
+        return FALSE;
+
     if (NULL == (p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR))))
     {
         return FALSE;
