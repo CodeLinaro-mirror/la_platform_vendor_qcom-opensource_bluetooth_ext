@@ -1964,6 +1964,7 @@ static void btif_avk_rc_ctrl_upstreams_rsp_evt(uint16_t event, tAVRC_RESPONSE *p
             HAL_CBACK(btif_avk_rc_ctrl_vendor_callbacks,getelementattrib_rsp_vendor_cb, &rc_addr,
               pavrc_resp->get_attrs.num_attrs, p_attr, rsp_type);
             osi_free(p_attr);
+            osi_free(pavrc_resp->get_attrs.p_attrs);
         }
             break;
         case AVRC_PDU_GET_PLAY_STATUS:
