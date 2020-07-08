@@ -159,6 +159,7 @@ typedef struct {
     uint8_t   alloc_mthd;
     uint8_t   max_bitpool;
     uint8_t   min_bitpool;
+    bool      delay_report_status;
 }btav_sbc_codec_config_t;
 
 typedef struct {
@@ -167,6 +168,7 @@ typedef struct {
     uint8_t  channel_count;
     uint32_t bit_rate;
     uint8_t  vbr; // variable bit rate
+    bool     delay_report_status;
 }btav_aac_codec_config_t;
 
 typedef struct {
@@ -177,6 +179,7 @@ typedef struct {
     uint8_t  sampling_freq;
     uint8_t  vbr; // variable bit rate
     uint16_t bit_rate;
+    bool     delay_report_status;
 }btav_mp3_codec_config_t;
 
 typedef struct {
@@ -184,6 +187,7 @@ typedef struct {
     uint16_t codec_id;
     uint8_t  channel_count;
     uint8_t  sampling_freq;
+    bool     delay_report_status;
 }btav_aptx_codec_config_t;
 
 typedef struct {
@@ -191,6 +195,7 @@ typedef struct {
     uint16_t codec_id;
     uint8_t  channel_count;
     uint8_t  sampling_freq;
+    bool     delay_report_status;
 }btav_aptx_hd_codec_config_t;
 
 typedef struct {
@@ -198,6 +203,7 @@ typedef struct {
     uint16_t codec_id;
     uint8_t  channel_count;
     uint8_t  sampling_freq;
+    bool     delay_report_status;
 }btav_aptx_ad_codec_config_t;
 
 typedef union

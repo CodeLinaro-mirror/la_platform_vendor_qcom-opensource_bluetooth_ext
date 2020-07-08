@@ -576,9 +576,6 @@ static bool btif_avk_state_idle_handler(btif_sm_event_t event, void *p_data, int
                      btif_avk_cb[index].edr_3mbps = TRUE;
                  }
                 btif_avk_cb[index].peer_bda = ((tBTA_AVK*)p_data)->open.bd_addr;
-                btif_avk_cb[index].avdt_sync = bta_avk_is_avdt_sync(btif_avk_cb[index].bta_handle);
-                BTIF_TRACE_DEBUG(" %s, BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",
-                                 __func__,index, btif_avk_cb[index].avdt_sync);
             }
             else
             {
@@ -696,8 +693,6 @@ static bool btif_avk_state_opening_handler(btif_sm_event_t event, void *p_data, 
                      BTIF_TRACE_DEBUG("remote supports 3 mbps");
                      btif_avk_cb[index].edr_3mbps = TRUE;
                  }
-                 btif_avk_cb[index].avdt_sync = bta_avk_is_avdt_sync(btif_avk_cb[index].bta_handle);
-                 BTIF_TRACE_DEBUG(" %s BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",__func__,index, btif_avk_cb[index].avdt_sync);
             }
             else
             {
@@ -1998,6 +1993,9 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
         //memcpy(config_req.codec_info,(uint8_t*)(p_data->avk_config.codec_info), AVDT_CODEC_SIZE);
         config_req.codec_type = codec_type;
         btif_avk_cb[index].sink_codec_type = codec_type;
+        btif_avk_cb[index].avdt_sync = bta_avk_is_avdt_sync(btif_avk_cb[index].bta_handle);
+        BTIF_TRACE_DEBUG(" %s btif_avk_cb[%d].avdt_sync is [%d]",__func__,index,
+                      btif_avk_cb[index].avdt_sync);
         switch(codec_type)
         {
         case BTIF_AVK_CODEC_SBC:
@@ -2019,6 +2017,7 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
                 config_req.codec_info.sbc_config.min_bitpool = sbc_cie.min_bitpool;
                 config_req.codec_info.sbc_config.num_subbands = sbc_cie.num_subbands;
                 config_req.peer_bd = p_data->avk_config.bd_addr;
+                config_req.codec_info.sbc_config.delay_report_status = btif_avk_cb[index].avdt_sync;
                 btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SINK_CONFIG_REQ_EVT,
                                          (char*)&config_req, sizeof(config_req), NULL);
             }
@@ -2044,6 +2043,7 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
                 config_req.codec_info.aac_config.channel_count = aac_cie.channels;
                 config_req.codec_info.aac_config.vbr = aac_cie.vbr;
                 config_req.peer_bd = p_data->avk_config.bd_addr;
+                config_req.codec_info.aac_config.delay_report_status = btif_avk_cb[index].avdt_sync;
                 btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SINK_CONFIG_REQ_EVT,
                                      (char*)&config_req, sizeof(config_req), NULL);
             } else {
@@ -2069,6 +2069,7 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
                 config_req.codec_info.mp3_config.mpf = mp3_cie.mpf;
                 config_req.codec_info.mp3_config.crc = mp3_cie.crc;
                 config_req.peer_bd = p_data->avk_config.bd_addr;
+                config_req.codec_info.mp3_config.delay_report_status = btif_avk_cb[index].avdt_sync;
                 btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SINK_CONFIG_REQ_EVT,
                                      (char*)&config_req, sizeof(config_req), NULL);
             } else {
@@ -2093,6 +2094,7 @@ static void bte_avk_media_callback(tBTA_AVK_EVT event, tBTA_AVK_MEDIA *p_data, R
                 config_req.codec_info.aptx_config.sampling_freq = aptx_cie.sampleRate;
                 config_req.codec_info.aptx_config.channel_count = aptx_cie.channelMode;
                 config_req.peer_bd = p_data->avk_config.bd_addr;
+                config_req.codec_info.aptx_config.delay_report_status = btif_avk_cb[index].avdt_sync;
                 btif_transfer_context(btif_avk_handle_event, BTIF_AVK_SINK_CONFIG_REQ_EVT,
                                      (char*)&config_req, sizeof(config_req), NULL);
             } else {

@@ -1457,17 +1457,11 @@ void bta_avk_setconfig_rsp (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
     bta_avk_adjust_seps_idx(p_scb, avdt_handle);
     APPL_TRACE_DEBUG("bta_avk_setconfig_rsp: sep_idx: %d cur_psc_mask:0x%x", p_scb->sep_idx, p_scb->cur_psc_mask);
 
-    if ((AVDT_TSEP_SNK == local_sep) && (p_data->ci_setconfig.err_code == AVDT_SUCCESS) &&
-                                     (p_scb->seps[p_scb->sep_idx].p_app_data_cback != NULL)) {
-        av_sink_codec_info.avk_config.bd_addr = p_scb->peer_addr;
-        av_sink_codec_info.avk_config.codec_info = p_scb->cfg.codec_info;
-        p_scb->seps[p_scb->sep_idx].p_app_data_cback(BTA_AVK_MEDIA_SINK_CFG_EVT,
-                                   &av_sink_codec_info, av_sink_codec_info.avk_config.bd_addr);
+    if(p_data->ci_setconfig.err_code != AVDT_SUCCESS)
+    {
+        AVDT_ConfigRsp(p_scb->avdt_handle, p_scb->avdt_label, p_data->ci_setconfig.err_code,
+                       p_data->ci_setconfig.category);
     }
-
-
-    AVDT_ConfigRsp(p_scb->avdt_handle, p_scb->avdt_label, p_data->ci_setconfig.err_code,
-                   p_data->ci_setconfig.category);
 
     alarm_cancel(bta_avk_cb.link_signalling_timer);
 
@@ -1492,6 +1486,17 @@ void bta_avk_setconfig_rsp (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
             APPL_TRACE_DEBUG(" %s ~~ AVDTP version is v1.2",__func__);
             p_scb->avdt_version = AVDT_VERSION;
         }
+
+        if ((AVDT_TSEP_SNK == local_sep) && (p_scb->seps[p_scb->sep_idx].p_app_data_cback != NULL))
+        {
+            av_sink_codec_info.avk_config.bd_addr = p_scb->peer_addr;
+            av_sink_codec_info.avk_config.codec_info = p_scb->cfg.codec_info;
+            p_scb->seps[p_scb->sep_idx].p_app_data_cback(BTA_AVK_MEDIA_SINK_CFG_EVT,
+                                     &av_sink_codec_info, av_sink_codec_info.avk_config.bd_addr);
+        }
+
+        AVDT_ConfigRsp(p_scb->avdt_handle, p_scb->avdt_label, p_data->ci_setconfig.err_code,
+                       p_data->ci_setconfig.category);
 
         APPL_TRACE_DEBUG(" %s codec_type  = %d ",__func__, p_scb->codec_type);
         if ((p_scb->codec_type == BTA_AVK_CODEC_SBC)||
