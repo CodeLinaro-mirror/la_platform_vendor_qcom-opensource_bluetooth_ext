@@ -81,7 +81,8 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
 import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.hearingaid.HearingAidService;
-
+import com.android.bluetooth.bms.BapBroadcastService;
+import com.android.bluetooth.btservice.ServiceFactory;
 import com.android.internal.util.ArrayUtils;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -117,6 +118,7 @@ public final class Avrcp_ext {
     private final BluetoothAdapter mAdapter;
     private DeviceProfileMap dpm;
     private A2dpService mA2dpService;
+    ServiceFactory mFactory = new ServiceFactory();
     private Handler mAudioManagerPlaybackHandler;
     private AudioManagerPlaybackListener mAudioManagerPlaybackCb;
     private MediaSessionManager mMediaSessionManager;
@@ -760,6 +762,10 @@ public final class Avrcp_ext {
         @Override
         public void onMetadataChanged(MediaMetadata metadata) {
             if (DEBUG) Log.v(TAG, "onMetadataChanged");
+            final BapBroadcastService mBAS = mFactory.getBapBroadcastService();
+            if (mBAS != null && mBAS.isBapBroadcastActive()) {
+                mBAS.updateMetadataFromAvrcp(metadata);
+            }
             updateCurrentMediaState(null);
         }
         @Override
@@ -5474,6 +5480,21 @@ public final class Avrcp_ext {
                 Objects.equals(a2dp_active_device, device))) {
                 Log.d(TAG,"Passthrough received from TWS+ Pair");
                 skip = true;
+            }
+        }
+        if (a2dp_active_device == null) {
+            final BapBroadcastService mBAS = mFactory.getBapBroadcastService();
+            if (mBAS != null && mBAS.isBapBroadcastActive()) {
+                Log.d(TAG,"Bap Broadcast is active, ignore passthrough from legacy hs");
+                if (action == KeyEvent.ACTION_DOWN && !rc_only_device) {
+                    if (isLeAudioEnabled) {
+                        ActiveDeviceManagerService activeDeviceManager =
+                                             ActiveDeviceManagerService.get();
+                        activeDeviceManager.setActiveDevice(device,
+                                       ApmConst.AudioFeatures.MEDIA_AUDIO, false);
+                    }
+                }
+                return;
             }
         }
         if (a2dp_active_device == null &&
