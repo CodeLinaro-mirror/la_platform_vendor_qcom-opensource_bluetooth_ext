@@ -140,6 +140,11 @@ __BEGIN_DECLS
 #define EDR_2MBPS        0x01
 #define EDR_3MBPS        0x02
 
+/* CP header Macros */
+#define BTAV_CP_SCMS_COPY_NEVER   0
+#define BTAV_CP_SCMS_COPY_ONCE    1
+#define BTAV_CP_SCMS_COPY_FREE    2
+
 typedef struct {
     uint8_t   samp_freq;
     uint8_t   ch_mode;
@@ -241,6 +246,13 @@ typedef void (*btav_audio_split_sink_suspend_ind_callback)(const RawAddress& bd_
 
 typedef void (*btav_audio_mtu_config_vendor_callback) (uint16_t mtu, const RawAddress& bd_addr);
 
+/** Callback for updating scmst capability to application.*/
+typedef void (*btav_audio_scmst_capabilities_callback)(bt_bdaddr_t *bd_addr, bool scmst_enabled);
+
+/** Callback for updating cp header to application.*/
+typedef void (*btav_audio_update_cp_callback)(const RawAddress& bd_addr,
+                                                        uint8_t cp_flag);
+
 
 /** BT-AV Vendor callback structure. */
 typedef struct {
@@ -254,6 +266,7 @@ typedef struct {
     btav_audio_codec_config_vendor_callback audio_codec_config_vendor_cb;
     btav_mtu_packettype_config_vendor_callback mtu_packettype_cb;
     btav_audio_registration_vendor_callback registration_vendor_cb;
+    btav_audio_scmst_capabilities_callback scmst_capabilities_cb;
 } btav_vendor_callbacks_t;
 
 typedef struct {
@@ -266,6 +279,8 @@ typedef struct {
     btav_audio_split_sink_start_ind_callback start_ind_cb;
     btav_audio_split_sink_suspend_ind_callback suspend_ind_cb;
     btav_audio_mtu_config_vendor_callback mtu_config_cb;
+    btav_audio_scmst_capabilities_callback scmst_capabilities_cb;
+    btav_audio_update_cp_callback update_cp;
 } btav_sink_vendor_callbacks_t;
 
 /** Represents the standard BT-AV interface.
@@ -305,6 +320,12 @@ typedef struct {
 
    /** Suspends A2DP stream. */
    int (*suspend_stream)( bt_bdaddr_t *bd_addr);
+
+   /** Update SCMS-T Cp flag */
+   void (*update_cp)(bt_bdaddr_t *bd_addr, uint8_t cp_header);
+
+   /** Update SCMS-T Cp flag */
+   bt_status_t (*update_cp_header) (bt_bdaddr_t *bd_addr, uint8_t cp_header);
 
 } btav_vendor_interface_t;
 

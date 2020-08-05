@@ -308,4 +308,14 @@ uint64_t btif_avk_get_average_delay(RawAddress bd_addr);
 ** Returns          void
 *******************************************************************************/
 void clear_delay_record(void);
+
+/*******************************************************************************
+**
+** Function         btif_avk_is_cp_enabled
+**
+** Description      Returns content protection enabled/disabled
+**
+** Returns          bool
+*******************************************************************************/
+bool btif_avk_is_cp_enabled();
 #endif /* BTIF_AVK_H */

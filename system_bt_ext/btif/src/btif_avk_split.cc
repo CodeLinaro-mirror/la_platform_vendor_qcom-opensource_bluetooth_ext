@@ -50,6 +50,7 @@
 #include "hardware/bt_av_vendor.h"
 #include "osi/include/fixed_queue.h"
 #include "osi/include/list.h"
+#include "avdt_api.h"
 
 /*****************************************************************************
 **  Constants & Macros
@@ -168,6 +169,7 @@ static RawAddress streaming_bda;
 extern tBTA_AVK_CO_CODEC_CAP_LIST *p_bta_avk_codec_pri_list;
 extern tBTA_AVK_CO_CODEC_CAP_LIST bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_SEP_INDEX];
 extern uint8_t bta_avk_num_codec_configs;
+extern bool enable_scmst;
 
 /* both interface and media task needs to be ready to alloc incoming request */
 #define CHECK_BTAVK_INIT() if (((bt_avk_callbacks == NULL)) \
@@ -315,6 +317,7 @@ static const char *dump_avk_sm_event_name(btif_avk_sm_event_t event)
         CASE_RETURN_STR(BTIF_AVK_SPLIT_PENDING_START_ALARM_TIMEOUT)
         CASE_RETURN_STR(BTIF_AVK_SPLIT_PENDING_SUSPEND_ALARM_TIMEOUT)
         CASE_RETURN_STR(BTA_AVK_MTU_CONFIG_EVT)
+        CASE_RETURN_STR(BTA_AVK_CP_FLAG_UPDATE_EVT)
         default: return "UNKNOWN_EVENT";
    }
 }
@@ -629,7 +632,11 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
 
             if (bt_av_sink_vendor_callbacks != NULL) {
                 HAL_CBACK(bt_av_sink_vendor_callbacks, audio_codec_config_vendor_cb,
-                        &(req.peer_bd), req.codec_type, req.codec_info);
+                          &(req.peer_bd), req.codec_type, req.codec_info);
+                if(enable_scmst) {
+                    HAL_CBACK(bt_av_sink_vendor_callbacks, scmst_capabilities_cb,
+                              &(btif_avk_cb[index].peer_bda),bta_avk_co_cp_is_active());
+                }
             }
         } break;
         case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
@@ -829,6 +836,10 @@ static bool btif_avk_split_state_opening_handler(btif_sm_event_t event, void *p_
             if (bt_av_sink_vendor_callbacks != NULL) {
                 HAL_CBACK(bt_av_sink_vendor_callbacks, audio_codec_config_vendor_cb,
                         &(btif_avk_cb[index].peer_bda), req.codec_type, req.codec_info);
+                if(enable_scmst) {
+                    HAL_CBACK(bt_av_sink_vendor_callbacks, scmst_capabilities_cb,
+                              &(btif_avk_cb[index].peer_bda),bta_avk_co_cp_is_active());
+                }
             }
         } break;
 
@@ -927,16 +938,13 @@ static bool btif_avk_split_state_closing_handler(btif_sm_event_t event, void *p_
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
             break;
 
-        /* Handle the RC_CLOSE event for the cleanup */
-        case BTA_AVK_RC_CLOSE_EVT:
-            btif_avk_rc_handler(event, (tBTA_AVK*)p_data);
-            break;
-
         case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
             BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
             // in this state, we are not ready.
             btif_update_cmd_status(A2DP_AVK_CTRL_CMD_CHECK_READY,A2DP_CTRL_ACK_FAILURE);
             break;
+
+        CHECK_AVK_RC_EVENT(event, (tBTA_AVK *)p_data);
 
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
@@ -1263,6 +1271,10 @@ static bool btif_avk_split_state_opened_handler(btif_sm_event_t event, void *p_d
             if (bt_av_sink_vendor_callbacks != NULL) {
                 HAL_CBACK(bt_av_sink_vendor_callbacks, audio_codec_config_vendor_cb,
                         &(btif_avk_cb[index].peer_bda), req.codec_type, req.codec_info);
+                if(enable_scmst) {
+                    HAL_CBACK(bt_av_sink_vendor_callbacks, scmst_capabilities_cb,
+                              &(btif_avk_cb[index].peer_bda),bta_avk_co_cp_is_active());
+                }
             }
         } break;
 
@@ -1659,6 +1671,9 @@ static bool btif_avk_split_state_vsc_handler(btif_sm_event_t event, void *p_data
                                        sizeof(uint8_t));
             btif_sm_change_state(btif_avk_cb[index].sm_handle, btif_avk_cb[index].prev_state);
             break;
+
+        CHECK_AVK_RC_EVENT(event, (tBTA_AVK *)p_data);
+
         // memorize all other message here, we will act on them once we move to stable state
         default:
             memorize_msg(index,event,BTIF_AVK_STATE_HDL_VSC, p_data);
@@ -1955,6 +1970,17 @@ static bool btif_avk_split_state_started_handler(btif_sm_event_t event, void *p_
 
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
             break;
+        case BTA_AVK_CP_FLAG_UPDATE_EVT:
+        {
+            tBTA_AVK *p_av = (tBTA_AVK*)p_data;
+            p_av->cp_flag_update.cp_flag &= AVDT_CP_SCMS_COPY_MASK;
+            if(p_av->cp_flag_update.cp_flag != bta_avk_co_get_cp_flag()) {
+                bta_avk_co_set_cp_flag(p_av->cp_flag_update.cp_flag);
+                //send callback to inform change in cp flag to app
+                HAL_CBACK(bt_av_sink_vendor_callbacks, update_cp,
+                          btif_avk_cb[index].peer_bda, bta_avk_co_get_cp_flag());
+            }
+        } break;
         CHECK_AVK_RC_EVENT(event, (tBTA_AVK*)p_data);
 
         default:
@@ -2142,6 +2168,9 @@ static void btif_avk_handle_event(uint16_t event, char* p_param)
             break;
         case BTA_AVK_MTU_CONFIG_EVT:
             index = HANDLE_TO_INDEX(p_bta_data->mtu_config.hndl);
+            break;
+        case BTA_AVK_CP_FLAG_UPDATE_EVT:
+            index = HANDLE_TO_INDEX(p_bta_data->cp_flag_update.hndl);
             break;
         case BTA_AVK_ROLE_CHANGED_EVT:
             index = HANDLE_TO_INDEX(p_bta_data->role_changed.hndl);
@@ -2671,6 +2700,18 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
     BTIF_TRACE_IMP("%s max = %d", __FUNCTION__, max);
 
     btif_max_avk_clients = max;
+
+    property_get("persist.bluetooth.disabledelayreports", value, "false");
+    enable_delay_reporting = (strcmp(value, "false") == 0);
+    property_get("persist.bluetooth.disablebrowsing", value, "false");
+    enable_avrc_browsing = (strcmp(value, "false") == 0);
+    property_get("persist.bluetooth.enable_scmst", value, "false");
+    enable_scmst = (strcmp(value, "true") == 0);
+
+    BTIF_TRACE_IMP(" %s enable_delay_reporting = %d, enable_avrc_browsing = %d,"
+                   "enable_scmst = %d",__FUNCTION__,enable_delay_reporting,
+                   enable_avrc_browsing,enable_scmst);
+
     if (bt_avk_callbacks != NULL)
         status = btif_avk_split_init(BTA_A2DP_SPLIT_SINK_SERVICE_ID);
 
@@ -2678,14 +2719,6 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
     if (status == BT_STATUS_SUCCESS) {
         bt_av_sink_vendor_callbacks = callbacks;
     }
-
-    property_get("persist.bluetooth.disabledelayreports", value, "false");
-    enable_delay_reporting = (strcmp(value, "false") == 0);
-    property_get("persist.bluetooth.disablebrowsing", value, "false");
-    enable_avrc_browsing = (strcmp(value, "false") == 0);
-
-    BTIF_TRACE_IMP(" %s enable_delay_reporting = %d, enable_avrc_browsing = %d",
-                   __FUNCTION__,enable_delay_reporting, enable_avrc_browsing);
 
     return status;
 }
@@ -3222,8 +3255,8 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
     if (codec_type_added & A2DP_SINK_AUDIO_CODEC_APTX) {
         codec_type_list[j] = A2D_NON_A2DP_MEDIA_CT;
-        vnd_id_list[j] = A2DP_AVK_APTX_AD_VENDOR_ID;
-        codec_id_list[j] = A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH;
+        vnd_id_list[j] = A2D_APTX_VENDOR_ID;
+        codec_id_list[j] = A2D_APTX_CODEC_ID_BLUETOOTH;
         A2D_BldAptxInfo(AVDT_MEDIA_TYPE_AUDIO, &aptx_supported_cap, codec_info[j ++]);
         memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_APTX_INDEX]
             .codec_cap.aptx_caps, &aptx_supported_cap, sizeof(tA2D_APTX_CIE));
@@ -3232,8 +3265,8 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
     if (codec_type_added & A2DP_SINK_AUDIO_CODEC_APTX_AD) {
         codec_type_list[j] = A2D_NON_A2DP_MEDIA_CT;
-        vnd_id_list[j] = A2D_APTX_VENDOR_ID;
-        codec_id_list[j] = A2D_APTX_CODEC_ID_BLUETOOTH;
+        vnd_id_list[j] = A2DP_AVK_APTX_AD_VENDOR_ID;
+        codec_id_list[j] = A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH;
         A2D_BldAptxADDecoderInfo(AVDT_MEDIA_TYPE_AUDIO, &aptx_ad_supported_cap, codec_info[j ++]);
         memcpy(&bta_avk_supp_codec_cap[BTIF_SV_AVK_AA_APTX_AD_INDEX]
             .codec_cap.aptx_ad_caps, &aptx_ad_supported_cap, sizeof(tA2DP_AVK_APTX_AD_CIE));

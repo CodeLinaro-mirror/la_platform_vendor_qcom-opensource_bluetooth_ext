@@ -270,10 +270,11 @@ typedef uint8_t tBTA_AVK_ERR;
 #define BTA_AVK_RC_BROWSE_CLOSE_EVT  25       /* remote control browse channel closed */
 #define BTA_AVK_OFFLOAD_START_RSP_EVT 26    /* a2dp offload start response */
 #define BTA_AVK_OFFLOAD_STOP_RSP_EVT 27    /* a2dp offload stop response */
-#define BTA_AVK_MTU_CONFIG_EVT   28     /*Update mtu value to btif*/
+#define BTA_AVK_MTU_CONFIG_EVT   28     /* Update mtu value to btif */
+#define BTA_AVK_CP_FLAG_UPDATE_EVT 29   /* Update CP flag to btif */
 
 /* Max BTA event */
-#define BTA_AVK_MAX_EVT          29
+#define BTA_AVK_MAX_EVT          30
 
 typedef uint8_t tBTA_AVK_EVT;
 
@@ -502,6 +503,13 @@ typedef struct
     tBTA_AVK_HNDL    hndl;
 } tBTA_AVK_MTU_CONFIG;
 
+/* data associated with scmst cp flag for split*/
+typedef struct
+{
+    uint8_t cp_flag;
+    tBTA_AVK_HNDL    hndl;
+} tBTA_AVK_CP_FLAG;
+
 /* union of data associated with AV callback */
 typedef union
 {
@@ -533,6 +541,7 @@ typedef union
     tBTA_AVK_START_RSP   start_rsp;// to handle response from btapp for start ind
     tBTA_AVK_SUSPEND_RSP   suspend_rsp; // to handle response from btapp for suspend ind
     tBTA_AVK_MTU_CONFIG  mtu_config;
+    tBTA_AVK_CP_FLAG     cp_flag_update;/*to handle cp flag/header recieved from SOC */
 } tBTA_AVK;
 
 typedef struct

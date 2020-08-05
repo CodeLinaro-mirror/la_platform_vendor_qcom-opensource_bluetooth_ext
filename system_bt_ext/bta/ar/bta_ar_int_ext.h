@@ -48,7 +48,7 @@ typedef struct {
 void bta_ar_ext_init(void);
 int get_index(RawAddress bd_addr);
 tBTA_AR_AVDTP_CONNECTION_INFO* alloc_device(RawAddress bd_addr);
-void dealloc_ar_device_info(RawAddress bd_addr);
+void dealloc_ar_device_info(RawAddress bd_addr, uint8_t sep_type);
 void update_avdtp_connection_info(RawAddress bd_addr, uint8_t event, uint8_t sep_type);
 uint8_t get_remote_sep_type(RawAddress bd_addr);
 
