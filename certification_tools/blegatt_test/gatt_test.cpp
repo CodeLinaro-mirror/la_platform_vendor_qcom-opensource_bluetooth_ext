@@ -1204,7 +1204,7 @@ static void DiscoverCmpl_cb (uint16_t conn_id, tGATT_DISC_TYPE disc_type, tGATT_
     printf("%s:: conn_id=%d, disc_type=%d, status=%d\n", __FUNCTION__, conn_id, disc_type, status);
 }
 
-static void  OperationCmpl_cb(uint16_t conn_id, tGATTC_OPTYPE op, tGATT_STATUS status, tGATT_CL_COMPLETE *p_data)
+static void  OperationCmpl_cb(uint16_t conn_id, tGATTC_OPTYPE op, tGATT_STATUS status, tGATT_CL_COMPLETE *p_data, uint32_t trans_id)
 {
     printf("%s:: conn_id=%d, op=%d, status=%d\n", __FUNCTION__, conn_id, op, status);
 }
@@ -2436,7 +2436,11 @@ void do_le_client_register(char *p)
     }
     if(Btif_gatt_layer)
     {
+#if (EATT_IF_SUPPORTED == TRUE)
+        Ret = sGattIfaceScan->client->register_client(bt_uuid, false);
+#else
         Ret = sGattIfaceScan->client->register_client(bt_uuid);
+#endif
         printf("%s:: ret value %d\n", __FUNCTION__,Ret);
     }
     else
@@ -2967,7 +2971,11 @@ void do_le_server_register(char *p)
 
     if(Btif_gatt_layer)
     {
+#if (EATT_IF_SUPPORTED == TRUE)
+        Ret = sGattIfaceScan->server->register_server(bt_uuid, false);
+#else
         Ret = sGattIfaceScan->server->register_server(bt_uuid);
+#endif
         printf("%s:: Ret=%d \n", __FUNCTION__, Ret);
     }
     else
