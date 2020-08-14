@@ -60,6 +60,7 @@
 #include <hardware/bt_gatt_client.h>
 #include <hardware/bt_gatt_server.h>
 #include <hardware/bt_gatt_types.h>
+#include "btcore/include/uuid.h"
 //#include "../../osi/include/allocator.h"
 #include <bt_testapp.h>
 
@@ -68,7 +69,6 @@
 
 #include <base/bind.h>
 
-using bluetooth::Uuid;
 #define bluetooth_module_t "bluetooth_test"
 
 typedef struct {
@@ -114,9 +114,9 @@ typedef struct {
 /************************************************************************************
 **  Local type definitions
 ************************************************************************************/
-static void register_client_cb(int status, int client_if, const Uuid& app_uuid);
+static void register_client_cb(int status, int client_if, const bt_uuid_t& app_uuid);
 
-static void register_server_cb(int status, int server_if, const Uuid& app_uuid);
+static void register_server_cb(int status, int server_if, const bt_uuid_t& app_uuid);
 
 /************************************************************************************
 **  Static variables
@@ -125,7 +125,11 @@ static void register_server_cb(int status, int server_if, const Uuid& app_uuid);
 static unsigned char main_done = 0;
 static int status;
 
+static const char* UUID_CASE1 = "0000A00C-0000-0000-0123-456789ABCDEF";
+static const char* UUID_CASE2 = "1122A00C-0000-0000-0123-456789ABCDEF";
+
 /* Main API */
+static bluetooth_device_t* bt_device;
 const bt_interface_t* sBtInterface = NULL;
 
 static gid_t groups[] = { AID_NET_BT, AID_INET, AID_NET_BT_ADMIN,
@@ -235,10 +239,35 @@ int GetBdAddr(char *p, RawAddress* pbd_addr);
 int reg_inst_id = -1;
 int reg_status = -1;
 
+void uuid_to_UUID(tBT_UUID* p_dest, const bt_uuid_t* p_src, int p_src_len) {
+  char* p_byte = (char*)p_src;
+  int i = 0;
+
+  p_dest->len = p_src_len;
+
+  switch (p_dest->len) {
+    case LEN_UUID_16:
+      p_dest->uu.uuid16 = (p_src->uu[13] << 8) + p_src->uu[12];
+      break;
+
+    case LEN_UUID_32:
+      p_dest->uu.uuid32 = (p_src->uu[13] << 8) + p_src->uu[12];
+      p_dest->uu.uuid32 += (p_src->uu[15] << 24) + (p_src->uu[14] << 16);
+      break;
+
+    case LEN_UUID_128:
+      for (i = 0; i != 16; ++i) p_dest->uu.uuid128[i] = p_byte[i];
+      break;
+
+    default:
+      printf("%s: Unknown UUID length %d!", __func__, p_dest->len);
+      break;
+  }
+}
 /************************************************************************************
 **  GATT Client Callbacks
 ************************************************************************************/
-static void register_client_cb(int status, int client_if, const Uuid& app_uuid)
+static void register_client_cb(int status, int client_if, const bt_uuid_t& app_uuid)
 {
     printf("%s:: status=%d, client_if=%d \n", __FUNCTION__, status, client_if);
     if(0 == status)    g_client_if_scan = client_if;
@@ -304,7 +333,7 @@ static btgatt_scanner_callbacks_t  sScanner_cb =
 /************************************************************************************
 **  GATT Server Callbacks
 ************************************************************************************/
-static void register_server_cb(int status, int server_if, const Uuid& app_uuid)
+static void register_server_cb(int status, int server_if, const bt_uuid_t& app_uuid)
 {
     printf("%s:: status=%d, server_if=%d \n", __FUNCTION__, status, server_if);
     if(0 == status)    g_server_if_scan = server_if;
@@ -686,6 +715,33 @@ std::string get_uuid_str(char **p, int uuid_len_bytes)
     return uuid_str;
 }
 
+bt_uuid_t* get_uuid_from_str(const char* uuid_string)
+{
+   if (strlen(uuid_string) < 36) return NULL;
+   if (uuid_string[8] != '-' || uuid_string[13] != '-' ||
+       uuid_string[18] != '-' || uuid_string[23] != '-')
+     return NULL;
+ 
+   bt_uuid_t* uuid = static_cast<bt_uuid_t*>(calloc(1, sizeof(bt_uuid_t)));
+ 
+   const char* s = uuid_string;
+   for (size_t i = 0; i < sizeof(bt_uuid_t); ++i, s += 2) {
+     char buf[3] = {0};
+     buf[0] = s[0];
+     buf[1] = s[1];
+     uuid->uu[i] = strtoul(buf, NULL, 16);
+     // Adjust by skipping the dashes
+     switch (i) {
+       case 3:
+       case 5:
+       case 7:
+       case 9:
+         s++;
+     break;
+     }
+   }
+   return uuid;
+}
 
 #define is_cmd(str) ((strlen(str) == strlen(cmd)) && strncmp((const char *)&cmd, str, strlen(str)) == 0)
 #define if_cmd(str)  if (is_cmd(str))
@@ -869,46 +925,35 @@ static int create_cmdjob(char *cmd)
 /*******************************************************************************
  ** Load stack lib
  *******************************************************************************/
-#define BLUETOOTH_LIBRARY_NAME "libbluetooth_qti.so"
-int load_bt_lib(const bt_interface_t** interface) {
-  const char* sym = BLUETOOTH_INTERFACE_STRING;
-  bt_interface_t* itf = nullptr;
-
-  // Always try to load the default Bluetooth stack on GN builds.
-  const char* path = BLUETOOTH_LIBRARY_NAME;
-  void* handle = dlopen(path, RTLD_NOW);
-  if (!handle) {
-    //const char* err_str = dlerror();
-    printf("failed to load Bluetooth library\n");
-    goto error;
-  }
-
-  // Get the address of the bt_interface_t.
-  itf = (bt_interface_t*)dlsym(handle, sym);
-  if (!itf) {
-    printf("failed to load symbol from Bluetooth library\n");
-    goto error;
-  }
-
-  // Success.
-  printf(" loaded HAL Success\n");
-  *interface = itf;
-  return 0;
-
-error:
-  *interface = NULL;
-  if (handle) dlclose(handle);
-
-  return -EINVAL;
-}
 
 int HAL_load(void)
 {
-    if (load_bt_lib((bt_interface_t const**)&sBtInterface)) {
-        printf("No Bluetooth Library found\n");
+    int err = 0;
+
+    hw_module_t* module;
+    hw_device_t* device;
+
+    bdt_log("Loading HAL lib + extensions");
+
+    err = hw_get_module(BT_HARDWARE_MODULE_ID, (hw_module_t const**)&module);
+    if (err == 0)
+    {
+        err = module->methods->open(module, BT_HARDWARE_MODULE_ID, &device);
+        if (err == 0) {
+            bt_device = (bluetooth_device_t *)device;
+            sBtInterface = bt_device->get_bluetooth_interface();
+        }
+    }
+
+    // Get Vendor Interface
+    if (!sBtInterface) {
+        bdt_log("Error in loading bluetooth interface\n");
         return -1;
     }
-    return 0;
+
+    bdt_log("HAL library loaded (%s)", strerror(err));
+
+    return err;
 }
 
 int HAL_unload(void)
@@ -1451,22 +1496,27 @@ void do_le_client_register(char *p)
 {
     bt_status_t        Ret;
     int Idx;
-    Uuid uuid;
-    Uuid bt_uuid;
     bool is_valid = false;
-
+    tBT_UUID uuid;
+    bt_uuid_t bt_uuid;
     skip_blanks(&p);
     Idx = atoi(p);
 
     switch(Idx)
     {
     case 1:
-        uuid = Uuid::FromString("0000A00C-0000-0000-01234-56789ABCDEF", &is_valid);//0000A00C-0000-0000-0123-456789ABCDEF
-        bt_uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid); //0000A00C-0000-0000-0123-456789ABCDEF
+        bt_uuid = {{0x00, 0x00, 0xA0, 0x0C, 0x00, 0x00, 0x00, 0x00,
+                           0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF}};
+        uuid_to_UUID(&uuid, &bt_uuid, LEN_UUID_128);
+        //uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid);//0000A00C-0000-0000-0123-456789ABCDEF
+        //bt_uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid); //0000A00C-0000-0000-0123-456789ABCDEF
         break;
     case 2:
-        uuid = Uuid::FromString("1122A00C-0000-0000-0123-456789ABCDEF", &is_valid);//1122A00C-0000-0000-0123-456789ABCDEF
-        bt_uuid = Uuid::FromString("1122A00C-0000-0000-0123-456789ABCDEF", &is_valid);//1122A00C-0000-0000-0123-456789ABCDEF*/
+        bt_uuid = {{0x11, 0x22, 0xA0, 0x0C, 0x00, 0x00, 0x00, 0x00,
+                            0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF}};
+        uuid_to_UUID(&uuid, &bt_uuid, LEN_UUID_128);
+        //uuid = Uuid::FromString("1122A00C-0000-0000-0123-456789ABCDEF", &is_valid);//1122A00C-0000-0000-0123-456789ABCDEF
+        //bt_uuid = Uuid::FromString("1122A00C-0000-0000-0123-456789ABCDEF", &is_valid);//1122A00C-0000-0000-0123-456789ABCDEF*/
         break;
     default:
         printf("%s:: ERROR: no matching uuid \n", __FUNCTION__);
@@ -1479,7 +1529,7 @@ void do_le_client_register(char *p)
     }
     else
     {
-        g_client_if = sGattInterface->Register(uuid, &sGattCB);
+        g_client_if = sGattInterface->Register(&uuid, &sGattCB);
         sleep(2);
         sGattInterface->StartIf(g_client_if);
     }
@@ -1806,7 +1856,8 @@ void do_le_client_discover(char *p)
     }
 
     std::string uuid_str = get_uuid_str(&p, uuid_len_bytes);
-    param.service = Uuid::FromString(uuid_str, &is_valid);
+    bt_uuid_t* temp_uuid = get_uuid_from_str(uuid_str.c_str());
+    uuid_to_UUID(&param.service, temp_uuid, uuid_len_bytes);
 
     printf("%s:: disc_type = %d \n", __FUNCTION__, disc_type);
 
@@ -1825,6 +1876,7 @@ void do_le_client_read(char *p)
     int auth_req;
     tGATT_READ_PARAM readBuf;// = {GATT_AUTH_REQ_NONE, 0x201};
     bool is_valid = false;
+    bt_uuid_t* temp_uuid;
     std::string uuid_str;
 
     //Parse and copy command line arguments
@@ -1852,7 +1904,8 @@ void do_le_client_read(char *p)
         }
 
         uuid_str = get_uuid_str(&p, uuid_len_bytes);
-        readBuf.service.uuid = Uuid::FromString(uuid_str, &is_valid);
+        temp_uuid = get_uuid_from_str(uuid_str.c_str());
+        uuid_to_UUID(&readBuf.service.uuid, temp_uuid, uuid_len_bytes);
         break;
 
 
@@ -1964,19 +2017,25 @@ void do_le_server_register(char *p)
     bt_status_t        Ret;
     bool is_valid = false;
     int Idx;
-    Uuid uuid;
-    Uuid bt_uuid;
+    tBT_UUID uuid;
+    bt_uuid_t bt_uuid;
     skip_blanks(&p);
     Idx = atoi(p);
     switch(Idx)
     {
     case 1:
-        uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid);//0000A00C-0000-0000-0123-456789ABCDEF
-        bt_uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid); //0000A00C-0000-0000-0123-456789ABCDEF
+        bt_uuid = {{0x00, 0x00, 0xA0, 0x0C, 0x00, 0x00, 0x00, 0x00,
+                            0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF}};
+        uuid_to_UUID(&uuid, &bt_uuid, LEN_UUID_128);
+        //uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid);//0000A00C-0000-0000-0123-456789ABCDEF
+        //bt_uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid); //0000A00C-0000-0000-0123-456789ABCDEF
         break;
     case 2:
-        uuid = Uuid::FromString("1122A00C-0000-0000-0123-456789ABCDEF", &is_valid);//1122A00C-0000-0000-0123-456789ABCDEF
-        bt_uuid = Uuid::FromString("1122A00C-0000-0000-0123-456789ABCDEF", &is_valid);//1122A00C-0000-0000-0123-456789ABCDEF*/
+        bt_uuid = {{0x11, 0x22, 0xA0, 0x0C, 0x00, 0x00, 0x00, 0x00,
+                            0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF}};
+        uuid_to_UUID(&uuid, &bt_uuid, LEN_UUID_128);
+        //uuid = Uuid::FromString("1122A00C-0000-0000-0123-456789ABCDEF", &is_valid);//1122A00C-0000-0000-0123-456789ABCDEF
+        //bt_uuid = Uuid::FromString("1122A00C-0000-0000-0123-456789ABCDEF", &is_valid);//1122A00C-0000-0000-0123-456789ABCDEF*/
         break;
     default:
         printf("%s:: ERROR: no matching uuid \n", __FUNCTION__);
@@ -1990,7 +2049,7 @@ void do_le_server_register(char *p)
     }
     else
     {
-        g_server_if = sGattInterface->Register(uuid, &sGattCB);
+        g_server_if = sGattInterface->Register(&uuid, &sGattCB);
         printf("%s:: g_server_if=%d \n", __FUNCTION__, g_server_if);
     }
 }
@@ -2016,13 +2075,17 @@ void do_le_server_add_service(char *p)
     std::vector<btgatt_db_element_t> service;
     //1st service
     btgatt_db_element_t svc1;
-    svc1.uuid = Uuid::FromString("00001800-0000-1000-8000-00805f9b34fb", &is_valid);//00001800-0000-1000-8000-00805f9b34fb
+    //svc1.uuid = Uuid::FromString("00001800-0000-1000-8000-00805f9b34fb", &is_valid);//00001800-0000-1000-8000-00805f9b34fb
+    svc1.uuid = {{0x00, 0x00, 0x18, 0x00, 0x00, 0x00, 0x10, 0x00,
+                            0x80, 0x00, 0x00, 0x80, 0x5f, 0x9B, 0x34, 0xFB}};
     svc1.type = BTGATT_DB_PRIMARY_SERVICE;
     service.push_back(svc1);
 
     //2nd service
     btgatt_db_element_t svc2;
-    svc2.uuid = Uuid::FromString("00001801-0000-1000-8000-00805f9b34fb", &is_valid);//00001801-0000-1000-8000-00805f9b34fb
+    //svc2.uuid = Uuid::FromString("00001801-0000-1000-8000-00805f9b34fb", &is_valid);//00001801-0000-1000-8000-00805f9b34fb
+    svc2.uuid = {{0x00, 0x00, 0x18, 0x01, 0x00, 0x00, 0x10, 0x00,
+                            0x80, 0x00, 0x00, 0x80, 0x5f, 0x9B, 0x34, 0xFB}};
     svc2.type = BTGATT_DB_PRIMARY_SERVICE;
     service.push_back(svc2);
 

@@ -5,15 +5,14 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES:= gatt_test.cpp
 
 LOCAL_C_INCLUDES += . \
-    vendor/qcom/opensource/system/bt/stack/include \
-    vendor/qcom/opensource/system/bt/include \
+    system/bt/stack/include \
+    system/bt/include \
     system/bt/types \
-    vendor/qcom/opensource/system/bt/internal_include \
-    vendor/qcom/opensource/system/bt/stack/l2cap \
-    vendor/qcom/opensource/system/bt/utils/include \
-    vendor/qcom/opensource/system/bt \
-    vendor/qcom/opensource/system/bt/btif/include \
-    vendor/qcom/opensource/system/bt/bta/include \
+    system/bt/stack/l2cap \
+    system/bt/utils/include \
+    system/bt \
+    system/bt/btif/include \
+    system/bt/bta/include \
     vendor/qcom/opensource/bluetooth_ext/system_bt_ext/include \
     vendor/qcom/opensource/bluetooth_ext/vhal/include \
     external/libchrome \
@@ -27,6 +26,8 @@ LOCAL_MODULE:= gatt_tool_qti_internal
 LOCAL_SHARED_LIBRARIES += libcutils   \
                           libchrome   \
                           libutils    \
+                          libhardware \
+                          libhardware_legacy
 
 LOCAL_STATIC_LIBRARIES += libbluetooth-types \
 

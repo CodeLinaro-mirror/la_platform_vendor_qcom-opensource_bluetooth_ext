@@ -43,11 +43,9 @@
 #ifdef TEST_APP_INTERFACE
 #include <bt_testapp.h>
 
-using bluetooth::Uuid;
-
 uint16_t    g_conn_id = 0;
 
-tGATT_IF Gatt_Register (Uuid& p_app_uuid128, tGATT_CBACK *p_cb_info)
+tGATT_IF Gatt_Register (tBT_UUID* p_app_uuid128, tGATT_CBACK *p_cb_info)
 {
     tGATT_IF    Gatt_if = 0;
     Gatt_if = GATT_Register (p_app_uuid128, p_cb_info);
