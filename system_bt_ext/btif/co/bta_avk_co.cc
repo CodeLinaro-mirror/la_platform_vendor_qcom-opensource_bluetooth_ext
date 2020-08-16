@@ -1635,49 +1635,51 @@ static bool bta_avk_co_audio_codec_cfg_matches_caps(uint8_t codec_id, const uint
 #endif
         /* in case of Sink we have to match if Src Cap is a subset of ours */
     case A2D_NON_A2DP_MEDIA_CT:
-    tA2D_APTX_CIE  *p_src_aptx_caps = (tA2D_APTX_CIE*)p_src_caps;
-#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
-    if ((p_src_aptx_caps->vendorId == A2D_APTX_VENDOR_ID) &&
-        (p_src_aptx_caps->codecId == A2D_APTX_CODEC_ID_BLUETOOTH))
     {
         tA2D_APTX_CIE  *p_src_aptx_caps = (tA2D_APTX_CIE*)p_src_caps;
-        tA2D_APTX_CIE  *p_local_aptx_caps = (tA2D_APTX_CIE*)p_local_caps;
-        APPL_TRACE_EVENT("APTX codec_id : src %d local %d",
-                         p_src_aptx_caps->codecId, p_local_aptx_caps->codecId);
-        APPL_TRACE_EVENT("APTX VendorId : src %d local %d",
-                         p_src_aptx_caps->vendorId, p_local_aptx_caps->vendorId);
-        APPL_TRACE_EVENT("APTX samplingFreq: src %d local %d",
-                         p_src_aptx_caps->sampleRate, p_local_aptx_caps->sampleRate);
-        APPL_TRACE_EVENT("APTX Channel Count: src %d local %d",
-                         p_src_aptx_caps->channelMode, p_local_aptx_caps->channelMode);
+#if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
+        if ((p_src_aptx_caps->vendorId == A2D_APTX_VENDOR_ID) &&
+            (p_src_aptx_caps->codecId == A2D_APTX_CODEC_ID_BLUETOOTH))
+        {
+            tA2D_APTX_CIE  *p_src_aptx_caps = (tA2D_APTX_CIE*)p_src_caps;
+            tA2D_APTX_CIE  *p_local_aptx_caps = (tA2D_APTX_CIE*)p_local_caps;
+            APPL_TRACE_EVENT("APTX codec_id : src %d local %d",
+                             p_src_aptx_caps->codecId, p_local_aptx_caps->codecId);
+            APPL_TRACE_EVENT("APTX VendorId : src %d local %d",
+                             p_src_aptx_caps->vendorId, p_local_aptx_caps->vendorId);
+            APPL_TRACE_EVENT("APTX samplingFreq: src %d local %d",
+                             p_src_aptx_caps->sampleRate, p_local_aptx_caps->sampleRate);
+            APPL_TRACE_EVENT("APTX Channel Count: src %d local %d",
+                             p_src_aptx_caps->channelMode, p_local_aptx_caps->channelMode);
 
-        return (((p_src_aptx_caps->codecId)&(p_local_aptx_caps->codecId))&&
-                ((p_src_aptx_caps->vendorId)&(p_local_aptx_caps->vendorId))&&
-                ((p_src_aptx_caps->sampleRate)&(p_local_aptx_caps->sampleRate))&&
-                ((p_src_aptx_caps->channelMode)&(p_local_aptx_caps->channelMode)));
-    }
+            return (((p_src_aptx_caps->codecId)&(p_local_aptx_caps->codecId))&&
+                    ((p_src_aptx_caps->vendorId)&(p_local_aptx_caps->vendorId))&&
+                    ((p_src_aptx_caps->sampleRate)&(p_local_aptx_caps->sampleRate))&&
+                    ((p_src_aptx_caps->channelMode)&(p_local_aptx_caps->channelMode)));
+        }
 #endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
-    if ((p_src_aptx_caps->vendorId == A2DP_AVK_APTX_AD_VENDOR_ID) &&
-        (p_src_aptx_caps->codecId == A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH))
-    {
-        tA2DP_AVK_APTX_AD_CIE  *p_src_aptx_ad_caps = (tA2DP_AVK_APTX_AD_CIE*)p_src_caps;
-        tA2DP_AVK_APTX_AD_CIE  *p_local_aptx_ad_caps = (tA2DP_AVK_APTX_AD_CIE*)p_local_caps;
-        APPL_TRACE_EVENT("APTX AD codec_id : src %d local %d",
-                         p_src_aptx_ad_caps->codecId, p_local_aptx_ad_caps->codecId);
-        APPL_TRACE_EVENT("APTX AD VendorId : src %d local %d",
-                         p_src_aptx_ad_caps->vendorId, p_local_aptx_ad_caps->vendorId);
-        APPL_TRACE_EVENT("APTX AD samplingFreq: src %d local %d",
-                         p_src_aptx_ad_caps->sampleRate, p_local_aptx_ad_caps->sampleRate);
-        APPL_TRACE_EVENT("APTX AD Channel Count: src %d local %d",
-                         p_src_aptx_ad_caps->channelMode, p_local_aptx_ad_caps->channelMode);
+        if ((p_src_aptx_caps->vendorId == A2DP_AVK_APTX_AD_VENDOR_ID) &&
+            (p_src_aptx_caps->codecId == A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH))
+        {
+            tA2DP_AVK_APTX_AD_CIE  *p_src_aptx_ad_caps = (tA2DP_AVK_APTX_AD_CIE*)p_src_caps;
+            tA2DP_AVK_APTX_AD_CIE  *p_local_aptx_ad_caps = (tA2DP_AVK_APTX_AD_CIE*)p_local_caps;
+            APPL_TRACE_EVENT("APTX AD codec_id : src %d local %d",
+                             p_src_aptx_ad_caps->codecId, p_local_aptx_ad_caps->codecId);
+            APPL_TRACE_EVENT("APTX AD VendorId : src %d local %d",
+                             p_src_aptx_ad_caps->vendorId, p_local_aptx_ad_caps->vendorId);
+            APPL_TRACE_EVENT("APTX AD samplingFreq: src %d local %d",
+                             p_src_aptx_ad_caps->sampleRate, p_local_aptx_ad_caps->sampleRate);
+            APPL_TRACE_EVENT("APTX AD Channel Count: src %d local %d",
+                             p_src_aptx_ad_caps->channelMode, p_local_aptx_ad_caps->channelMode);
 
-        return (((p_src_aptx_ad_caps->codecId)&(p_local_aptx_ad_caps->codecId))&&
-                ((p_src_aptx_ad_caps->vendorId)&(p_local_aptx_ad_caps->vendorId))&&
-                ((p_src_aptx_ad_caps->sampleRate)&(p_local_aptx_ad_caps->sampleRate))&&
-                ((p_src_aptx_ad_caps->channelMode)&(p_local_aptx_ad_caps->channelMode)));
-    }
+            return (((p_src_aptx_ad_caps->codecId)&(p_local_aptx_ad_caps->codecId))&&
+                    ((p_src_aptx_ad_caps->vendorId)&(p_local_aptx_ad_caps->vendorId))&&
+                    ((p_src_aptx_ad_caps->sampleRate)&(p_local_aptx_ad_caps->sampleRate))&&
+                    ((p_src_aptx_ad_caps->channelMode)&(p_local_aptx_ad_caps->channelMode)));
+        }
 #endif
+    }
         break;
 
     default:
