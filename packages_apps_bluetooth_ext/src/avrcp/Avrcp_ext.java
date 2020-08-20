@@ -30,6 +30,10 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.content.BroadcastReceiver;
 import com.android.bluetooth.a2dp.A2dpService;
+import com.android.bluetooth.apm.ApmConst;
+import com.android.bluetooth.apm.DeviceProfileMap;
+import com.android.bluetooth.apm.ActiveDeviceManagerService;
+import com.android.bluetooth.apm.VolumeManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -111,6 +115,7 @@ public final class Avrcp_ext {
     private final AudioManager mAudioManager;
     private AvrcpMessageHandler mHandler;
     private final BluetoothAdapter mAdapter;
+    private DeviceProfileMap dpm;
     private A2dpService mA2dpService;
     private Handler mAudioManagerPlaybackHandler;
     private AudioManagerPlaybackListener mAudioManagerPlaybackCb;
@@ -174,6 +179,7 @@ public final class Avrcp_ext {
     private FolderItemsRsp_ext saveRspObj;
     private int changePathDepth;
     private byte changePathDirection;
+	private boolean isLeAudioEnabled = false;
     HashMap<BluetoothDevice, Integer> mVolumeMap = new HashMap();
     HashMap<BluetoothDevice, Boolean> mDeviceAbsVolMap = new HashMap();
     public static final String VOLUME_MAP = "bluetooth_volume_map";
@@ -525,7 +531,10 @@ public final class Avrcp_ext {
         mChannel.setSound(Uri.EMPTY, Notification.AUDIO_ATTRIBUTES_DEFAULT);
         mChannel.setLightColor(Color.GREEN);
         mNotificationManager.createNotificationChannel(mChannel);
-
+        isLeAudioEnabled = ApmConst.getLeAudioEnabled();
+        if(isLeAudioEnabled) {
+            dpm = DeviceProfileMap.getDeviceProfileMapInstance();
+        }
     }
 
     private synchronized void start() {
@@ -620,6 +629,10 @@ public final class Avrcp_ext {
             mAvrcp.start();
         }
         Log.v(TAG, "Exit make");
+        return mAvrcp;
+    }
+
+    public static Avrcp_ext get() {
         return mAvrcp;
     }
 
@@ -921,8 +934,7 @@ public final class Avrcp_ext {
                 BATService mBatService = BATService.getBATService();
                 if ((mBatService != null) && mBatService.isBATActive()) {
                     Log.d(TAG,"MSG_NATIVE_REQ_GET_RC_FEATURES BA Active, update absvol support as true  ");
-                    mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
-                            true);
+                    updateAbsVolumeSupport(device, true);
                 } else if (device.isTwsPlusDevice()) {
                     if (twsShoEnabled) {
                         //SHO is enabled, check if TWS+ device is active
@@ -931,17 +943,16 @@ public final class Avrcp_ext {
                         if (mDevice == null || (mDevice != null && (mDevice.isTwsPlusDevice() ||
                             (index != INVALID_DEVICE_INDEX && isAbsoluteVolumeSupported(index))))) {
                             Log.v(TAG,"TWS+ device, update abs vol as true in RC FEATURE handle");
-                            mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(), true);
+                            updateAbsVolumeSupport(device, true);
                             if (updateAbsVolume) updateAbsVolume = false;
                         } else {
                             updateAbsVolume = true;
                             Log.d(TAG,"TWS+ is not active, set absVolume flag later");
                         }
                     } else
-                        mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(), true);
+                        updateAbsVolumeSupport(device, true);
                 } else if (mDevice != null && Objects.equals(mDevice, device)) {
-                    mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
-                        isAbsoluteVolumeSupported(deviceIndex));
+                    updateAbsVolumeSupport(device, isAbsoluteVolumeSupported(deviceIndex));
                     Log.v(TAG,"update audio manager for abs vol state = "
                             + isAbsoluteVolumeSupported(deviceIndex));
                 }
@@ -1708,7 +1719,7 @@ public final class Avrcp_ext {
                 if (deviceFeatures[deviceIndex].mCurrentDevice.isTwsPlusDevice() &&
                         updateAbsVolume == true) {
                     Log.d(TAG,"setting absVolume flag for TWS+ device");
-                    mAudioManager.avrcpSupportsAbsoluteVolume(bt_device.getAddress(),true);
+                    updateAbsVolumeSupport(bt_device,true);
                     AdapterService mAdapterService = AdapterService.getAdapterService();
                     BluetoothDevice peer_device = mAdapterService.
                             getTwsPlusPeerDevice(deviceFeatures[deviceIndex].mCurrentDevice);
@@ -1738,8 +1749,7 @@ public final class Avrcp_ext {
                             deviceFeatures[i].isActiveDevice = true;
                             if (updateAbsVolume == true) {
                                 Log.d(TAG,"Setting absVolume flag to TWS+ pair");
-                                mAudioManager.avrcpSupportsAbsoluteVolume(
-                                        bt_device.getAddress(), true);
+                                updateAbsVolumeSupport(bt_device, true);
                                 updateAbsVolume = false;
                             }
                         } else {
@@ -3105,6 +3115,12 @@ public final class Avrcp_ext {
     }
 
     private void notifyVolumeChanged(int volume, boolean isShowUI) {
+        if(isLeAudioEnabled) {
+            VolumeManager mVolumeManager = VolumeManager.get();
+            mVolumeManager.onVolumeChange(volume,
+                ApmConst.AudioFeatures.MEDIA_AUDIO, isShowUI);
+            return;
+        }
         if (isShowUI) {
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume,
                     AudioManager.FLAG_SHOW_UI | AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
@@ -3315,10 +3331,10 @@ public final class Avrcp_ext {
         BATService mBatService = BATService.getBATService();
         if ((mBatService != null) && mBatService.isBATActive()) {
             Log.d(TAG," blackListCurrentDevice BA Active, update absvol support as true  ");
-            mAudioManager.avrcpSupportsAbsoluteVolume(mAddress, true);
+            updateAbsVolumeSupport(deviceFeatures[i].mCurrentDevice, true);
         }
         else {
-            mAudioManager.avrcpSupportsAbsoluteVolume(mAddress, false);
+            updateAbsVolumeSupport(deviceFeatures[i].mCurrentDevice, false);
         }
 
         SharedPreferences pref = mContext.getSharedPreferences(ABSOLUTE_VOLUME_BLACKLIST,
@@ -3372,7 +3388,8 @@ public final class Avrcp_ext {
         // storage to be written.
         absVolumeMapEditor.apply();
         //updating audio for absolute volume support
-        mAudioManager.avrcpSupportsAbsoluteVolume(address, true);
+        BluetoothDevice dev = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
+        updateAbsVolumeSupport(dev, true);
     }
 
     /**
@@ -3542,7 +3559,7 @@ public final class Avrcp_ext {
         BATService mBatService = BATService.getBATService();
         if ((mBatService != null) && mBatService.isBATActive()) {
             Log.d(TAG," setAvrcpDisconnectedDevice BA Active, update absvol support as true  ");
-            mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(), true);
+            updateAbsVolumeSupport(device, true);
         }
 
         if (mBrowsingActiveDevice != null && Objects.equals(mBrowsingActiveDevice, device)) {
@@ -5015,7 +5032,13 @@ public final class Avrcp_ext {
             if((rspStatus == AvrcpConstants_ext.RSP_NO_ERROR) && ((mA2dpService != null) &&
                     !Objects.equals(mA2dpService.getActiveDevice(), device))) {
                 Log.d(TAG, "Trigger Handoff by playItem");
-                startSHO(device, true);
+                if(isLeAudioEnabled) {
+                    ActiveDeviceManagerService activeDeviceManager = ActiveDeviceManagerService.get();
+                    activeDeviceManager.setActiveDevice(device,
+                        ApmConst.AudioFeatures.MEDIA_AUDIO, true);
+                } else {
+                    startSHO(device, true);
+                }
             }
             if (!playItemRspNative(address, rspStatus)) {
                 Log.e(TAG, "playItemRspNative failed!");
@@ -5372,11 +5395,11 @@ public final class Avrcp_ext {
         if (mDeviceAbsVolMap.containsKey(device)) {
             //updating abs volume supported or not to audio when active device change is success
             Log.d(TAG, " Returning abs volume support " + mDeviceAbsVolMap.get(device));
-            mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(), mDeviceAbsVolMap.get(device));
+            updateAbsVolumeSupport(device, mDeviceAbsVolMap.get(device));
         } else {
             //absolute volume is not stored upadtion false by default
             Log.d(TAG, "Returning abs volume support false ");
-            mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(), false);
+            updateAbsVolumeSupport(device, false);
         }
         if (deviceIndex == INVALID_DEVICE_INDEX) {
             Log.e(TAG,"Invalid device index for setAbsVolumeFlag");
@@ -5407,6 +5430,15 @@ public final class Avrcp_ext {
     public void trackChangedAddressedRsp(int type, byte[] uid, byte[] addr) {
         if (!registerNotificationRspTrackChangeNative(type, uid, addr)) {
             Log.e(TAG, "registerNotificationRspTrackChangeNative failed!");
+        }
+    }
+
+    private void updateAbsVolumeSupport(BluetoothDevice device, boolean isSupported) {
+        if(isLeAudioEnabled) {        
+            VolumeManager mVolumeManager = VolumeManager.get();
+            mVolumeManager.setAbsoluteVolumeSupport(device, isSupported);
+        } else {
+            mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(), isSupported);
         }
     }
 
@@ -5462,7 +5494,13 @@ public final class Avrcp_ext {
                 }
                 if (action == KeyEvent.ACTION_DOWN && !rc_only_device) {
                     Log.d(TAG, "AVRCP Trigger Handoff");
-                    startSHO(device, true);
+                    if(isLeAudioEnabled) {
+                        ActiveDeviceManagerService activeDeviceManager = ActiveDeviceManagerService.get();
+                        activeDeviceManager.setActiveDevice(device,
+                            ApmConst.AudioFeatures.MEDIA_AUDIO, true);
+                    } else {
+                        startSHO(device, true);
+                    }
                 } else {
                     Log.d(TAG, "release for play PT from inactive device");
                 }
