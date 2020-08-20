@@ -286,7 +286,7 @@ public final class Avrcp_ext {
     private final BroadcastReceiver mAvrcpReceiver = new AvrcpServiceBroadcastReceiver();
     private final BroadcastReceiver mBootReceiver = new AvrcpServiceBootReceiver();
     private final BroadcastReceiver mShutDownReceiver = new AvrcpServiceShutDownReceiver();
-
+    private final BroadcastReceiver mAvrcpBroadcastReceiver = new AvrcpBroadcastReceiver();
     /* Recording passthrough key dispatches */
     static private final int PASSTHROUGH_LOG_MAX_SIZE = DEBUG ? 50 : 10;
     private EvictingQueue_ext<MediaKeyLog> mPassthroughLogs; // Passthorugh keys dispatched
@@ -514,6 +514,10 @@ public final class Avrcp_ext {
         shutdownFilter.addAction(Intent.ACTION_SHUTDOWN);
         context.registerReceiver(mShutDownReceiver, shutdownFilter);
 
+        IntentFilter broadcastFilter = new IntentFilter();
+        broadcastFilter.addAction(AudioManager.VOLUME_CHANGED_ACTION);
+        context.registerReceiver(mAvrcpBroadcastReceiver, broadcastFilter);
+
         // create Notification channel.
         mNotificationManager = (NotificationManager)
                 mContext.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -674,7 +678,7 @@ public final class Avrcp_ext {
         mContext.unregisterReceiver(mAvrcpReceiver);
         mContext.unregisterReceiver(mBootReceiver);
         mContext.unregisterReceiver(mShutDownReceiver);
-
+        mContext.unregisterReceiver(mAvrcpBroadcastReceiver);
         mAddressedMediaPlayer.cleanup();
         mAvrcpBrowseManager.cleanup();
         mBrowsePlayerListConfWLDB.clear();
@@ -1681,12 +1685,6 @@ public final class Avrcp_ext {
                 boolean tws_switch = false;
                 Log.d(TAG, "MSG_SET_ACTIVE_DEVICE");
                 BluetoothDevice bt_device = (BluetoothDevice) msg.obj;
-                if (bt_device == null) {
-                    for (int i = 0; i < maxAvrcpConnections; i++) {
-                        deviceFeatures[i].isActiveDevice = false;
-                    }
-                    break;
-                }
                 if (bt_device != null && bt_device.isTwsPlusDevice()) {
                     for (int i = 0; i < maxAvrcpConnections; i++) {
                         if (deviceFeatures[i].mCurrentDevice != null &&
@@ -2255,6 +2253,8 @@ public final class Avrcp_ext {
         boolean isPlaying = false;
         PlaybackState newState = new PlaybackState.Builder().setState(PlaybackState.STATE_NONE,
                                                PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0.0f).build();
+        PlaybackState playbackState = new PlaybackState.Builder().setState(PlaybackState.STATE_NONE,
+                                               PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0.0f).build();
         boolean updateA2dpPlayState = false;
         Log.v(TAG,"updateCurrentMediaState: mMediaController: " + mMediaController);
         Log.v(TAG,"isMusicActive: " + mAudioManager.isMusicActive() + " getBluetoothPlayState: " + getBluetoothPlayState(mCurrentPlayerState));
@@ -2267,6 +2267,9 @@ public final class Avrcp_ext {
                 } else {
                     isPlaying = (mA2dpState == BluetoothA2dp.STATE_PLAYING) && mAudioManager.isMusicActive();
                 }
+                if (mMediaController != null) {
+                    playbackState = mMediaController.getPlaybackState();
+                }
                 Log.v(TAG,"updateCurrentMediaState: isPlaying = " + isPlaying);
                 // Use A2DP state if we don't have a MediaControlller
                 PlaybackState.Builder builder = new PlaybackState.Builder();
@@ -2277,14 +2280,14 @@ public final class Avrcp_ext {
                     builder.setState(PlaybackState.STATE_PAUSED,
                             PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0.0f);
                 }
-                if (mMediaController != null && mMediaController.getPlaybackState() != null) {
-                    int mMediaPlayState = mMediaController.getPlaybackState().getState();
+                if (playbackState != null) {
+                    int mMediaPlayState = playbackState.getState();
                     if (isPlaying) {
                         builder.setState(PlaybackState.STATE_PLAYING,
-                                mMediaController.getPlaybackState().getPosition(), 1.0f);
+                                playbackState.getPosition(), 1.0f);
                     } else {
                         builder.setState(PlaybackState.STATE_PAUSED,
-                                mMediaController.getPlaybackState().getPosition(), 0.0f);
+                                playbackState.getPosition(), 0.0f);
                     }
                 }
                 newState = builder.build();
@@ -3536,15 +3539,6 @@ public final class Avrcp_ext {
         int deviceIndex = INVALID_DEVICE_INDEX;
         for (int i = 0; i < maxAvrcpConnections; i++ ) {
             if (deviceFeatures[i].mCurrentDevice != null && device != null &&
-                    Objects.equals(deviceFeatures[i].mCurrentDevice, device)) {
-                deviceIndex = i;
-                if (deviceFeatures[i].isActiveDevice &&
-                      deviceFeatures[i].isAbsoluteVolumeSupportingDevice) {
-                    storeVolumeForDevice(device);
-                    disconnectedActiveDevice = device;
-                }
-            }
-            if (deviceFeatures[i].mCurrentDevice != null && device != null &&
                     !(Objects.equals(deviceFeatures[i].mCurrentDevice, device))) {
                 Log.i(TAG,"setAvrcpDisconnectedDevice : Active device changed to index = " + i);
                 if (device.isTwsPlusDevice() &&
@@ -3642,6 +3636,25 @@ public final class Avrcp_ext {
                 if (device != null) {
                     pref.putInt(device.getAddress(), storeVolume);
                     pref.apply();
+                }
+            }
+        }
+    }
+
+
+    private class AvrcpBroadcastReceiver extends BroadcastReceiver {
+    @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action.equals(AudioManager.VOLUME_CHANGED_ACTION)) {
+                int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
+                if (streamType == AudioManager.STREAM_MUSIC) {
+                    int volume = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 0);
+                    BluetoothDevice activeDevice = mA2dpService.getActiveDevice();
+                    if (activeDevice != null) {
+                        Log.d(TAG, "AvrcpBroadcastReceiver-> Action: " + action + " volume = " + volume);
+                        mVolumeMap.put(activeDevice, volume);
+                    }
                 }
             }
         }
@@ -5245,7 +5258,13 @@ public final class Avrcp_ext {
         }
         SharedPreferences.Editor pref = getVolumeMap().edit();
         int index = getIndexForDevice(device);
-        int storeVolume =  mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+        int storeVolume  = -1;
+
+        if (!mVolumeMap.containsKey(device)) {
+            Log.i(TAG, "!device not added in volume map by default volume is 7");
+            return;
+        } else
+            storeVolume = mVolumeMap.get(device);
         Log.i(TAG, "storeVolume: Storing stream volume level for device " + device
                 + " : " + storeVolume);
 
@@ -5267,7 +5286,6 @@ public final class Avrcp_ext {
             disconnectedActiveDevice = null;
             return;
         }
-        mVolumeMap.put(device, storeVolume);
         pref.putInt(device.getAddress(), storeVolume);
         if (device != null && device.isTwsPlusDevice()) {
             AdapterService mAdapterService = AdapterService.getAdapterService();
@@ -5366,8 +5384,15 @@ public final class Avrcp_ext {
 
     public void setActiveDevice(BluetoothDevice device) {
         Log.w(TAG, "setActiveDevice call for device " + device);
-        Message msg = mHandler.obtainMessage(MSG_SET_ACTIVE_DEVICE, 0, 0, device);
-        mHandler.sendMessage(msg);
+        if (device == null) {
+            for (int i = 0; i < maxAvrcpConnections; i++) {
+                deviceFeatures[i].isActiveDevice = false;
+            }
+        }
+        else {
+            Message msg = mHandler.obtainMessage(MSG_SET_ACTIVE_DEVICE, 0, 0, device);
+            mHandler.sendMessage(msg);
+        }
     }
 
     private SharedPreferences getVolumeMap() {
@@ -5429,6 +5454,7 @@ public final class Avrcp_ext {
     public void setAbsVolumeFlag(BluetoothDevice device) {
         int deviceIndex = getIndexForDevice(device);
         int volume = getVolume(device);
+        mVolumeMap.put(device, volume);
         Log.d(TAG, " device allocated for abs volume support " + mDeviceAbsVolMap.containsKey(device));
         if (mDeviceAbsVolMap.containsKey(device)) {
             //updating abs volume supported or not to audio when active device change is success
@@ -5814,9 +5840,20 @@ public final class Avrcp_ext {
                         return;
                     }
                     if (token != null) {
+                        boolean updateController = true;
                         android.media.session.MediaController controller =
                                 new android.media.session.MediaController(mContext, token);
-                        if (!mMediaPlayerIds.containsKey(controller.getPackageName())) {
+
+                        if (mMediaPlayerIds.containsKey(controller.getPackageName())) {
+                            int id = mMediaPlayerIds.get(controller.getPackageName());
+                            MediaPlayerInfo_ext info = mMediaPlayerInfoList.get(id);
+                            if (info != null && info.getMediaController() != null)
+                                updateController = false;
+                            Log.d(TAG, "onMediaKeyEventSessionChanged: player = " + info
+                                    + ", id = " + id + ", updateController = " + updateController);
+                        }
+
+                        if (updateController) {
                             // Since we have a controller, we can try to to recover by adding the
                             // player and then setting it as active.
                             Log.w(TAG, "onMediaKeyEventSessionChanged(Token): Addressed Player "
