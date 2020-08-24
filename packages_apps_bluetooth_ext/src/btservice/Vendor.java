@@ -61,6 +61,8 @@ import com.android.bluetooth.Utils;
 
 import android.content.Intent;
 import android.content.Context;
+import java.util.UUID;
+
 final class Vendor {
     private static final String TAG = "BluetoothVendorService";
     private AdapterService mService;
@@ -350,6 +352,11 @@ final class Vendor {
         informTimeoutToHidlNative();
     }
 
+    public void registerUuidSrvcDisc(UUID uuid) {
+        registerUuidSrvcDiscNative(uuid.getLeastSignificantBits(),
+            uuid.getMostSignificantBits());
+    }
+
     private native void bredrcleanupNative();
     private native void bredrstartupNative();
     private native void initNative();
@@ -370,4 +377,5 @@ final class Vendor {
         int channel, int jitter, int offset);
     private native boolean startClockSyncNative();
     private native void informTimeoutToHidlNative();
+    private native void registerUuidSrvcDiscNative(long uuid_lsb, long uuid_msb);
 }

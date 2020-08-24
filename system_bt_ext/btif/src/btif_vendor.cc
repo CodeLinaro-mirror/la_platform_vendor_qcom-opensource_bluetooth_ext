@@ -678,6 +678,7 @@ static const btvendor_interface_t btvendorInterface = {
     hciclose,
     set_clock_sync_config,
     start_clock_sync,
+    btif_register_uuid_srvc_disc,
 };
 
 /*******************************************************************************

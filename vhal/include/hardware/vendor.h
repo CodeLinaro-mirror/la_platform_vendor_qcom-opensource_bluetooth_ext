@@ -229,6 +229,8 @@ typedef struct {
     /** start clock sync protocol */
     void (*start_clock_sync)(void);
 
+    void (*register_uuid_srvc_disc)(bluetooth::Uuid);
+
 } btvendor_interface_t;
 
 __END_DECLS
