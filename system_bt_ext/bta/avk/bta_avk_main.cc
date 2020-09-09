@@ -994,11 +994,12 @@ void bta_avk_api_deregister(tBTA_AVK_DATA *p_data)
         p_scb->deregistring = TRUE;
         bta_avk_ssm_execute(p_scb, BTA_AVK_API_CLOSE_EVT, p_data);
         if(p_scb->avrc_ct_timer != NULL) {
+            alarm_data_free(p_scb->avrc_ct_timer);
             alarm_free(p_scb->avrc_ct_timer);
             p_scb->avrc_ct_timer = NULL;
         }
 
-        /*if(p_scb->a2d_list != NULL) {
+        if(p_scb->a2d_list != NULL) {
             BT_HDR *p_buf;
             while (!list_is_empty(p_scb->a2d_list)) {
                 p_buf = (BT_HDR*)list_front(p_scb->a2d_list);
@@ -1007,7 +1008,7 @@ void bta_avk_api_deregister(tBTA_AVK_DATA *p_data)
             }
             list_free(p_scb->a2d_list);
             p_scb->a2d_list = NULL;
-        }*/
+        }
      }
     else
     {

@@ -1229,6 +1229,7 @@ void bta_avk_cleanup(tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
     p_scb->num_disc_snks = 0;
     p_scb->coll_mask = 0;
     p_scb->skip_sdp = FALSE;
+    alarm_data_free(p_scb->avrc_ct_timer);
     alarm_cancel(p_scb->avrc_ct_timer);
     if (p_scb->deregistring)
     {
@@ -1378,7 +1379,9 @@ void bta_avk_disconnect_req (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
 
     APPL_TRACE_DEBUG("bta_avk_disconnect_req conn_lcb: 0x%x", bta_avk_cb.conn_lcb);
 
+    alarm_data_free(bta_avk_cb.link_signalling_timer);
     alarm_cancel(bta_avk_cb.link_signalling_timer);
+    alarm_data_free(p_scb->avrc_ct_timer);
     alarm_cancel(p_scb->avrc_ct_timer);
     if(bta_avk_cb.conn_lcb)
     {
@@ -1463,6 +1466,7 @@ void bta_avk_setconfig_rsp (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
                        p_data->ci_setconfig.category);
     }
 
+    alarm_data_free(bta_avk_cb.link_signalling_timer);
     alarm_cancel(bta_avk_cb.link_signalling_timer);
 
     if(p_data->ci_setconfig.err_code == AVDT_SUCCESS)
@@ -1738,6 +1742,7 @@ void bta_avk_do_close (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
     {
         bta_avk_str_stopped(p_scb, NULL);
     }
+    alarm_data_free(bta_avk_cb.link_signalling_timer);
     alarm_cancel(bta_avk_cb.link_signalling_timer);
     /* close stream */
     p_scb->started = FALSE;
@@ -2640,6 +2645,7 @@ void bta_avk_reconfig (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
     }
 
     /*if(bta_avk_cb.features & BTA_AVK_FEAT_RCCT)*/
+    alarm_data_free(p_scb->avrc_ct_timer);
     alarm_cancel(p_scb->avrc_ct_timer);
 
     memcpy(p_cfg, &p_scb->cfg, sizeof(tAVDT_CFG));
@@ -3511,6 +3517,7 @@ void bta_avk_open_rc (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
         if (!bta_avk_link_role_ok(p_scb, A2DP_SET_ONE_BIT))
         {
             APPL_TRACE_ERROR ("failed to start streaming for role management reasons!!");
+            alarm_data_free(p_scb->avrc_ct_timer);
             alarm_cancel(p_scb->avrc_ct_timer);
             start.chnl   = p_scb->chnl;
             start.status = BTA_AVK_FAIL_ROLE;
