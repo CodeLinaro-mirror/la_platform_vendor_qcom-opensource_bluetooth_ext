@@ -831,6 +831,8 @@ static bool btif_avk_media_task_clear_track(void)
 
     if (btif_avk_media_cmd_msg_queue != NULL)
         fixed_queue_enqueue(btif_avk_media_cmd_msg_queue, p_buf);
+    else
+        osi_free(p_buf);
     return TRUE;
 }
 
