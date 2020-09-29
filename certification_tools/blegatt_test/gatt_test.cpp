@@ -1194,7 +1194,22 @@ static void request_read_cb(int conn_id, int trans_id, const RawAddress& bda,
         printf("%s:: Invalid transport access over BR/EDR \n", __FUNCTION__);
         status = application_error;
     }
-    else if((attr_handle >=74 && attr_handle <=101) || is_long)
+    else if ((attr_handle >=74 && attr_handle <88)|| is_long)
+    {
+        len = 400;
+        printf("%s:: offset=%d, is_long =%d len 400\n", __FUNCTION__, offset, is_long);
+        if(offset > len)
+        {
+            printf("%s:: Invalid offset\n", __FUNCTION__);
+            status = invalid_offset;
+        }
+        else
+        {
+            memcpy(gatt_resp.attr_value.value, &attr_value[offset] , (len - offset));
+            gatt_resp.attr_value.len = (len - offset);
+        }
+    }
+    else if((attr_handle >=88 && attr_handle <= 101) || is_long)
     {
         len = len_long_char;
         if(offset > len)
