@@ -138,7 +138,7 @@ typedef struct
 {
     size_t    size;
     //GATT common APIs (Both client and server)
-    tGATT_IF (*Register) (bluetooth::Uuid& p_app_uuid128, tGATT_CBACK *p_cb_info);
+    tGATT_IF (*Register) (bluetooth::Uuid& p_app_uuid128, tGATT_CBACK *p_cb_info, bool eatt_support);
     void (*Deregister) (tGATT_IF gatt_if);
     void (*StartIf) (tGATT_IF gatt_if);
     bool (*Connect) (tGATT_IF gatt_if, RawAddress bd_addr, bool is_direct,tBT_TRANSPORT transport);
@@ -159,6 +159,8 @@ typedef struct
 
     //GATT Server APIs
     //TODO - Add api on the need basis
+    tGATT_STATUS (*sSendMultiNotification) (uint16_t conn_id, uint8_t num_attr, uint16_t handles[],
+                                    uint16_t lens[], std::vector<std::vector<uint8_t>> values);
 
 }btgatt_test_interface_t;
 
