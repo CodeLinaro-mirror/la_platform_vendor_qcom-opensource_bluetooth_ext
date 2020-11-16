@@ -664,6 +664,9 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
                      btif_avk_cb[index].edr_3mbps = TRUE;
                  }
                 btif_avk_cb[index].peer_bda = ((tBTA_AVK*)p_data)->open.bd_addr;
+                btif_avk_cb[index].avdt_sync = bta_avk_is_avdt_sync(btif_avk_cb[index].bta_handle);
+                BTIF_TRACE_DEBUG("%s, BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",
+                                 __func__,index, btif_avk_cb[index].avdt_sync);
             }
             else
             {
@@ -778,7 +781,7 @@ static bool btif_avk_split_state_opening_handler(btif_sm_event_t event, void *p_
                      btif_avk_cb[index].edr_3mbps = TRUE;
                  }
                  btif_avk_cb[index].avdt_sync = bta_avk_is_avdt_sync(btif_avk_cb[index].bta_handle);
-                 BTIF_TRACE_DEBUG(" %s ~~ BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",__func__,index, btif_avk_cb[index].avdt_sync);
+                 BTIF_TRACE_DEBUG("%s, BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",__func__,index, btif_avk_cb[index].avdt_sync);
             }
             else
             {
@@ -2808,7 +2811,7 @@ static void update_streaming_device_vendor(bt_bdaddr_t *bd_addr)
 static void update_qahw_delay_vendor(uint16_t qahwdelay)
 {
     uint8_t index = btif_max_avk_clients;
-    BTIF_TRACE_DEBUG(" %s delay: %d ", __FUNCTION__,qahwdelay);
+    BTIF_TRACE_DEBUG(" %s delay: %u ", __FUNCTION__,qahwdelay);
     for(int i = 0;i < btif_max_avk_clients; i++) {
         btif_avk_cb[i].qahw_delay = qahwdelay;
     }
@@ -3476,7 +3479,7 @@ static void cleanup_sink(void) {
     BTIF_TRACE_EVENT("%s", __FUNCTION__);
     cleanup(BTA_A2DP_SPLIT_SINK_SERVICE_ID);
     for (int i = 0; i < btif_max_avk_clients; i++)
-        btif_avk_cb[i].delay == 0;
+        btif_avk_cb[i].delay = 0;
 }
 
 static void cleanup_sink_vendor(void) {
@@ -3564,11 +3567,11 @@ bt_status_t btif_avk_split_sink_execute_service(bool b_enable)
 
          if(enable_delay_reporting) {
              features |= BTA_AVK_FEAT_DELAY_RPT;
-             BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable Added BTA_AVK_FEAT_DELAY_RPT!", __FUNCTION__);
+             BTIF_TRACE_DEBUG("%s BTA_AvkEnable Added BTA_AVK_FEAT_DELAY_RPT!", __FUNCTION__);
          }
          if(enable_avrc_browsing) {
              features |= BTA_AVK_FEAT_BROWSE;
-             BTIF_TRACE_DEBUG("%s ~~ BTA_AvkEnable NOT Added BTA_AVK_FEAT_BROWSE!", __FUNCTION__);
+             BTIF_TRACE_DEBUG("%s BTA_AvkEnable NOT Added BTA_AVK_FEAT_BROWSE!", __FUNCTION__);
          }
          BTA_AvkEnable(BTA_SEC_AUTHENTICATE, features, bte_avk_callback);
          for (i = 0; i < btif_max_avk_clients; i++)

@@ -1964,6 +1964,7 @@ static void btif_avk_rc_ctrl_upstreams_rsp_evt(uint16_t event, tAVRC_RESPONSE *p
             HAL_CBACK(btif_avk_rc_ctrl_vendor_callbacks,getelementattrib_rsp_vendor_cb, &rc_addr,
               pavrc_resp->get_attrs.num_attrs, p_attr, rsp_type);
             osi_free(p_attr);
+            osi_free(pavrc_resp->get_attrs.p_attrs);
         }
             break;
         case AVRC_PDU_GET_PLAY_STATUS:
@@ -3225,7 +3226,7 @@ static bt_status_t search_cmd_vendor(bt_bdaddr_t *bd_addr, uint16_t length, uint
     {
         avrc_cmd.search.string.p_str = (uint8_t *)osi_malloc(length+1);
         memset(avrc_cmd.search.string.p_str, 0, length+1);
-        strncpy((char*)avrc_cmd.search.string.p_str, (char*)string, length);
+        strlcpy((char*)avrc_cmd.search.string.p_str, (char*)string, length+1);
     }
 
     status = AVRC_BldCommand(&avrc_cmd, &p_msg);

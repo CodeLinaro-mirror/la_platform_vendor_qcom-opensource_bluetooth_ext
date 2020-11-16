@@ -251,6 +251,8 @@ static bool is_multicast_enabled = FALSE;
 
 uint32_t check_haven_license() {
 
+    uint8_t ret = 0xff;
+    uint8_t  retry_count = 0;
     char value[PROPERTY_VALUE_MAX] = {'\0'};
     property_get("persist.bt.haven_license", value, "true");
     APPL_TRACE_DEBUG("%s haven_licensing_property = %s",__func__,value);
@@ -276,13 +278,25 @@ uint32_t check_haven_license() {
         return 1;
     }
 
-    APPL_TRACE_DEBUG("%s Verifying Haven license... ",__func__);
-    uint8_t ret = verify_haven_license(APTX_FEATRE_ID);
-    if ( ret == 2 )
-    {
-        APPL_TRACE_DEBUG(" %s Socket Error, retrying ",__func__);
-        usleep(50);
+    while ( retry_count++ < 50 ) {
         ret = verify_haven_license(APTX_FEATRE_ID);
+        APPL_TRACE_DEBUG("%s verify_haven_license ret = %d  retry_count = %d"
+                                                     ,__func__, ret, retry_count);
+        if (ret == 0) {
+            /*Haven license is verified*/
+            break;
+        }
+        /* Need to retry in each of these errors
+        * ALM_SOCKET_ERROR,
+        * ALM_CLIENT_RECEIVE_ERROR,
+        * ALM_HAVENTA_LOAD_ERROR,
+        * ALM_HAVEN_LICENSE_ERROR
+        */
+        if ((ret == 2 ) || (ret == 3) || (ret == 8) || (ret == 9)) {
+            APPL_TRACE_DEBUG(" %s Socket Error, retrying ",__func__);
+            usleep(50*1000);
+            ret = verify_haven_license(APTX_FEATRE_ID);
+        }
     }
 
     dlclose(alm_handle);

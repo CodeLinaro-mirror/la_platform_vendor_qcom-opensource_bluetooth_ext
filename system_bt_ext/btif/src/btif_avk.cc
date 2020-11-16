@@ -87,10 +87,10 @@ typedef enum {
 
 #define DELAY_RECORD_COUNT                 100
 
-#define DEFAULT_DELAY                      100
-#define DEFAULT_SBC_DELAY                  1800
-#define DEFAULT_APTX_DELAY                 1350
-#define DEFAULT_AAC_DELAY                  1550
+#define DEFAULT_DELAY                      200
+#define DEFAULT_SBC_DELAY                  200
+#define DEFAULT_APTX_DELAY                 200
+#define DEFAULT_AAC_DELAY                  200
 /*****************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -418,7 +418,7 @@ static bool btif_avk_state_idle_handler(btif_sm_event_t event, void *p_data, int
             btif_avk_cb[index].sink_codec_type = 0xFF;
             btif_avk_cb[index].avdt_sync = FALSE;
             btif_avk_cb[index].default_estmt_delay = 0;
-            btif_avk_cb[index].qahw_delay = 1800;
+            btif_avk_cb[index].qahw_delay = DEFAULT_DELAY;
             btif_avk_cb[index].average_delay = 0;
             for (int i = 0; i < btif_max_avk_clients; i++)
             {
@@ -571,6 +571,9 @@ static bool btif_avk_state_idle_handler(btif_sm_event_t event, void *p_data, int
                      btif_avk_cb[index].edr_3mbps = TRUE;
                  }
                 btif_avk_cb[index].peer_bda = ((tBTA_AVK*)p_data)->open.bd_addr;
+                btif_avk_cb[index].avdt_sync = bta_avk_is_avdt_sync(btif_avk_cb[index].bta_handle);
+                BTIF_TRACE_DEBUG(" %s, BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",
+                                 __func__,index, btif_avk_cb[index].avdt_sync);
             }
             else
             {
@@ -689,7 +692,7 @@ static bool btif_avk_state_opening_handler(btif_sm_event_t event, void *p_data, 
                      btif_avk_cb[index].edr_3mbps = TRUE;
                  }
                  btif_avk_cb[index].avdt_sync = bta_avk_is_avdt_sync(btif_avk_cb[index].bta_handle);
-                 BTIF_TRACE_DEBUG(" %s ~~ BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",__func__,index, btif_avk_cb[index].avdt_sync);
+                 BTIF_TRACE_DEBUG(" %s BTA_AVK_OPEN_EVT btif_avk_cb[%d].avdt_sync is [%d]",__func__,index, btif_avk_cb[index].avdt_sync);
             }
             else
             {
@@ -818,7 +821,7 @@ static bool btif_avk_state_opening_handler(btif_sm_event_t event, void *p_data, 
                 btif_avk_a2dp_on_stopped(NULL);
             }
             btif_avk_cb[index].avdt_sync = FALSE;
-            btif_avk_cb[index].qahw_delay = 1800;
+            btif_avk_cb[index].qahw_delay = DEFAULT_DELAY;
             /* inform the application that we are disconnected */
             btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED, &(btif_avk_cb[index].peer_bda));
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
@@ -2072,8 +2075,8 @@ static uint16_t UpdateRptDelay(uint64_t enque_ns)
     if(i >= DELAY_RECORD_COUNT)
         btif_avk_cb[index].average_delay = (sum_dealy / DELAY_RECORD_COUNT);
 
-    BTIF_TRACE_DEBUG(" %s ~~ deque_ns = [%09llu], enque_ns = [%09llu] average_delay for index %d = [%09llu] ",
-                     __func__, deque_ns, enque_ns, btif_avk_cb[index].average_delay, index);
+    BTIF_TRACE_DEBUG(" %s, deque_ns = [%09llu], enque_ns = [%09llu] average_delay for index %d = [%09llu] ",
+                     __func__, deque_ns, enque_ns, index, btif_avk_cb[index].average_delay);
 
     return btif_avk_cb[index].average_delay;
 }
@@ -2430,10 +2433,10 @@ static void update_qahw_delay_vendor(uint16_t qahwdelay)
     int index = btif_get_latest_playing_device_idx();
     if(btif_avk_cb[index].avdt_sync != TRUE )
     {
-        BTIF_TRACE_DEBUG(" %s ~~ delay report feature is not enabled, return .", __FUNCTION__);
+        BTIF_TRACE_ERROR(" %s, delay report feature is not enabled", __FUNCTION__);
         return;
     }
-    BTIF_TRACE_DEBUG(" %s ~~ qahwdelay = [%d]", __FUNCTION__, qahwdelay);
+    BTIF_TRACE_DEBUG(" %s, qahwdelay = [%u]", __FUNCTION__, qahwdelay);
     btif_avk_cb[index].qahw_delay = qahwdelay;
 }
 
@@ -3311,7 +3314,7 @@ static void cleanup_sink(void) {
     btif_avk_media_clear_pcm_queue();
     enable_stack_sbc_decoding = 0;
     for (int i = 0; i < btif_max_avk_clients; i++)
-        btif_avk_cb[i].qahw_delay = 1800;
+        btif_avk_cb[i].qahw_delay = DEFAULT_DELAY;
     pthread_mutex_lock(&sink_data_q_lock);
     fixed_queue_free(RxDataQ,NULL);
     RxDataQ = NULL;
@@ -4048,7 +4051,7 @@ uint32_t btif_avk_get_init_delay(RawAddress bd_addr) {
 *******************************************************************************/
 uint64_t btif_avk_get_average_delay(RawAddress bd_addr) {
     int index = btif_avk_idx_by_bdaddr(&bd_addr);
-    BTIF_TRACE_ERROR(" %s, average delay of index %d : %d",
+    BTIF_TRACE_ERROR(" %s, average delay of index %d : [%09llu]",
                      __func__,index, btif_avk_cb[index].average_delay);
     return btif_avk_cb[index].average_delay;
 }

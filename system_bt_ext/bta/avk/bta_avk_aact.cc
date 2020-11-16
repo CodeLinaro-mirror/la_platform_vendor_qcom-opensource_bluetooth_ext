@@ -2660,6 +2660,8 @@ void bta_avk_data_path (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
         return;
     }
 
+    if (p_scb->started == FALSE) return;
+
     /*
     APPL_TRACE_ERROR("q: %d", p_scb->l2c_bufs);
     */
