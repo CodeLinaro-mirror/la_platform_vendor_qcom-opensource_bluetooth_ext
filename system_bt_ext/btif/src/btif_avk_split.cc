@@ -2848,6 +2848,31 @@ static bt_status_t suspend_req(const RawAddress& bd_addr) {
 }
 
 
+/*******************************************************************************
+**
+** Function         set_ttp_range_for_aptx_ad
+**
+** Description      Updates the range for aptx-ad from app
+**
+** Returns          void
+**
+*******************************************************************************/
+void set_ttp_range_for_aptx_ad(uint8_t min, uint8_t max) {
+    BTIF_TRACE_DEBUG("%s: with min %d max %d",__FUNCTION__, min, max);
+    if (max > min) {
+       bta_avk_co_aptx_ad_caps.min_latency_ll = bta_avk_co_aptx_ad_caps.min_latency_hq = min;
+       bta_avk_co_aptx_ad_caps.max_latency_ll = bta_avk_co_aptx_ad_caps.max_latency_hq = max;
+
+       btif_avk_aptx_ad_default_config.min_latency_ll = btif_avk_aptx_ad_default_config.min_latency_hq = min;
+       btif_avk_aptx_ad_default_config.max_latency_ll = btif_avk_aptx_ad_default_config.max_latency_hq = max;
+
+       /* updates TTP range in get capabilities */
+       update_aptx_ad_ttp_range_to_caps(min, max);
+    }
+    else {
+       BTIF_TRACE_DEBUG("%s: Setting TTP range for aptxad codec failed: max < min");
+    }
+}
 
 /*******************************************************************************
 **
@@ -3588,6 +3613,7 @@ static const btav_sink_vendor_interface_t bt_avk_sink_split_vendor_interface = {
     suspend_ind_rsp,
     start_req,
     suspend_req,
+    set_ttp_range_for_aptx_ad,
 };
 
 /*******************************************************************************

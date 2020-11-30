@@ -3433,6 +3433,7 @@ static const btav_sink_vendor_interface_t bt_avk_sink_vendor_interface = {
     cleanup_sink_vendor,
     update_qahw_delay_vendor,
     update_supported_codecs_param_vendor,
+    NULL,
 };
 
 /*******************************************************************************
