@@ -4696,6 +4696,15 @@ public final class Avrcp_ext {
             Log.e(TAG, "onConnectionStateChanged Device is null");
             return;
         }
+
+        if(isLeAudioEnabled) {
+            dpm = DeviceProfileMap.getDeviceProfileMapInstance();
+            if(dpm != null) {
+                dpm.profileConnectionUpdate(device, ApmConst.AudioFeatures.MEDIA_VOLUME_CONTROL,
+                                ApmConst.AudioProfiles.AVRCP, rc_connected);
+            }
+        }
+
         if (br_connected == true) {
             mBrowsingActiveDevice = device;
             Log.w(TAG, "onConnectionStateChanged Set Active browse device" + mBrowsingActiveDevice);
