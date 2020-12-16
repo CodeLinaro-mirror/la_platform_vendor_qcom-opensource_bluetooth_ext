@@ -82,7 +82,6 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
 import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.hearingaid.HearingAidService;
-import com.android.bluetooth.bms.BapBroadcastService;
 import com.android.bluetooth.btservice.ServiceFactory;
 import com.android.internal.util.ArrayUtils;
 import java.util.ArrayList;
@@ -99,6 +98,7 @@ import java.util.Objects;
 import com.android.bluetooth.hfp.HeadsetService;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
+import java.lang.reflect.*;
 /******************************************************************************
  * support Bluetooth AVRCP profile. support metadata, play status, event
  * notifications, address player selection and browse feature implementation.
@@ -251,6 +251,9 @@ public final class Avrcp_ext {
     public static final int AVRC_ID_VOL_UP = 0x41;
     public static final int AVRC_ID_VOL_DOWN = 0x42;
 
+    Object mBroadcastService = null;
+    Method mBroadcastIsActive = null;
+    Method mBroadcastMeta = null;
     /* Addressed player handling */
     private AddressedMediaPlayer_ext mAddressedMediaPlayer;
 
@@ -593,6 +596,9 @@ public final class Avrcp_ext {
             buildBrowsablePlayerList();
         }
 
+        mBroadcastService = adapterService.getBroadcastService();
+        mBroadcastIsActive = adapterService.getBroadcastActive();
+
         mAudioManager.registerAudioPlaybackCallback(
                 mAudioManagerPlaybackCb, mAudioManagerPlaybackHandler);
         changePathDepth = 0;
@@ -743,9 +749,24 @@ public final class Avrcp_ext {
         @Override
         public void onMetadataChanged(MediaMetadata metadata) {
             if (DEBUG) Log.v(TAG, "onMetadataChanged");
-            final BapBroadcastService mBAS = mFactory.getBapBroadcastService();
-            if (mBAS != null && mBAS.isBapBroadcastActive()) {
-                mBAS.updateMetadataFromAvrcp(metadata);
+            if (mBroadcastService != null && mBroadcastIsActive != null) {
+                boolean is_active = false;
+                try {
+                    is_active = (boolean) mBroadcastIsActive.invoke(mBroadcastService);
+                } catch(IllegalAccessException e) {
+                    Log.e(TAG, "Broadcast:IsActive IllegalAccessException");
+                } catch (InvocationTargetException e) {
+                    Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
+                }
+                if (is_active) {
+                    try {
+                        mBroadcastMeta.invoke(mBroadcastService, metadata);
+                    } catch (IllegalAccessException e) {
+                        Log.e(TAG, "Broadcast:Metadata IllegalAccessException");
+                    } catch (InvocationTargetException e) {
+                        Log.e(TAG, "Broadcast:Metadata InvocationTargetException");
+                    }
+                }
             }
             updateCurrentMediaState(null);
         }
@@ -5460,18 +5481,27 @@ public final class Avrcp_ext {
             }
         }
         if (a2dp_active_device == null) {
-            final BapBroadcastService mBAS = mFactory.getBapBroadcastService();
-            if (mBAS != null && mBAS.isBapBroadcastActive()) {
-                Log.d(TAG,"Bap Broadcast is active, ignore passthrough from legacy hs");
-                if (action == KeyEvent.ACTION_DOWN && !rc_only_device) {
-                    if (ApmConstIntf.getLeAudioEnabled()) {
-                        ActiveDeviceManagerServiceIntf activeDeviceManager =
-                                             ActiveDeviceManagerServiceIntf.get();
-                        activeDeviceManager.setActiveDevice(device,
-                                       ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
-                    }
+            if (mBroadcastService != null && mBroadcastIsActive != null) {
+                boolean is_active = false;
+                try {
+                    is_active = (boolean) mBroadcastIsActive.invoke(mBroadcastService);
+                } catch(IllegalAccessException e) {
+                    Log.e(TAG, "Broadcast:IsActive IllegalAccessException");
+                } catch (InvocationTargetException e) {
+                    Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
                 }
-                return;
+                if (is_active) {
+                    Log.d(TAG,"Broadcast is active, ignore passthrough from legacy hs");
+                    if (action == KeyEvent.ACTION_DOWN && !rc_only_device) {
+                        if (ApmConstIntf.getLeAudioEnabled()) {
+                            ActiveDeviceManagerServiceIntf activeDeviceManager =
+                                                 ActiveDeviceManagerServiceIntf.get();
+                            activeDeviceManager.setActiveDevice(device,
+                                           ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
+                        }
+                    }
+                    return;
+                }
             }
         }
         if (a2dp_active_device == null &&
