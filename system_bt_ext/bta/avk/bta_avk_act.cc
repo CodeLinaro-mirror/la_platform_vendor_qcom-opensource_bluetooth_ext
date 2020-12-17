@@ -590,6 +590,7 @@ void bta_avk_rc_opened(tBTA_AVK_CB *p_cb, tBTA_AVK_DATA *p_data)
             APPL_TRACE_DEBUG("bta_avk_rc_opened shdl:%d, srch %d", i + 1, p_scb->rc_handle);
             shdl = i+1;
             LOG_INFO("%s allow incoming AVRCP connections:%d", __func__, p_scb->use_rc);
+            alarm_data_free(p_scb->avrc_ct_timer);
             alarm_cancel(p_scb->avrc_ct_timer);
             disc = p_scb->hndl;
             break;
@@ -1662,6 +1663,7 @@ void bta_avk_disable(tBTA_AVK_CB *p_cb, tBTA_AVK_DATA *p_data)
             p_rcb->br_conn_timer = NULL;
         }
     }
+    alarm_data_free(bta_avk_cb.link_signalling_timer);
     alarm_free(p_cb->link_signalling_timer);
     p_cb->link_signalling_timer = NULL;
     alarm_free(p_cb->accept_signalling_timer);

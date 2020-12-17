@@ -224,7 +224,7 @@ const tA2D_APTX_HD_CIE btif_avk_aptx_hd_default_config =
 
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
 /*  APTX codec capabilities */
-const tA2DP_AVK_APTX_AD_CIE bta_avk_co_aptx_ad_caps =
+tA2DP_AVK_APTX_AD_CIE bta_avk_co_aptx_ad_caps =
 {
     A2DP_AVK_APTX_AD_VENDOR_ID,
     A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH,
@@ -242,7 +242,7 @@ const tA2DP_AVK_APTX_AD_CIE bta_avk_co_aptx_ad_caps =
     {0}
 };
 /* Default APTX codec configuration */
-const tA2DP_AVK_APTX_AD_CIE btif_avk_aptx_ad_default_config =
+tA2DP_AVK_APTX_AD_CIE btif_avk_aptx_ad_default_config =
 {
     A2DP_AVK_APTX_AD_VENDOR_ID,
     A2DP_AVK_APTX_AD_CODEC_ID_BLUETOOTH,
@@ -1115,6 +1115,9 @@ void bta_avk_build_aptx_ad_src_cfg (uint8_t *p_pref_cfg, uint8_t *p_src_cap, uin
     tA2DP_AVK_APTX_AD_CIE    pref_cap;
     uint8_t           status = 0;
     acquire_codec_mutex_lock();
+    /* update capabilities before sending */
+    memcpy(&p_bta_avk_codec_pri_list[index].codec_cap.aptx_ad_caps,&bta_avk_co_aptx_ad_caps,
+             sizeof(tA2DP_AVK_APTX_AD_CIE));
     tA2DP_AVK_APTX_AD_CIE    *local_cap = &p_bta_avk_codec_pri_list[index].codec_cap.aptx_ad_caps;
     release_codec_mutex_lock();
 
@@ -1141,6 +1144,12 @@ void bta_avk_build_aptx_ad_src_cfg (uint8_t *p_pref_cfg, uint8_t *p_src_cap, uin
 
     if (src_cap.channelMode & A2DP_AVK_APTX_AD_CHANNELS_JOINT_STEREO)
         pref_cap.channelMode = A2DP_AVK_APTX_AD_CHANNELS_JOINT_STEREO;
+
+    //As of now pasing only local caps without comparing src caps.
+    pref_cap.min_latency_ll = local_cap->min_latency_ll;
+    pref_cap.max_latency_ll = local_cap->max_latency_ll;
+    pref_cap.min_latency_hq = local_cap->min_latency_hq;
+    pref_cap.max_latency_hq = local_cap->max_latency_hq;
 
     A2D_BldAptxADDecoderInfo(AVDT_MEDIA_TYPE_AUDIO, (tA2DP_AVK_APTX_AD_CIE *) &pref_cap, p_pref_cfg);
 }

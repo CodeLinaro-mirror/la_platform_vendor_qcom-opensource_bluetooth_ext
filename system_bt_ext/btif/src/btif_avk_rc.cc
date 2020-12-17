@@ -2324,6 +2324,9 @@ static void cleanup_ctrl(void)
             list_clear(btif_avk_rc_cb[index].rc_supported_event_list);
             osi_free(btif_avk_rc_cb[index].rc_supported_event_list);
         }
+        for(int txn_indx=0; txn_indx < MAX_TRANSACTIONS_PER_SESSION; txn_indx++) {
+            alarm_free(btif_avk_rc_cb[index].device.transaction[txn_indx].txn_timer);
+        }
     }
     memset(&btif_avk_rc_cb, 0, sizeof(btif_avk_rc_cb_t));
     lbl_destroy();
