@@ -30,10 +30,10 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.content.BroadcastReceiver;
 import com.android.bluetooth.a2dp.A2dpService;
-import com.android.bluetooth.apm.ApmConst;
-import com.android.bluetooth.apm.DeviceProfileMap;
-import com.android.bluetooth.apm.ActiveDeviceManagerService;
-import com.android.bluetooth.apm.VolumeManager;
+import com.android.bluetooth.apm.ApmConstIntf;
+import com.android.bluetooth.apm.DeviceProfileMapIntf;
+import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
+import com.android.bluetooth.apm.VolumeManagerIntf;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -3089,10 +3089,10 @@ public final class Avrcp_ext {
     }
 
     private void notifyVolumeChanged(int volume, boolean isShowUI) {
-        if(ApmConst.getLeAudioEnabled()) {
-            VolumeManager mVolumeManager = VolumeManager.get();
+        if(ApmConstIntf.getLeAudioEnabled()) {
+            VolumeManagerIntf mVolumeManager = VolumeManagerIntf.get();
             mVolumeManager.onVolumeChange(volume,
-                ApmConst.AudioFeatures.MEDIA_AUDIO, isShowUI);
+                ApmConstIntf.AudioFeatures.MEDIA_AUDIO, isShowUI);
             return;
         }
         if (isShowUI) {
@@ -4665,11 +4665,11 @@ public final class Avrcp_ext {
             return;
         }
 
-        if(ApmConst.getLeAudioEnabled()) {
-            DeviceProfileMap dpm = DeviceProfileMap.getDeviceProfileMapInstance();
+        if(ApmConstIntf.getLeAudioEnabled()) {
+            DeviceProfileMapIntf dpm = DeviceProfileMapIntf.getDeviceProfileMapInstance();
             if(dpm != null) {
-                dpm.profileConnectionUpdate(device, ApmConst.AudioFeatures.MEDIA_VOLUME_CONTROL,
-                                ApmConst.AudioProfiles.AVRCP, rc_connected);
+                dpm.profileConnectionUpdate(device, ApmConstIntf.AudioFeatures.MEDIA_VOLUME_CONTROL,
+                                ApmConstIntf.AudioProfiles.AVRCP, rc_connected);
             }
         }
 
@@ -5017,10 +5017,10 @@ public final class Avrcp_ext {
             if((rspStatus == AvrcpConstants_ext.RSP_NO_ERROR) && ((mA2dpService != null) &&
                     !Objects.equals(mA2dpService.getActiveDevice(), device))) {
                 Log.d(TAG, "Trigger Handoff by playItem");
-                if(ApmConst.getLeAudioEnabled()) {
-                    ActiveDeviceManagerService activeDeviceManager = ActiveDeviceManagerService.get();
+                if(ApmConstIntf.getLeAudioEnabled()) {
+                    ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
                     activeDeviceManager.setActiveDevice(device,
-                        ApmConst.AudioFeatures.MEDIA_AUDIO, true);
+                        ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
                 } else {
                     startSHO(device, true);
                 }
@@ -5419,8 +5419,8 @@ public final class Avrcp_ext {
     }
 
     private void updateAbsVolumeSupport(BluetoothDevice device, boolean isSupported) {
-        if(ApmConst.getLeAudioEnabled()) {
-            VolumeManager mVolumeManager = VolumeManager.get();
+        if(ApmConstIntf.getLeAudioEnabled()) {
+            VolumeManagerIntf mVolumeManager = VolumeManagerIntf.get();
             mVolumeManager.setAbsoluteVolumeSupport(device, isSupported);
         } else {
             mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(), isSupported);
@@ -5464,11 +5464,11 @@ public final class Avrcp_ext {
             if (mBAS != null && mBAS.isBapBroadcastActive()) {
                 Log.d(TAG,"Bap Broadcast is active, ignore passthrough from legacy hs");
                 if (action == KeyEvent.ACTION_DOWN && !rc_only_device) {
-                    if (ApmConst.getLeAudioEnabled()) {
-                        ActiveDeviceManagerService activeDeviceManager =
-                                             ActiveDeviceManagerService.get();
+                    if (ApmConstIntf.getLeAudioEnabled()) {
+                        ActiveDeviceManagerServiceIntf activeDeviceManager =
+                                             ActiveDeviceManagerServiceIntf.get();
                         activeDeviceManager.setActiveDevice(device,
-                                       ApmConst.AudioFeatures.MEDIA_AUDIO, false);
+                                       ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
                     }
                 }
                 return;
@@ -5494,10 +5494,10 @@ public final class Avrcp_ext {
                 }
                 if (action == KeyEvent.ACTION_DOWN && !rc_only_device) {
                     Log.d(TAG, "AVRCP Trigger Handoff");
-                    if(ApmConst.getLeAudioEnabled()) {
-                        ActiveDeviceManagerService activeDeviceManager = ActiveDeviceManagerService.get();
+                    if(ApmConstIntf.getLeAudioEnabled()) {
+                        ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
                         activeDeviceManager.setActiveDevice(device,
-                            ApmConst.AudioFeatures.MEDIA_AUDIO, true);
+                            ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
                     } else {
                         startSHO(device, true);
                     }
