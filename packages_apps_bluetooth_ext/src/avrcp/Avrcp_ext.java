@@ -596,9 +596,6 @@ public final class Avrcp_ext {
             buildBrowsablePlayerList();
         }
 
-        mBroadcastService = adapterService.getBroadcastService();
-        mBroadcastIsActive = adapterService.getBroadcastActive();
-
         mAudioManager.registerAudioPlaybackCallback(
                 mAudioManagerPlaybackCb, mAudioManagerPlaybackHandler);
         changePathDepth = 0;
@@ -749,6 +746,11 @@ public final class Avrcp_ext {
         @Override
         public void onMetadataChanged(MediaMetadata metadata) {
             if (DEBUG) Log.v(TAG, "onMetadataChanged");
+            if (mBroadcastService == null) {
+                AdapterService adapterService = AdapterService.getAdapterService();
+                mBroadcastService = adapterService.getBroadcastService();
+                mBroadcastIsActive = adapterService.getBroadcastActive();
+            }
             if (mBroadcastService != null && mBroadcastIsActive != null) {
                 boolean is_active = false;
                 try {
@@ -759,12 +761,16 @@ public final class Avrcp_ext {
                     Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
                 }
                 if (is_active) {
-                    try {
-                        mBroadcastMeta.invoke(mBroadcastService, metadata);
-                    } catch (IllegalAccessException e) {
-                        Log.e(TAG, "Broadcast:Metadata IllegalAccessException");
-                    } catch (InvocationTargetException e) {
-                        Log.e(TAG, "Broadcast:Metadata InvocationTargetException");
+                    AdapterService mAdapterService = AdapterService.getAdapterService();
+                    mBroadcastMeta = mAdapterService.getBroadcastMeta();
+                    if (mBroadcastMeta != null) {
+                        try {
+                            mBroadcastMeta.invoke(mBroadcastService, metadata);
+                        } catch (IllegalAccessException e) {
+                            Log.e(TAG, "Broadcast:Metadata IllegalAccessException");
+                        } catch (InvocationTargetException e) {
+                            Log.e(TAG, "Broadcast:Metadata InvocationTargetException");
+                        }
                     }
                 }
             }
@@ -948,8 +954,28 @@ public final class Avrcp_ext {
                             updateAbsVolume = true;
                             Log.d(TAG,"TWS+ is not active, set absVolume flag later");
                         }
-                    } else
-                        updateAbsVolumeSupport(device, true);
+                    } else {
+                        if (mBroadcastService == null) {
+                            AdapterService adapterService = AdapterService.getAdapterService();
+                            mBroadcastService = adapterService.getBroadcastService();
+                            mBroadcastIsActive = adapterService.getBroadcastActive();
+                        }
+                        if (mBroadcastService != null && mBroadcastIsActive != null) {
+                            boolean is_active = false;
+                            try {
+                                is_active = (boolean) mBroadcastIsActive.invoke(mBroadcastService);
+                            } catch(IllegalAccessException e) {
+                                Log.e(TAG, "Broadcast:IsActive IllegalAccessException");
+                            } catch (InvocationTargetException e) {
+                                Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
+                            }
+                            if (!is_active) {
+                               updateAbsVolumeSupport(device, true);
+                            }
+                        } else {
+                            updateAbsVolumeSupport(device, true);
+                        }
+                    }
                 } else if (mDevice != null && Objects.equals(mDevice, device)) {
                     updateAbsVolumeSupport(device, isAbsoluteVolumeSupported(deviceIndex));
                     Log.v(TAG,"update audio manager for abs vol state = "
@@ -5481,6 +5507,11 @@ public final class Avrcp_ext {
             }
         }
         if (a2dp_active_device == null) {
+            if (mBroadcastService == null) {
+                AdapterService adapterService = AdapterService.getAdapterService();
+                mBroadcastService = adapterService.getBroadcastService();
+                mBroadcastIsActive = adapterService.getBroadcastActive();
+            }
             if (mBroadcastService != null && mBroadcastIsActive != null) {
                 boolean is_active = false;
                 try {
