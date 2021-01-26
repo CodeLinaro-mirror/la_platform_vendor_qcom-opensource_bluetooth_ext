@@ -3285,7 +3285,8 @@ public final class Avrcp_ext {
             if (browse_active_device != null) {
                 is_player_updated_for_browse = true;
                 byte[] addr = getByteAddress(browse_active_device);
-                if (mAvrcpBrowseManager.getBrowsedMediaPlayer(addr) != null) {
+                if (playerBrowseWhiteListDB.contains(PackageName) &&
+                        mAvrcpBrowseManager.getBrowsedMediaPlayer(addr) != null) {
                     Log.w(TAG, "Addr Player update to Browse " + PackageName);
                     mAvrcpBrowseManager.getBrowsedMediaPlayer(addr).
                             setCurrentPackage(PackageName, browseService);
@@ -3510,15 +3511,18 @@ public final class Avrcp_ext {
         Log.i(TAG,"Enter setAvrcpDisconnectedDevice");
         int deviceIndex = INVALID_DEVICE_INDEX;
         for (int i = 0; i < maxAvrcpConnections; i++ ) {
-            if (deviceFeatures[i].mCurrentDevice != null && device != null &&
-                    !(Objects.equals(deviceFeatures[i].mCurrentDevice, device))) {
-                Log.i(TAG,"setAvrcpDisconnectedDevice : Active device changed to index = " + i);
-                if (device.isTwsPlusDevice() &&
-                    isTwsPlusPair(device,deviceFeatures[i].mCurrentDevice)) {
-                    Log.i(TAG,"TWS+ pair got disconnected,update absVolume");
-                    updateAbsVolume = true;
-                    Log.i(TAG,"TWS+ pair disconnected, set mTwsPairDisconnected for index " + i);
-                    deviceFeatures[i].mTwsPairDisconnected = true;
+            if (deviceFeatures[i].mCurrentDevice != null && device != null) {
+                if (Objects.equals(deviceFeatures[i].mCurrentDevice, device)) {
+                    deviceIndex = i;
+                } else {
+                    Log.i(TAG,"setAvrcpDisconnectedDevice : Active device changed to index = " + i);
+                    if (device.isTwsPlusDevice() &&
+                        isTwsPlusPair(device,deviceFeatures[i].mCurrentDevice)) {
+                        Log.i(TAG,"TWS+ pair got disconnected,update absVolume");
+                        updateAbsVolume = true;
+                        Log.i(TAG,"TWS+ pair disconnected, set mTwsPairDisconnected for index " + i);
+                        deviceFeatures[i].mTwsPairDisconnected = true;
+                    }
                 }
             }
         }
@@ -3796,6 +3800,7 @@ public final class Avrcp_ext {
             } else if (!playerBrowseWhiteListDB.contains(browsedPackage)) {
                 Log.w(TAG, "Browse unsupported for id:" + mCurrBrowsePlayerID
                         + ", packagename : " + browsedPackage);
+                mAvrcpBrowseManager.getBrowsedMediaPlayer(bdaddr).setBrowseRoot();
                 status = AvrcpConstants_ext.RSP_PLAY_NOT_BROW;
             } else if (!startBrowseService(bdaddr, browsedPackage)) {
                 Log.e(TAG, "service cannot be started for browse player id:" + mCurrBrowsePlayerID
