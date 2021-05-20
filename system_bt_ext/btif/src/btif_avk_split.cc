@@ -702,6 +702,11 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
             btif_avk_rc_handler(event, (tBTA_AVK*)p_data);
             break;
 
+        case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
+             BTIF_TRACE_WARNING("Sending ACK_FAILURE since BT connection is not established");
+             btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
+             break;
+
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
                                 dump_avk_sm_event_name((btif_avk_sm_event_t)event));
@@ -876,6 +881,12 @@ static bool btif_avk_split_state_opening_handler(btif_sm_event_t event, void *p_
             BTA_AvkClose(btif_avk_cb[index].bta_handle);
             btif_queue_advance();
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
+            break;
+
+
+        case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
+            BTIF_TRACE_WARNING("Sending ACK_FAILURE since BT connection is not established");
+            btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
             break;
 
         CHECK_AVK_RC_EVENT(event, (tBTA_AVK *)p_data);
