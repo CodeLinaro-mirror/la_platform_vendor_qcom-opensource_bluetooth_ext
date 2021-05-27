@@ -703,15 +703,14 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
             break;
 
         case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
-             BTIF_TRACE_WARNING("Sending ACK_FAILURE since BT connection is not established");
-             btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
-             break;
+            BTIF_TRACE_WARNING("Sending ACK_FAILURE since BT connection is not established");
+            btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
+            break;
 
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
                                 dump_avk_sm_event_name((btif_avk_sm_event_t)event));
             return FALSE;
-
     }
 
     return TRUE;
@@ -883,7 +882,6 @@ static bool btif_avk_split_state_opening_handler(btif_sm_event_t event, void *p_
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
             break;
 
-
         case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
             BTIF_TRACE_WARNING("Sending ACK_FAILURE since BT connection is not established");
             btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
@@ -942,6 +940,11 @@ static bool btif_avk_split_state_closing_handler(btif_sm_event_t event, void *p_
         case BTA_AVK_RC_CLOSE_EVT:
             btif_avk_rc_handler(event, (tBTA_AVK*)p_data);
             break;
+
+        case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
+             BTIF_TRACE_WARNING("Sending ACK_FAILURE since BT connection is not established");
+             btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
+             break;
 
         case BTIF_AVK_SPLIT_SINK_CHECK_A2DP_READY:
             BTIF_TRACE_DEBUG(" VSC command Status %d",btif_avk_cb[index].vsc_command_status);
@@ -1396,6 +1399,12 @@ static bool btif_avk_split_state_suspending_handler(btif_sm_event_t event, void 
                                                         &(btif_avk_cb[index].peer_bda));
             }
             break;
+
+        case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
+             BTIF_TRACE_WARNING("Sending ACK_FAILURE since BT connection is not established");
+             btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
+             break;
+
         case BTIF_AVK_SPLIT_PENDING_SUSPEND_ALARM_TIMEOUT:
              if(btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STARTED) {
              // Stop vsc and send suspend command to remote
