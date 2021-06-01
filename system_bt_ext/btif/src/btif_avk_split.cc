@@ -718,6 +718,22 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
             btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
             break;
 
+             /* We get these event in Idle State when some times in suspending state,
+              * BTA_AVK_CLOSE_EVT is handled before the
+              * VSC_STOP_COMPLETE_EVT and ACK is not sent to Audio hal.
+              * hanlde the VSC_STOP_COMPLETE_EVT in idle state.
+              */
+        case BTIF_AVK_SPLIT_SINK_VSC_STOP_COMPLETE_EVT:
+        case BTIF_AVK_SPLIT_SINK_STOP_CAPTURE:
+             BTIF_TRACE_DEBUG(" %s vsc_command_status %d",__FUNCTION__,
+                             btif_avk_cb[index].vsc_command_status);
+             if (btif_avk_cb[index].vsc_command_status == BTIF_AVK_VSC_STOP) {
+                btif_update_cmd_status(A2DP_AVK_CTRL_CMD_STOP_CAPTURE, A2DP_CTRL_ACK_SUCCESS);
+             } else {
+                btif_update_cmd_status(A2DP_AVK_CTRL_CMD_STOP_CAPTURE, A2DP_CTRL_ACK_FAILURE);
+             }
+             break;
+
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
                                 dump_avk_sm_event_name((btif_avk_sm_event_t)event));
