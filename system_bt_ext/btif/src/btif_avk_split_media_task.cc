@@ -246,10 +246,11 @@ void btif_update_cmd_status(uint8_t cmd,uint8_t status)
     if(btif_avk_media_cb.a2dp_cmd_pending == cmd)
     {
         a2dp_cmd_acknowledge(status);
-        btif_avk_media_cb.a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
     }
     else
         APPL_TRACE_ERROR("pending command missmatch");
+
+    APPL_TRACE_DEBUG("exit btif_update_cmd_status a2dp_cmd_pending : %d", btif_avk_media_cb.a2dp_cmd_pending);
 }
 
 static void btif_split_recv_ctrl_data(void)

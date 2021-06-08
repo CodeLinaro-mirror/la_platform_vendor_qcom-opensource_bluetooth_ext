@@ -104,6 +104,9 @@ typedef enum {
 
 #define BTIF_AVK_PENDING_RESPONSE_TIMEOUT     7000 // 7 seconds
 #define APTX_AD_RENDERING_DELAY            150
+
+#define TTP_MIN_LIMIT    255
+#define TTP_MAX_LIMIT   1020
 /*****************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -710,6 +713,11 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
             btif_avk_rc_handler(event, (tBTA_AVK*)p_data);
             break;
 
+        case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
+             BTIF_TRACE_WARNING("Sending ACK_FAILURE since BT connection is not established");
+             btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
+             break;
+
         default:
             BTIF_TRACE_WARNING("%s : unhandled event:%s", __FUNCTION__,
                                 dump_avk_sm_event_name((btif_avk_sm_event_t)event));
@@ -886,6 +894,12 @@ static bool btif_avk_split_state_opening_handler(btif_sm_event_t event, void *p_
             BTA_AvkClose(btif_avk_cb[index].bta_handle);
             btif_queue_advance();
             btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_IDLE);
+            break;
+
+
+        case BTIF_AVK_SPLIT_SINK_START_CAPTURE:
+            BTIF_TRACE_WARNING("Sending ACK_FAILURE since BT connection is not established");
+            btif_update_cmd_status(A2DP_AVK_CTRL_CMD_START_CAPTURE, A2DP_CTRL_ACK_FAILURE);
             break;
 
         CHECK_AVK_RC_EVENT(event, (tBTA_AVK *)p_data);
@@ -2867,20 +2881,44 @@ static bt_status_t suspend_req(const RawAddress& bd_addr) {
 ** Returns          void
 **
 *******************************************************************************/
-void set_ttp_range_for_aptx_ad(uint8_t min, uint8_t max) {
-    BTIF_TRACE_DEBUG("%s: with min %d max %d",__FUNCTION__, min, max);
-    if (max > min) {
-       bta_avk_co_aptx_ad_caps.min_latency_ll = bta_avk_co_aptx_ad_caps.min_latency_hq = min;
-       bta_avk_co_aptx_ad_caps.max_latency_ll = bta_avk_co_aptx_ad_caps.max_latency_hq = max;
+void set_ttp_range_for_aptx_ad(uint16_t min, uint16_t max) {
 
-       btif_avk_aptx_ad_default_config.min_latency_ll = btif_avk_aptx_ad_default_config.min_latency_hq = min;
-       btif_avk_aptx_ad_default_config.max_latency_ll = btif_avk_aptx_ad_default_config.max_latency_hq = max;
+    BTIF_TRACE_DEBUG("%s: with min %d max %d",__FUNCTION__, min, max);
+    if (max >= min) {
+
+       uint8_t ttp_min,ttp_max;
+
+       //TTP min value should not exceed uint8_t.
+       if (min > TTP_MIN_LIMIT) {
+          BTIF_TRACE_DEBUG("%s: min > 255, so setting it to 255",__FUNCTION__);
+          ttp_min = TTP_MIN_LIMIT;
+       }
+       else {
+          ttp_min = (uint8_t) min;
+          BTIF_TRACE_DEBUG("%s: setting ttp_min :%d",__FUNCTION__,ttp_min);
+       }
+
+       //TTP max value should not exceed 255*4.
+       if (max > TTP_MAX_LIMIT) {
+          BTIF_TRACE_DEBUG("%s: max > 1020, so setting it to 1020",__FUNCTION__);
+          max = TTP_MAX_LIMIT;
+       }
+
+       //stack to remote ttp values should not exceed uint8_t, so divide max by 4.
+       ttp_max =(uint8_t) (max/4);
+       BTIF_TRACE_DEBUG("%s: setting ttp_max :%d",__FUNCTION__,ttp_max);
+
+       bta_avk_co_aptx_ad_caps.min_latency_ll = bta_avk_co_aptx_ad_caps.min_latency_hq = ttp_min;
+       bta_avk_co_aptx_ad_caps.max_latency_ll = bta_avk_co_aptx_ad_caps.max_latency_hq = ttp_max;
+
+       btif_avk_aptx_ad_default_config.min_latency_ll = btif_avk_aptx_ad_default_config.min_latency_hq = ttp_min;
+       btif_avk_aptx_ad_default_config.max_latency_ll = btif_avk_aptx_ad_default_config.max_latency_hq = ttp_max;
 
        /* updates TTP range in get capabilities */
-       update_aptx_ad_ttp_range_to_caps(min, max);
+       update_aptx_ad_ttp_range_to_caps(ttp_min, ttp_max);
     }
     else {
-       BTIF_TRACE_DEBUG("%s: Setting TTP range for aptxad codec failed: max < min");
+       BTIF_TRACE_DEBUG("Setting TTP range for aptxad codec failed: max < min");
     }
 }
 

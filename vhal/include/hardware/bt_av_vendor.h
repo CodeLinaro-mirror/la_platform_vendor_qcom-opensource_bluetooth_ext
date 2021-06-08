@@ -396,7 +396,7 @@ typedef struct {
     bt_status_t (*suspend_req)(const RawAddress& bd_addr);
 
     /** Set TTP range values for aptx-ad */
-    void (*set_ttp_range_for_aptx_ad)(uint8_t min, uint8_t max);
+    void (*set_ttp_range_for_aptx_ad)(uint16_t min, uint16_t max);
 } btav_sink_vendor_interface_t;
 __END_DECLS
 
