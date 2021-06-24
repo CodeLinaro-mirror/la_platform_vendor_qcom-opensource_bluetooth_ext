@@ -47,6 +47,7 @@
 
 #include "bt_types.h"
 #include "gatt_api.h"
+#include "stack/rfcomm/port_int.h"
 
 /*****************************************************************************
  *  Constants
@@ -61,6 +62,22 @@ typedef struct {
   bt_gatt_db_attribute_type_t gatt_type;
 } tLPM_GATTS_SRVC_ATTR;
 
+typedef struct {
+  uint8_t state;
+  uint8_t scn;
+  uint16_t uuid;
+  RawAddress bd_addr;
+  bool is_server;
+  uint8_t dlci;
+  uint16_t mtu;
+  uint16_t peer_mtu;
+  uint16_t credit_tx;
+  uint16_t credit_rx;
+  uint16_t credit_rx_max;
+  uint16_t credit_rx_low;
+  uint16_t keep_mtu;
+} tLPM_PORT_INFO;
+
 /*****************************************************************************
  *  Callbacks
  ****************************************************************************/
@@ -72,11 +89,15 @@ typedef void (tLPM_GATTS_DB_ELEM_CBACK) (std::vector<tLPM_GATTS_SRVC_ATTR> attr_
 
 typedef void (tLPM_PACKET_AFTER_FLOW_OFF) (void);
 
+typedef void (tLPM_RFCOMM_PORT_INFO_CBACK) (tLPM_PORT_INFO *port_info);
+
 typedef struct {
   tLPM_BLE_CONN_CBACK* p_ble_conn_cb;
   tLPM_GATTS_DB_ELEM_CBACK* p_gatts_service_cb;
   tLPM_PACKET_AFTER_FLOW_OFF* p_packet_after_flow_off;
+  tLPM_RFCOMM_PORT_INFO_CBACK* p_rfcomm_port_info_cb;
 } tLPM_CBACK;
+
 
  /*******************************************************************************
  *
@@ -104,4 +125,5 @@ extern void LPM_Enable(tLPM_CBACK* p_cb);
  ******************************************************************************/
 extern void LPM_ModeSwitchReq(tLPM_mode mode);
 
+extern void LPM_CopyPortInfo(tPORT*);
 #endif /* LPM_API_H */
