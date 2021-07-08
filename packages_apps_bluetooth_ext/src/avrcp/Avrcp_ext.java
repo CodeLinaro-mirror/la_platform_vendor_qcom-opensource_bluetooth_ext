@@ -34,6 +34,7 @@ import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.apm.DeviceProfileMapIntf;
 import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 import com.android.bluetooth.apm.VolumeManagerIntf;
+import com.android.bluetooth.apm.MediaControlManagerIntf;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -118,7 +119,6 @@ public final class Avrcp_ext {
     private AvrcpMessageHandler mHandler;
     private final BluetoothAdapter mAdapter;
     private A2dpService mA2dpService;
-    ServiceFactory mFactory = new ServiceFactory();
     private Handler mAudioManagerPlaybackHandler;
     private AudioManagerPlaybackListener mAudioManagerPlaybackCb;
     private MediaSessionManager mMediaSessionManager;
@@ -127,7 +127,6 @@ public final class Avrcp_ext {
     private MediaAttributes mMediaAttributes;
     private long mLastQueueId;
     private PackageManager mPackageManager;
-    private int mTransportControlFlags;
     private int mA2dpState;
     private @NonNull PlaybackState mCurrentPlayerState;
     private long mLastStateUpdate;
@@ -160,7 +159,6 @@ public final class Avrcp_ext {
     private Map<String, Integer> mMediaPlayerIds =
             Collections.synchronizedMap(new HashMap<String, Integer>());
     private int mLastDirection;
-    private final int mVolumeStep;
     private final int mAudioStreamMax;
     private boolean updateAbsVolume = false;
 
@@ -285,40 +283,6 @@ public final class Avrcp_ext {
     private BluetoothDevice mCurrentBrowsingDevice = null;
     private BluetoothDevice mBrowsingActiveDevice = null;
 
-    private class MediaKeyLog {
-        private long mTimeSent;
-        private long mTimeProcessed;
-        private String mPackage;
-        private KeyEvent mEvent;
-
-        public MediaKeyLog(long time, KeyEvent event) {
-            mEvent = event;
-            mTimeSent = time;
-        }
-
-        public boolean addDispatch(long time, KeyEvent event, String packageName) {
-            if (mPackage != null) return false;
-            if (event.getAction() != mEvent.getAction()) return false;
-            if (event.getKeyCode() != mEvent.getKeyCode()) return false;
-            mPackage = packageName;
-            mTimeProcessed = time;
-            return true;
-        }
-
-        public String toString() {
-            StringBuilder sb = new StringBuilder();
-            sb.append(android.text.format.DateFormat.format("MM-dd HH:mm:ss", mTimeSent));
-            sb.append(" " + mEvent.toString());
-            if (mPackage == null) {
-                sb.append(" (undispatched)");
-            } else {
-                sb.append(" to " + mPackage);
-                sb.append(" in " + (mTimeProcessed - mTimeSent) + "ms");
-            }
-            return sb.toString();
-        }
-    }
-
     // Device dependent registered Notification & Variables
     private class DeviceDependentFeature {
         private Context mContext;
@@ -344,7 +308,6 @@ public final class Avrcp_ext {
         private boolean isAbsoluteVolumeSupportingDevice;
         private int mAbsVolRetryTimes;
         private int keyPressState;
-        private long mTracksPlayed;
         private int mAvailablePlayersChangedNT;
         private int mAddrPlayerChangedNT;
         private long mLastStateUpdate;
@@ -384,7 +347,6 @@ public final class Avrcp_ext {
             mLastDirection = 0;
             mAbsoluteVolume = -1;
             mLastSetVolume = -1;
-            mTracksPlayed = 0;
             mVolCmdAdjustInProgress = false;
             mVolCmdSetInProgress = false;
             isAbsoluteVolumeSupportingDevice = false;
@@ -483,7 +445,6 @@ public final class Avrcp_ext {
             Context.MEDIA_SESSION_SERVICE);
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
         mAudioStreamMax = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        mVolumeStep = Math.max(AVRCP_BASE_VOLUME_STEP, AVRCP_MAX_VOL/mAudioStreamMax);
 
         // Register for package removal intent broadcasts for media button receiver persistence
         IntentFilter pkgFilter = new IntentFilter();
@@ -749,6 +710,8 @@ public final class Avrcp_ext {
         @Override
         public void onMetadataChanged(MediaMetadata metadata) {
             if (DEBUG) Log.v(TAG, "onMetadataChanged");
+            MediaControlManagerIntf mMediaControlManager = MediaControlManagerIntf.get();
+            mMediaControlManager.onMetadataChanged(metadata);
             if (mBroadcastService == null) {
                 AdapterService adapterService = AdapterService.getAdapterService();
                 mBroadcastService = adapterService.getBroadcastService();
@@ -782,6 +745,8 @@ public final class Avrcp_ext {
         @Override
         public synchronized void onPlaybackStateChanged(PlaybackState state) {
             if (DEBUG) Log.v(TAG, "onPlaybackStateChanged: state " + ((state != null)? state.toString() : "NULL"));
+            MediaControlManagerIntf mMediaControlManager = MediaControlManagerIntf.get();
+            mMediaControlManager.onPlaybackStateChanged(state);
             updateCurrentMediaState(null);
             Log.v(TAG, " Exit onPlaybackStateChanged");
         }
@@ -803,6 +768,9 @@ public final class Avrcp_ext {
                 Log.v(TAG, "onQueueChanged: received null queue");
                 return;
             }
+
+            MediaControlManagerIntf mMediaControlManager = MediaControlManagerIntf.get();
+            mMediaControlManager.onQueueChanged(queue);
 
             Log.v(TAG, "onQueueChanged: NowPlaying list changed, Queue Size = "+ queue.size());
             mHandler.sendEmptyMessage(MSG_NOW_PLAYING_CHANGED_RSP);
@@ -1913,7 +1881,6 @@ public final class Avrcp_ext {
 
         deviceFeatures[deviceIndex].mCurrentPlayState = state;
         deviceFeatures[deviceIndex].mLastPassthroughcmd = KeyEvent.KEYCODE_UNKNOWN;
-
         if ((deviceFeatures[deviceIndex].mPlayStatusChangedNT ==
                 AvrcpConstants_ext.NOTIFICATION_TYPE_INTERIM) &&
                (oldPlayStatus != newPlayStatus) && deviceFeatures[deviceIndex].mCurrentDevice != null) {
@@ -2114,10 +2081,6 @@ public final class Avrcp_ext {
         mReportedPlayStatus = playbackState;
     }
 
-    private void updateTransportControls(int transportControlFlags) {
-        mTransportControlFlags = transportControlFlags;
-    }
-
     class MediaAttributes {
         private boolean exists;
         private String title;
@@ -2279,13 +2242,16 @@ public final class Avrcp_ext {
         // Only do player updates when we aren't registering for track changes.
         MediaAttributes currentAttributes;
         boolean isPlaying = false;
-        PlaybackState newState = new PlaybackState.Builder().setState(PlaybackState.STATE_NONE,
-                                               PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0.0f).build();
-        PlaybackState playbackState = new PlaybackState.Builder().setState(PlaybackState.STATE_NONE,
-                                               PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0.0f).build();
         boolean updateA2dpPlayState = false;
+
+        PlaybackState newState = new PlaybackState.Builder().setState(PlaybackState.STATE_NONE,
+                                             PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0.0f).build();
+        PlaybackState playbackState = new PlaybackState.Builder().setState(PlaybackState.STATE_NONE,
+                                             PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0.0f).build();
+
         Log.v(TAG,"updateCurrentMediaState: mMediaController: " + mMediaController);
-        Log.v(TAG,"isMusicActive: " + mAudioManager.isMusicActive() + " getBluetoothPlayState: " + getBluetoothPlayState(mCurrentPlayerState));
+        Log.v(TAG,"isMusicActive: " + mAudioManager.isMusicActive() + " getBluetoothPlayState: "
+                  + getBluetoothPlayState(mCurrentPlayerState) + "A2dp State: " + mA2dpState);
 
         synchronized (this) {
             if (mMediaController == null ||
@@ -2295,29 +2261,23 @@ public final class Avrcp_ext {
                 } else {
                     isPlaying = (mA2dpState == BluetoothA2dp.STATE_PLAYING) && mAudioManager.isMusicActive();
                 }
-                if (mMediaController != null) {
+
+                if (mMediaController != null)
                     playbackState = mMediaController.getPlaybackState();
-                }
+
                 Log.v(TAG,"updateCurrentMediaState: isPlaying = " + isPlaying);
                 // Use A2DP state if we don't have a MediaControlller
                 PlaybackState.Builder builder = new PlaybackState.Builder();
                 if (isPlaying) {
                     builder.setState(PlaybackState.STATE_PLAYING,
+                            (playbackState != null) ? playbackState.getPosition():
                             PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f);
                 } else {
                     builder.setState(PlaybackState.STATE_PAUSED,
+                            (playbackState != null) ? playbackState.getPosition():
                             PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0.0f);
                 }
-                if (playbackState != null) {
-                    int mMediaPlayState = playbackState.getState();
-                    if (isPlaying) {
-                        builder.setState(PlaybackState.STATE_PLAYING,
-                                playbackState.getPosition(), 1.0f);
-                    } else {
-                        builder.setState(PlaybackState.STATE_PAUSED,
-                                playbackState.getPosition(), 0.0f);
-                    }
-                }
+
                 newState = builder.build();
                 if (mMediaController == null)
                     currentAttributes = new MediaAttributes(device, null);
@@ -2443,7 +2403,6 @@ public final class Avrcp_ext {
                 for (int i = 0; i < maxAvrcpConnections; i++) {
                     if ((deviceFeatures[i].mCurrentDevice != null) &&
                         (deviceFeatures[i].mTrackChangedNT == AvrcpConstants_ext.NOTIFICATION_TYPE_INTERIM)) {
-                         deviceFeatures[i].mTracksPlayed++;
                          Log.v(TAG,"sending track change for device " + i);
                          sendTrackChangedRsp(false, deviceFeatures[i].mCurrentDevice);
                     }
@@ -3173,7 +3132,8 @@ public final class Avrcp_ext {
     }
 
     private int convertToAvrcpVolume(int volume) {
-        return (int) Math.ceil((double) volume*AVRCP_MAX_VOL/mAudioStreamMax);
+        return (mAudioStreamMax != 0) ?
+                (int) Math.ceil((double) volume*AVRCP_MAX_VOL/mAudioStreamMax) : 0;
     }
 
     //PDU ID 0x11
@@ -3915,6 +3875,8 @@ public final class Avrcp_ext {
             };
 
     private void setAddressedMediaSessionPackage(@Nullable String packageName) {
+        MediaControlManagerIntf mMediaControlManager = MediaControlManagerIntf.get();
+        mMediaControlManager.onPackageChanged(packageName);
         if (packageName == null) {
             // Should only happen when there's no media players, reset to no available player.
             updateCurrentController(0, mCurrBrowsePlayerID);
@@ -4037,18 +3999,29 @@ public final class Avrcp_ext {
                 mMediaPlayerInfoList.clear();
                 mMediaPlayerIds.clear();
                 if (mMediaSessionManager == null) {
-                    if (DEBUG) Log.w(TAG, "initMediaPlayersList: no media session manager!");
+                    Log.w(TAG, "initMediaPlayersList: no media session manager!");
                     return;
                 }
 
                 List<android.media.session.MediaController> controllers =
                         mMediaSessionManager.getActiveSessions(null);
-                if (DEBUG)
-                    Log.v(TAG, "initMediaPlayerInfoList: " + controllers.size() + " controllers");
-                /* Initializing all media players */
+                Map<String, android.media.session.MediaController> updatedPackages =
+                        new HashMap<String, android.media.session.MediaController>();
+                Log.d(TAG, "initMediaPlayerInfoList: " + controllers.size() + " controllers");
                 for (android.media.session.MediaController controller : controllers) {
-                     addMediaPlayerController(controller);
+                    String packageName = (controller != null) ? controller.getPackageName() : null;
+                    Log.d(TAG, "Check for controller " + controller + " for pkg " + packageName);
+                    if (packageName != null)
+                        updatedPackages.put(packageName, controller);
                 }
+                /* Initializing all media players */
+                for (Map.Entry<String, android.media.session.MediaController> entry : updatedPackages.entrySet()) {
+                    String packageName = entry.getKey();
+                    android.media.session.MediaController controller = entry.getValue();
+                    addMediaPlayerController(controller);
+                    Log.d(TAG, "Add Player controller " + controller + " for pkg " + packageName);
+                }
+                updatedPackages.clear();
 
                 updateCurrentMediaState(null);
 
@@ -4181,6 +4154,8 @@ public final class Avrcp_ext {
                         info.setMediaController(null);
                         if (entry.getKey() == mCurrAddrPlayerID) {
                             updateCurrentController(mCurrAddrPlayerID, mCurrBrowsePlayerID);
+                            MediaControlManagerIntf mMediaControlManager = MediaControlManagerIntf.get();
+                            mMediaControlManager.onSessionDestroyed(controller.getPackageName());
                         }
                     }
                 }
@@ -4547,7 +4522,11 @@ public final class Avrcp_ext {
             playItemRspNative(bdaddr, AvrcpConstants_ext.RSP_MEDIA_IN_USE);
             return;
         }
-
+        if (isBroadcastActive(false, 0, true, device)) {
+            Log.w(TAG,"Remote requesting play item while Broadcast is active");
+            playItemRspNative(bdaddr, AvrcpConstants_ext.RSP_MEDIA_IN_USE);
+            return;
+        }
         if (mBrowsingActiveDevice != null && !Objects.equals(mBrowsingActiveDevice, device)) {
             Log.w(TAG, "play item Cmd from browse inactive device, reject it");
             playItemRspNative(bdaddr, AvrcpConstants_ext.RSP_INTERNAL_ERR);
@@ -4758,10 +4737,7 @@ public final class Avrcp_ext {
         for (int i = 0; i < maxAvrcpConnections; i++) {
             Log.v(TAG,"for index " + i);
             ProfileService.println(sb, "mMediaAttributes: " + mMediaAttributes);
-            ProfileService.println(sb, "mTransportControlFlags: " + mTransportControlFlags);
-            ProfileService.println(sb, "mTracksPlayed: " + deviceFeatures[i].mTracksPlayed);
             ProfileService.println(sb, "mCurrentPlayState: " + deviceFeatures[i].mCurrentPlayState);
-            ProfileService.println(sb, "mLastStateUpdate: " + mLastStateUpdate);
             ProfileService.println(sb, "mPlayStatusChangedNT: " + deviceFeatures[i].mPlayStatusChangedNT);
             ProfileService.println(sb, "mTrackChangedNT: " + deviceFeatures[i].mTrackChangedNT);
             ProfileService.println(sb, "mLastStateUpdate: " + mLastStateUpdate);
@@ -4776,7 +4752,6 @@ public final class Avrcp_ext {
             ProfileService.println(sb, "mAbsoluteVolume: " + deviceFeatures[i].mAbsoluteVolume);
             ProfileService.println(sb, "mLastSetVolume: " + deviceFeatures[i].mLastSetVolume);
             ProfileService.println(sb, "mLastDirection: " + deviceFeatures[i].mLastDirection);
-            ProfileService.println(sb, "mVolumeStep: " + mVolumeStep);
             ProfileService.println(sb, "mAudioStreamMax: " + mAudioStreamMax);
             ProfileService.println(sb, "mVolCmdSetInProgress: " + deviceFeatures[i].mVolCmdSetInProgress);
             ProfileService.println(sb, "mVolCmdAdjustInProgress: " + deviceFeatures[i].mVolCmdAdjustInProgress);
@@ -5435,6 +5410,40 @@ public final class Avrcp_ext {
         return mVolumeMap.get(device);
     }
 
+    private boolean isBroadcastActive(boolean passthrough, int action,
+                                      boolean playitem, BluetoothDevice device) {
+        BluetoothDevice a2dp_active_device = null;
+        if (mA2dpService != null) a2dp_active_device = mA2dpService.getActiveDevice();
+        boolean rc_only_device = isPeerDeviceAvrcpOnly(device);
+        if (a2dp_active_device == null) {
+            if (mBroadcastService == null) {
+                AdapterService adapterService = AdapterService.getAdapterService();
+                mBroadcastService = adapterService.getBroadcastService();
+                mBroadcastIsActive = adapterService.getBroadcastActive();
+            }
+            if (mBroadcastService != null && mBroadcastIsActive != null) {
+                boolean is_active = false;
+                try {
+                    is_active = (boolean) mBroadcastIsActive.invoke(mBroadcastService);
+                } catch(IllegalAccessException | InvocationTargetException e) {
+                    Log.e(TAG, "Broadcast:IsActive IllegalAccess/Target Exception");
+                }
+                if (is_active) {
+                    if (((passthrough && action == KeyEvent.ACTION_DOWN) ||
+                         playitem)&& !rc_only_device) {
+                        if (ApmConstIntf.getLeAudioEnabled()) {
+                            ActiveDeviceManagerServiceIntf activeDeviceManager =
+                                                 ActiveDeviceManagerServiceIntf.get();
+                            activeDeviceManager.setActiveDevice(device,
+                                           ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
+                        }
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
     public void setAbsVolumeFlag(BluetoothDevice device) {
         int deviceIndex = getIndexForDevice(device);
         int volume = getVolume(device);
@@ -5522,34 +5531,9 @@ public final class Avrcp_ext {
                 skip = true;
             }
         }
-        if (a2dp_active_device == null) {
-            if (mBroadcastService == null) {
-                AdapterService adapterService = AdapterService.getAdapterService();
-                mBroadcastService = adapterService.getBroadcastService();
-                mBroadcastIsActive = adapterService.getBroadcastActive();
-            }
-            if (mBroadcastService != null && mBroadcastIsActive != null) {
-                boolean is_active = false;
-                try {
-                    is_active = (boolean) mBroadcastIsActive.invoke(mBroadcastService);
-                } catch(IllegalAccessException e) {
-                    Log.e(TAG, "Broadcast:IsActive IllegalAccessException");
-                } catch (InvocationTargetException e) {
-                    Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
-                }
-                if (is_active) {
-                    Log.d(TAG,"Broadcast is active, ignore passthrough from legacy hs");
-                    if (action == KeyEvent.ACTION_DOWN && !rc_only_device) {
-                        if (ApmConstIntf.getLeAudioEnabled()) {
-                            ActiveDeviceManagerServiceIntf activeDeviceManager =
-                                                 ActiveDeviceManagerServiceIntf.get();
-                            activeDeviceManager.setActiveDevice(device,
-                                           ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
-                        }
-                    }
-                    return;
-                }
-            }
+        if (isBroadcastActive(true, action, false, device)) {
+            Log.d(TAG, "Ignore passthrough, Broadcast is active");
+            return;
         }
         if (a2dp_active_device == null &&
             code == KeyEvent.KEYCODE_MEDIA_PLAY) {
