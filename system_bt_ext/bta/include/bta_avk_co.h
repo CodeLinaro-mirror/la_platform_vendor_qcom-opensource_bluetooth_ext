@@ -45,7 +45,8 @@ extern const tA2D_APTX_CIE bta_avk_co_aptx_caps;
 #endif
 #if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
 #include "a2d_aptx_ad_decoder.h"
-extern const tA2DP_AVK_APTX_AD_CIE bta_avk_co_aptx_ad_caps;
+extern tA2DP_AVK_APTX_AD_CIE bta_avk_co_aptx_ad_caps;
+extern tA2DP_AVK_APTX_AD_CIE btif_avk_aptx_ad_default_config;
 #endif
 
 /*****************************************************************************
