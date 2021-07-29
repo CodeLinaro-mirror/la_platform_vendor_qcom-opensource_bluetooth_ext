@@ -161,7 +161,6 @@ public final class Avrcp_ext {
     private Map<String, Integer> mMediaPlayerIds =
             Collections.synchronizedMap(new HashMap<String, Integer>());
     private int mLastDirection;
-    private final int mVolumeStep;
     private final int mAudioStreamMax;
     private boolean updateAbsVolume = false;
 
@@ -484,7 +483,6 @@ public final class Avrcp_ext {
             Context.MEDIA_SESSION_SERVICE);
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
         mAudioStreamMax = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        mVolumeStep = Math.max(AVRCP_BASE_VOLUME_STEP, AVRCP_MAX_VOL/mAudioStreamMax);
 
         // Register for package removal intent broadcasts for media button receiver persistence
         IntentFilter pkgFilter = new IntentFilter();
@@ -4790,7 +4788,6 @@ public final class Avrcp_ext {
             ProfileService.println(sb, "mAbsoluteVolume: " + deviceFeatures[i].mAbsoluteVolume);
             ProfileService.println(sb, "mLastSetVolume: " + deviceFeatures[i].mLastSetVolume);
             ProfileService.println(sb, "mLastDirection: " + deviceFeatures[i].mLastDirection);
-            ProfileService.println(sb, "mVolumeStep: " + mVolumeStep);
             ProfileService.println(sb, "mAudioStreamMax: " + mAudioStreamMax);
             ProfileService.println(sb, "mVolCmdSetInProgress: " + deviceFeatures[i].mVolCmdSetInProgress);
             ProfileService.println(sb, "mVolCmdAdjustInProgress: " + deviceFeatures[i].mVolCmdAdjustInProgress);
