@@ -68,11 +68,14 @@ static void bta_lpm_rfcomm_port_cb(tLPM_PORT_INFO*);
 
 static void bta_lpm_hci_info_cb(tLPM_HCI_INFO* info, const RawAddress& bd_addr);
 
+static void bta_lpm_l2cap_credit_cb(tL2CAP_credits credit_info);
+
 static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
                                    bta_lpm_gatts_service_cb,
                                    bta_lpm_packet_after_flow_off_cb,
                                    bta_lpm_rfcomm_port_cb,
-                                   bta_lpm_hci_info_cb
+                                   bta_lpm_hci_info_cb,
+                                   bta_lpm_l2cap_credit_cb
                                   };
 
 #ifndef CASE_RETURN_STR
@@ -345,4 +348,23 @@ static void bta_lpm_hci_info_cb(tLPM_HCI_INFO* hci_info,const RawAddress& bd_add
     APPL_TRACE_DEBUG(" %s hci_info_copied handle: %d role %d", __func__,hci_context_evt.hci_evt.hci_info.hci_handle,hci_context_evt.hci_evt.hci_info.role);
   }
   bta_lpm_cb.p_lpm_cback(LPM_HCI_INFO_EVT, &hci_context_evt);
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_lpm_l2cap_credit_cb
+ *
+ * Description      Callback for l2cap credits info
+ *
+ *feturns          void
+ *
+ ******************************************************************************/
+
+void bta_lpm_l2cap_credit_cb (tL2CAP_credits credit_info) {
+  APPL_TRACE_ERROR("%s: ", __func__);
+  if(bta_lpm_cb.p_lpm_cback != NULL) {
+    tBTA_LPM l2cap_evt;
+    memcpy(&l2cap_evt.l2cap_evt.credit_info, &credit_info, sizeof(tL2CAP_credits));
+    bta_lpm_cb.p_lpm_cback(LPM_L2CAP_EVT, &l2cap_evt);
+  }
 }

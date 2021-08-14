@@ -46,6 +46,7 @@
 #include "bta_sys.h"
 #include "bta_api.h"
 #include "lpm_api.h"
+#include "l2c_api.h"
 
 /*****************************************************************************
  *  LPM Profile Callback data definitions from BTA to BTIF
@@ -59,6 +60,7 @@
 #define LPM_PACKET_AFTER_FLOW_OFF 4
 #define LPM_RFCOMM_EVT 7
 #define LPM_HCI_INFO_EVT 8
+#define LPM_L2CAP_EVT 9
 
 typedef uint8_t tBTA_LPM_EVT;
 
@@ -122,6 +124,10 @@ typedef struct {
   RawAddress bd_addr;
 } tBTA_LPM_HCI_EVT;
 
+typedef struct {
+  tL2CAP_credits credit_info;
+}tBTA_LPM_L2CAP_EVT;
+
 typedef union {
   tBTA_LPM_PROFILE_UPDATE profile_update;
   tBTA_LPM_BLE_CONN_UPDATE ble_conn;
@@ -129,6 +135,7 @@ typedef union {
   tBTA_LPM_ALARM_EVT alarm_evt;
   tBTA_LPM_RFCOMM_EVT rfcomm_evt;
   tBTA_LPM_HCI_EVT hci_evt;
+  tBTA_LPM_L2CAP_EVT l2cap_evt;
 } tBTA_LPM;
 
 /*  LPM Profile Callback from BTA to BTIF */
