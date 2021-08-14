@@ -928,6 +928,29 @@ void btif_lpm_alarm_stop(char *alarm_name) {
 
 /*******************************************************************************
  *
+ * Function         btif_lpm_update_credits
+ *
+ * Description      Update L2CAP buffers
+ *
+ * Parameters       L2cap event structure
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+
+void btif_lpm_update_credits(tBTA_LPM_L2CAP_EVT *l2cap_evt) {
+
+   BTIF_TRACE_ERROR("%s, l2cal credits - le credits:%d", __FUNCTION__,
+                                    l2cap_evt->credit_info.controller_le_xmit_window);
+   vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_Hci_Acl_Credits(BtType::BT_TYPE_LE,
+                                              l2cap_evt->credit_info.controller_le_xmit_window);
+   vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_Hci_Acl_Credits(BtType::BT_TYPE_BT_EDR,
+                                              l2cap_evt->credit_info.controller_xmit_window);
+}
+
+
+/*******************************************************************************
+ *
  * Function         btif_lpm_upstreams_evt
  *
  * Description      Internal function which handles BTA LPM events
@@ -965,7 +988,11 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
         btif_lpm_alarm_stop(alarm->alarm_evt.name);
       break;
     }
-    
+    case LPM_L2CAP_EVT: {
+      tBTA_LPM_L2CAP_EVT *l2cap_evt = (tBTA_LPM_L2CAP_EVT*)p_param;
+      btif_lpm_update_credits(l2cap_evt);
+      break;
+    }
     case LPM_PACKET_AFTER_FLOW_OFF: {
       {
         std::unique_lock<std::mutex> lock(bt_activity_lock);

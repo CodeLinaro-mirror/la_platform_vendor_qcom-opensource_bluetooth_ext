@@ -258,6 +258,8 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
           }
     //}
       /* Send flow off status to stack ?? */
+      BTIF_TRACE_EVENT("%s: calling L2cap_flowoff api",__func__);
+      L2CA_setLpmFlowoff(true);
       /* twm mode - disconnects all the links except offloaded */
       /* PwrMode::PWR_MODE_ACTIVE */
       break;

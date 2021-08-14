@@ -370,6 +370,21 @@ bool btif_lpm_native_interface_set_hci_context_info(std::string addr,btif_hci_co
   }
   return true;
 }
+
+
+bool btif_lpm_native_interface_set_Hci_Acl_Credits(BtType btType, uint16_t credits) {
+  LOG_INFO(LOG_TAG,"btif_lpm_native_interface_set_Hci_Acl_Credits");
+
+  auto ret = btLpmNative->setHciAclCredits(btType, credits);
+
+  if(ret != BtOffloadStatus::BT_OK){
+    return false;
+  }
+  return true;
+
+}
+
+
 }  // namespace V1_0
 }  // namespace bluetooth_offload
 }  // namespace hardware
