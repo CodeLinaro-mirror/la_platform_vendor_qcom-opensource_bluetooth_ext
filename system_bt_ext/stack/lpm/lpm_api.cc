@@ -278,3 +278,8 @@ void LPM_CopyHCIInfo(uint16_t handle,uint8_t role,const RawAddress& bda){
    p_lpm_hci_info.direction = 1;
    lpm_cb.lpm_cback.p_hci_info_cb(&p_lpm_hci_info,bda);
 }
+
+void LPM_CopyL2CAPCredits(tL2CAP_credits credits) {
+   LOG_DEBUG(LOG_TAG, "%s", __func__);
+   lpm_cb.lpm_cback.P_l2cap_credit_info_cb(credits);
+}

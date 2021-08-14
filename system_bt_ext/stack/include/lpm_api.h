@@ -48,6 +48,7 @@
 #include "bt_types.h"
 #include "gatt_api.h"
 #include "stack/rfcomm/port_int.h"
+#include "stack/include/l2c_api.h"
 
 /*****************************************************************************
  *  Constants
@@ -100,12 +101,15 @@ typedef void (tLPM_RFCOMM_PORT_INFO_CBACK) (tLPM_PORT_INFO *port_info);
 
 typedef void (tLPM_HCI_INFO_CBACK) (tLPM_HCI_INFO *hci_info,const RawAddress& rmt_addr);
 
+typedef void (tLPM_L2CAP_INFO_CBACK) (tL2CAP_credits credit_info);
+
 typedef struct {
   tLPM_BLE_CONN_CBACK* p_ble_conn_cb;
   tLPM_GATTS_DB_ELEM_CBACK* p_gatts_service_cb;
   tLPM_PACKET_AFTER_FLOW_OFF* p_packet_after_flow_off;
   tLPM_RFCOMM_PORT_INFO_CBACK* p_rfcomm_port_info_cb;
   tLPM_HCI_INFO_CBACK* p_hci_info_cb;
+  tLPM_L2CAP_INFO_CBACK* P_l2cap_credit_info_cb;
 } tLPM_CBACK;
 
 
@@ -138,4 +142,7 @@ extern void LPM_ModeSwitchReq(tLPM_mode mode);
 extern void LPM_CopyPortInfo(tPORT*);
 
 extern void LPM_CopyHCIInfo(uint16_t,uint8_t,const RawAddress&);
+
+extern void LPM_CopyL2CAPCredits(tL2CAP_credits credits);
+
 #endif /* LPM_API_H */
