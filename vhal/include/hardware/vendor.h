@@ -207,6 +207,9 @@ typedef struct {
     /** Get role of dut with a given remote device */
     void (*get_role_req)(const RawAddress* bd_addr);
 
+    /** swith role of dut with a given remote device */
+    int (*switch_role_req)(const RawAddress *bd_addr, uint8_t new_role);
+
 } btvendor_interface_t;
 
 __END_DECLS
