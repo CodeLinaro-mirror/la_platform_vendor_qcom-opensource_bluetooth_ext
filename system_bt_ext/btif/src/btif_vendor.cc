@@ -148,6 +148,10 @@ static bt_status_t init( btvendor_callbacks_t* callbacks)
     return BT_STATUS_SUCCESS;
 }
 
+static bool vendor_interface_ready(void) {
+  return bt_vendor_callbacks != NULL;
+}
+
 static void btif_vendor_bredr_cleanup_event(uint16_t event, char *p_param)
 {
     tBTA_SERVICE_MASK service_mask;
@@ -371,6 +375,15 @@ static const void* get_testapp_interface(int test_app_profile)
 }
 #endif
 
+static void get_role_req(const RawAddress* bd_addr)
+{
+    /* sanity check */
+    if (vendor_interface_ready() == FALSE)
+       return 0;
+
+    return btif_dm_get_role_req(bd_addr);
+}
+
 static const btvendor_interface_t btvendorInterface = {
     sizeof(btvendorInterface),
     init,
@@ -386,6 +399,7 @@ static const btvendor_interface_t btvendorInterface = {
     NULL,//set_property_callouts,
     cleanup,
     voip_network_type_wifi,
+    get_role_req,
 };
 
 /*******************************************************************************

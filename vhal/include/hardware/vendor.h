@@ -106,6 +106,12 @@ typedef struct {
     void *val;
 } bt_vendor_property_t;
 
+typedef struct{
+    uint8_t                status;       /* success or fail */
+    uint8_t                role;         /* role */
+    bt_bdaddr_t            bd_addr;      /* BD address peer device. */
+}bt_dm_role_info;
+
 /** Callback when bredr cleanup is done.
  */
 typedef void (*  btvendor_bredr_cleanup_callback)(bool status);
@@ -134,6 +140,8 @@ typedef void (*btvendor_acl_state_changed_with_reason_callback)(bt_status_t stat
                                                        bt_acl_state_t state,
                                                        uint8_t reason,
                                                        uint8_t transport_type);
+/** Callback to notify role info to app.*/
+typedef void (*btvendor_role_info_callback)(bt_dm_role_info role_info);
 
 /** BT-Vendor callback structure. */
 typedef struct {
@@ -145,6 +153,7 @@ typedef struct {
     hci_event_recv_callback          hci_event_recv_cb;
     btvendor_ssr_cleanup_callback    ssr_cleanup_cb;
     btvendor_acl_state_changed_with_reason_callback acl_state_changed_with_reason_cb;
+    btvendor_role_info_callback role_info_cb;
 } btvendor_callbacks_t;
 
 typedef int (*property_set_callout)(const char* key, const char* value);
@@ -194,6 +203,9 @@ typedef struct {
     /** Sends connectivity network type used by Voip currently to stack */
     bt_status_t (*voip_network_type_wifi) (bthf_voip_state_t is_voip_started,
                                            bthf_voip_call_network_type_t is_network_wifi);
+
+    /** Get role of dut with a given remote device */
+    void (*get_role_req)(const RawAddress* bd_addr);
 
 } btvendor_interface_t;
 
