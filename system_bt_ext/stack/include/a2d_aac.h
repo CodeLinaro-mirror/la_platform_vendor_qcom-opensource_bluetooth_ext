@@ -72,7 +72,7 @@
 #define A2D_AAC_IE_VBR_NOT_SUPP                0x00    /* supported */
 
 #define A2D_AAC_IE_BIT_RATE_MSK                0x007FFFFF  /* bit rate */
-#define A2D_AAC_IE_BIT_RATE                    0x007FFFFF
+#define A2D_AAC_IE_BIT_RATE                    0x0002EE00
 
 
 #define BTIF_AAC_DEFAULT_BIT_RATE 0x000409B6
