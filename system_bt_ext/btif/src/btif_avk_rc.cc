@@ -830,6 +830,38 @@ void btif_avk_rc_handler(tBTA_AVK_EVT event, tBTA_AVK *p_data)
         {
             btif_avk_rc_handle_rc_disconnect( &(p_data->rc_close) );
         }break;
+        case BTA_AVK_REMOTE_CMD_EVT:
+        {
+            int pressed, i;
+            uint8_t index;
+            bt_bdaddr_t remote_address;
+
+            index = btif_avk_rc_get_idx_by_rc_handle(p_data->remote_cmd.rc_handle);
+            if (index == btif_max_rc_clients)
+            {
+                BTIF_TRACE_ERROR("Passthrough on invalid index");
+                return;
+            }
+            if ((p_data->remote_cmd.rc_id == BTA_AVK_RC_VOL_UP)||
+                        (p_data->remote_cmd.rc_id == BTA_AVK_RC_VOL_DOWN))
+            {
+                remote_address = btif_avk_rc_cb[index].rc_addr;
+                if (p_data->remote_cmd.key_state == AVRC_STATE_RELEASE)
+                {
+                    pressed = 0;
+                }
+                else
+                {
+                    pressed = 1;
+                }
+                if (btif_avk_rc_ctrl_vendor_callbacks != NULL)
+                {
+                    HAL_CBACK(btif_avk_rc_ctrl_vendor_callbacks, passthrough_cmd_vendor_cb,
+                            p_data->remote_cmd.rc_id, pressed, &remote_address);
+                }
+            }
+        }
+        break;
 
 #if (AVRC_CTLR_INCLUDED == TRUE)
         case BTA_AVK_REMOTE_RSP_EVT:

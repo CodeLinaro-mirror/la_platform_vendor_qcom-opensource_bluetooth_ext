@@ -365,6 +365,9 @@ typedef bt_status_t (* btavrc_ctrl_addtonowplaying_rsp_callback) (bt_bdaddr_t *b
 
 typedef bt_status_t (* btavrc_ctrl_search_rsp_callback) (bt_bdaddr_t *bd_addr, btrc_status_t rsp_status, uint16_t uid_counter, uint32_t num_item);
 
+/** btavrc_tg_passthrough_cmd_vendor_callback(when sink is TG) will notify
+    category-2 passthrough command(only volup and voldown) to BTAPP. */
+typedef void (* btavrc_tg_passthrough_cmd_vendor_callback) (int id, int key_state, bt_bdaddr_t *bd_addr);
 
 /** BT-RC Controller Vendor callback structure. */
 typedef struct {
@@ -387,6 +390,7 @@ typedef struct {
     btavrc_ctrl_playitem_rsp_callback                               playitem_vendor_cb;
     btavrc_ctrl_addtonowplaying_rsp_callback                        addtonowplaying_vendor_cb;
     btavrc_ctrl_search_rsp_callback                                 search_vendor_cb;
+    btavrc_tg_passthrough_cmd_vendor_callback                       passthrough_cmd_vendor_cb; //needed for sink (TG) to handle passthrough(Volup & voldown) cat-2 cammand
 
 } btrc_ctrl_vendor_callbacks_t;
 
