@@ -1784,6 +1784,14 @@ void bta_avk_connect_req (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
         return;
     }
 
+    if(bta_avk_find_lcb(p_scb->peer_addr, BTA_AVK_LCB_FIND) != NULL)
+    {
+        APPL_TRACE_EVENT("bta_avk_connect_req: same address has connected to av");
+        bta_avk_ssm_execute(p_scb, BTA_AVK_AVDT_DISCONNECT_EVT, NULL);
+        bta_avk_str_closed(p_scb, p_data);
+        return;
+    }
+
     update_avdtp_connection_info(p_scb->peer_addr, AVDT_AR_EXT_CONNECT_REQ_EVT, BTA_AR_EXT_AVK_MASK);
     result = AVDT_ConnectReq(p_scb->peer_addr, p_scb->sec_mask, bta_avk_dt_cback[p_scb->hdi]);
     if(result != AVDT_SUCCESS)
