@@ -1165,7 +1165,8 @@ static void bta_avk_api_cp_flag_update(tBTA_AVK_DATA *p_data)
         p_scb = bta_avk_addr_to_scb(bd_addr);
         tBTA_AVK_CP_FLAG cp_flag_update;
         cp_flag_update.cp_flag = p_data->cp_flag_update.cp_flag;
-        cp_flag_update.hndl    = p_scb->hndl;
+        if(p_scb != NULL)
+           cp_flag_update.hndl    = p_scb->hndl;
         APPL_TRACE_DEBUG("%s cp_flag :%d, hci_handle :%d", __func__,
                          cp_flag_update.cp_flag,hci_handle);
         (*bta_avk_cb.p_cback)(BTA_AVK_CP_FLAG_UPDATE_EVT, (tBTA_AVK *)&cp_flag_update);
