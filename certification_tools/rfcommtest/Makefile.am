@@ -13,21 +13,9 @@ AM_CFLAGS = -Wall \
 
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS += -I${WORKSPACE}/vendor/qcom/opensource/system/bt/stack/include \
-    -I${WORKSPACE}/vendor/qcom/opensource/system/bt/include \
-    -I${WORKSPACE}/vendor/qcom/opensource/system/bt/internal_include \
-    -I${WORKSPACE}/vendor/qcom/opensource/system/bt/stack/l2cap \
-    -I${WORKSPACE}/vendor/qcom/opensource/system/bt/utils/include \
-    -I${WORKSPACE}/vendor/qcom/opensource/system/bt \
-    -I${WORKSPACE}/vendor/qcom/opensource/system/bt/btif/include \
-    -I${WORKSPACE}/vendor/qcom/opensource/system/bt/bta/include \
-    -I${WORKSPACE}/vendor/qcom/opensource/bluetooth_ext/system_bt_ext/include \
-    -I${WORKSPACE}/vendor/qcom/opensource/bluetooth_ext/vhal/include \
-    -I${WORKSPACE}/vendor/qcom/opensource/system/bt/types \
-    -I${WORKSPACE}/system/core/include \
-    -I$(bdroid_C_INCLUDES)
+AM_CPPFLAGS += -I$(bdroid_C_INCLUDES)
 
-
+AM_CPPFLAGS += @SYSTEM_BT_CFLAGS@ @LIBCHROME_CFLAGS@
 
 cpp_sources = rfcommtest.cpp
 
