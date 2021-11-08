@@ -55,6 +55,8 @@ static const tBTA_SYS_REG bta_lpm_reg = {bta_lpm_hdl_msg, BTA_DisableLPM};
 
 void bta_lpm_enable(tBTA_LPM_CBACK* p_cback);
 
+static void alarm_info_cb (bool state, char* name);
+
 static void bta_lpm_ble_conn_cb (const RawAddress& rmt_addr, bool addr_type, bool master,
                                             bool connected, uint16_t hci_handle);
 
@@ -94,6 +96,7 @@ void BTA_DisableLPM(void) {
       return;
   }
 
+  alarm_deregister_info();
   bta_sys_deregister(BTA_ID_LPM);
 }
 
@@ -161,6 +164,7 @@ void bta_lpm_enable(tBTA_LPM_CBACK* p_cback) {
   bta_lpm_cb.p_lpm_cback = p_cback;
   LPM_Enable(&bta_lpm_cback);
   bta_lpm_cb.is_bta_lpm_active = true;
+  alarm_register_info(alarm_info_cb);
 }
 
 /*******************************************************************************
@@ -264,5 +268,27 @@ static void bta_lpm_gatts_service_cb(std::vector<tLPM_GATTS_SRVC_ATTR> attr_list
     gatts_evt.gatts_srvc.num_attr = attr_list.size();
     gatts_evt.gatts_srvc.srvc_attr = attr_list.data();
     bta_lpm_cb.p_lpm_cback(LPM_GATTS_EVT, &gatts_evt);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         alarm_info_cb
+ *
+ * Description      Callback for alarm info
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void alarm_info_cb (bool state, char* name) {
+  if(strcmp(name,"btm_ble_addr.refresh_raddr_timer") != 0) {
+    tBTA_LPM alarm_evt;
+    strlcpy(alarm_evt.alarm_evt.name,name,strlen(name));
+    if (state)
+      alarm_evt.alarm_evt.state = ALARM_START;
+    else
+      alarm_evt.alarm_evt.state = ALARM_STOP;
+    if(bta_lpm_cb.p_lpm_cback != NULL)
+      bta_lpm_cb.p_lpm_cback(LPM_ALARM_EVT, &alarm_evt);
   }
 }

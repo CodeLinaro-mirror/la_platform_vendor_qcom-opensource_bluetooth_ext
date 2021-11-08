@@ -61,11 +61,17 @@
 #define BT_STATUS_OK 0x01
 #define MAX_OFFLOADBLE_DEVICES 7
 #define OFFLOADBLE_APP_MTU_SIZE GATT_DEF_BLE_MTU_SIZE
+//Structure to store alarm details
+typedef struct {
+  char alarm_name[50];
+  uint8_t count=0;
+}alarm_info_t;
 
 /*******************************************************************************
  *  Static variables
  ******************************************************************************/
 static btif_lpm_cb_t btif_lpm_cb;
+std::vector<alarm_info_t> active_alarm;
 
 void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data);
 /*******************************************************************************
@@ -437,6 +443,9 @@ void btif_lpm_send_flow_off_cmd(void) {
 void btif_lpm_check_timer_activity(void) {
   bool is_timer_active = false;
 
+  if (active_alarm.size()==1)
+    is_timer_active = true;
+
   // Send Timer Active or Timer Inactive Event to SM
   if(is_timer_active) {
       btif_dispatch_lpm_event(BTIF_LPM_SM_TIMER_ACTIVE_EVT,
@@ -729,6 +738,70 @@ void btif_lpm_update_gatts_service(uint8_t num_attr, tLPM_GATTS_SRVC_ATTR* srvc_
 
 /*******************************************************************************
  *
+
+ * Function         btif_lpm_alarm_start
+ *
+ * Description      Updates alarm list
+ *
+ * Parameters       alarm_name - Alarm name
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+
+void btif_lpm_alarm_start(char* alarm_name) {
+  /* Check if alarm already present in list*/
+  std::vector<alarm_info_t>::iterator it;
+  for(it = active_alarm.begin(); it != active_alarm.end(); it++) {
+    if(!strcmp(alarm_name, it->alarm_name)) {
+        it->count++;
+        break;
+    }
+  }
+
+  /* If alarm is not present add to list */
+  if(it == active_alarm.end()) {
+    alarm_info_t tmp;
+    strlcpy(tmp.alarm_name, alarm_name, strlen(alarm_name));
+    tmp.count = 1;
+    active_alarm.push_back(tmp);
+    if (active_alarm.size()==1)
+      btif_lpm_check_timer_activity();
+    BTIF_TRACE_DEBUG(" %s, adding alarm: %s size: %d", __FUNCTION__, tmp.alarm_name,
+                                                          active_alarm.size());
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_alarm_stop
+ *
+ * Description      Updates alarm list
+ *
+ * Parameters       alarm_name - Alarm name
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_alarm_stop(char *alarm_name) {
+  std::vector<alarm_info_t>::iterator it;
+  for(it = active_alarm.begin(); it != active_alarm.end(); it++) {
+    if(!strcmp(alarm_name, it->alarm_name)) {
+      BTIF_TRACE_DEBUG(" %s, found alarm count = %d ",
+                                    __FUNCTION__, it->count);
+      it->count--;
+      if(it->count == 0) {
+        active_alarm.erase(it);
+        if (active_alarm.size()==0)
+          btif_lpm_check_timer_activity();
+      }
+      break;
+    }
+  }
+}
+
+/*******************************************************************************
+ *
  * Function         btif_lpm_upstreams_evt
  *
  * Description      Internal function which handles BTA LPM events
@@ -756,6 +829,14 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
     case LPM_GATTS_EVT: {
       /* Save context info to control block */
       btif_lpm_update_gatts_service(p_data->gatts_srvc.num_attr, p_data->gatts_srvc.srvc_attr);
+      break;
+    }
+    case LPM_ALARM_EVT: {
+      tBTA_LPM *alarm = (tBTA_LPM*)p_param;
+      if (alarm->alarm_evt.state == ALARM_START)
+        btif_lpm_alarm_start(alarm->alarm_evt.name);
+      else if (alarm->alarm_evt.state == ALARM_STOP)
+        btif_lpm_alarm_stop(alarm->alarm_evt.name);
       break;
     }
     default:

@@ -55,6 +55,7 @@
 #define LPM_PROFILE_UPDATE_EVT 0
 #define LPM_BLE_CONN_EVT 1
 #define LPM_GATTS_EVT 2
+#define LPM_ALARM_EVT 3
 
 typedef uint8_t tBTA_LPM_EVT;
 
@@ -77,6 +78,16 @@ typedef struct {
   tLPM_GATTS_SRVC_ATTR* srvc_attr;
 } tBTA_LPM_GATTS_EVT;
 
+enum {
+ ALARM_START,
+ ALARM_STOP
+};
+
+typedef struct {
+  char name[50];
+  uint8_t state;
+}tBTA_LPM_ALARM_EVT;
+
 typedef struct {
   uint8_t profile_id; /* BTA subsystem id */
   tBTA_LPM_PROFILE_UPDATE_EVT profile_evt;
@@ -86,6 +97,7 @@ typedef union {
   tBTA_LPM_PROFILE_UPDATE profile_update;
   tBTA_LPM_BLE_CONN_UPDATE ble_conn;
   tBTA_LPM_GATTS_EVT gatts_srvc;
+  tBTA_LPM_ALARM_EVT alarm_evt;
 } tBTA_LPM;
 
 /*  LPM Profile Callback from BTA to BTIF */
