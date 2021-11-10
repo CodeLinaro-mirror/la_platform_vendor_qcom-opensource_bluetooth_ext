@@ -98,6 +98,7 @@ typedef struct {
   char device_name[BD_NAME_LEN + 1];
   uint8_t logging_byte;
   std::vector<btif_lpm_ble_conn_t> ble_conns;
+  std::vector<tLPM_GATTS_SRVC_ATTR> gatts_db;
 } btif_lpm_cb_t;
 
 /*****************************************************************************
@@ -250,4 +251,36 @@ void btif_lpm_update_gattc_upstreams_evt(tBTA_GATTC_EVT event, tBTA_GATTC* p_dat
  *
  ******************************************************************************/
 void btif_lpm_ble_conn_srvc_db(int conn_id, btgatt_db_element_t* db, int count);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_update_adapter_property
+ *
+ * Description      Updates adapter properties in LPM CB
+ *
+ * Parameters       p_prop - Adapter Property modified
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_update_adapter_property(bt_property_t* p_prop);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_gattc_inform_notify_reg
+ *
+ * Description      Informs Notification Registration to LPM
+ *
+ * Parameters       addr - Remote Address
+ *                  handle - handle registered
+ *                  reg - registered(1)/de-registered(0)
+ *                  status - GATT status
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_gattc_inform_notify_reg(const RawAddress& addr, uint16_t handle,
+                                                   bool reg, tGATT_STATUS status);
+
+
 #endif /* BTIF_LPM_H */

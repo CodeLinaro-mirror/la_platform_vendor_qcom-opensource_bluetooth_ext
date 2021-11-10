@@ -46,6 +46,20 @@
 #define LPM_API_H
 
 #include "bt_types.h"
+#include "gatt_api.h"
+
+/*****************************************************************************
+ *  Constants
+ ****************************************************************************/
+
+typedef struct {
+  bluetooth::Uuid attr_uuid;
+  uint16_t handle;
+  uint16_t offset;
+  uint16_t len;
+  uint8_t value[GATT_MAX_ATTR_LEN];
+  bt_gatt_db_attribute_type_t gatt_type;
+} tLPM_GATTS_SRVC_ATTR;
 
 /*****************************************************************************
  *  Callbacks
@@ -54,8 +68,11 @@
 typedef void (tLPM_BLE_CONN_CBACK) (const RawAddress& rmt_addr, bool addr_type,
                                      bool master, bool connected, uint16_t hci_handle);
 
+typedef void (tLPM_GATTS_DB_ELEM_CBACK) (std::vector<tLPM_GATTS_SRVC_ATTR> attr_list);
+
 typedef struct {
   tLPM_BLE_CONN_CBACK* p_ble_conn_cb;
+  tLPM_GATTS_DB_ELEM_CBACK* p_gatts_service_cb;
 } tLPM_CBACK;
 
  /*******************************************************************************

@@ -654,6 +654,79 @@ void btif_lpm_update_gattc_upstreams_evt(tBTA_GATTC_EVT event, tBTA_GATTC* p_dat
 
 /*******************************************************************************
  *
+ * Function         btif_lpm_gattc_inform_notify_reg
+ *
+ * Description      Informs Notification Registration to LPM
+ *
+ * Parameters       addr - Remote Address
+ *                  handle - handle registered
+ *                  reg - registered(1)/de-registered(0)
+ *                  status - GATT status
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_gattc_inform_notify_reg(const RawAddress& addr,uint16_t handle,
+                                               bool reg, tGATT_STATUS status) {
+  BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
+  if(status == GATT_SUCCESS) {
+    btif_lpm_ble_conn_t& conn = *lpm_fetch_ble_conn_by_addr(addr);
+    for(auto srvc_it = conn.gatt_srvc.begin();
+                           srvc_it != conn.gatt_srvc.end(); srvc_it++) {
+      if (srvc_it->s_handle <= handle && srvc_it->s_handle >= handle) {
+        srvc_it->is_notify_reg = reg;
+        break;
+      }
+    }
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_update_adapter_property
+ *
+ * Description      Updates adapter properties in LPM CB
+ *
+ * Parameters       p_prop - Adapter Property modified
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_update_adapter_property(bt_property_t* p_prop) {
+  BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
+  uint8_t name_len;
+    if (p_prop->type == BT_PROPERTY_BDNAME) {
+      name_len = p_prop->len > BTM_MAX_LOC_BD_NAME_LEN
+                     ? BTM_MAX_LOC_BD_NAME_LEN
+                     : p_prop->len;
+      strlcpy(btif_lpm_cb.device_name,(char*) p_prop->val, name_len+1);
+    }
+  /* update lpm native interface */
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_update_gatts_service
+ *
+ * Description      Save context info to control block 
+ *
+ * Parameters       num_attr - Number of elements
+ *                  srvc_db_elem - Pointer to db
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_update_gatts_service(uint8_t num_attr, tLPM_GATTS_SRVC_ATTR* srvc_db_elem) {
+  if (!num_attr)
+    return;
+
+  for(int i = 0; i < num_attr; i++, srvc_db_elem++) {
+    btif_lpm_cb.gatts_db.push_back(*srvc_db_elem);
+  }
+}
+
+/*******************************************************************************
+ *
  * Function         btif_lpm_upstreams_evt
  *
  * Description      Internal function which handles BTA LPM events
@@ -676,6 +749,11 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
     case LPM_BLE_CONN_EVT: {
       btif_lpm_update_ble_conn_evt(p_data->ble_conn.rmt_addr, p_data->ble_conn.rmt_addr_type,
            p_data->ble_conn.hci_handle, p_data->ble_conn.conn_evt, p_data->ble_conn.master);
+      break;
+    }
+    case LPM_GATTS_EVT: {
+      /* Save context info to control block */
+      btif_lpm_update_gatts_service(p_data->gatts_srvc.num_attr, p_data->gatts_srvc.srvc_attr);
       break;
     }
     default:

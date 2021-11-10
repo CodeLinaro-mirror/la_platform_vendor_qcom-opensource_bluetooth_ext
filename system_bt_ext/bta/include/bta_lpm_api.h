@@ -54,6 +54,7 @@
 /* Callback events from BTA to BTIF */
 #define LPM_PROFILE_UPDATE_EVT 0
 #define LPM_BLE_CONN_EVT 1
+#define LPM_GATTS_EVT 2
 
 typedef uint8_t tBTA_LPM_EVT;
 
@@ -72,6 +73,11 @@ typedef struct {
 } tBTA_LPM_BLE_CONN_UPDATE;
 
 typedef struct {
+  uint8_t num_attr;
+  tLPM_GATTS_SRVC_ATTR* srvc_attr;
+} tBTA_LPM_GATTS_EVT;
+
+typedef struct {
   uint8_t profile_id; /* BTA subsystem id */
   tBTA_LPM_PROFILE_UPDATE_EVT profile_evt;
 } tBTA_LPM_PROFILE_UPDATE;
@@ -79,6 +85,7 @@ typedef struct {
 typedef union {
   tBTA_LPM_PROFILE_UPDATE profile_update;
   tBTA_LPM_BLE_CONN_UPDATE ble_conn;
+  tBTA_LPM_GATTS_EVT gatts_srvc;
 } tBTA_LPM;
 
 /*  LPM Profile Callback from BTA to BTIF */

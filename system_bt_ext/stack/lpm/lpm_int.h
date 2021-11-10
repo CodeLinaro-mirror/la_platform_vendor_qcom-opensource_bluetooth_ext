@@ -46,10 +46,16 @@
 #define LPM_INT_H
 
 #include "bt_types.h"
+#include "lpm_api.h"
+#include "stack/gatt/gatt_int.h"
 
 /*****************************************************************************
  *  Structures and Macros
  ****************************************************************************/
+
+#define LPM_BLE_NONE 0x00
+#define LPM_BLE_SLAVE 0x01
+#define LPM_BLE_MASTER 0x02
 
 /*****************************************************************************
  * LPM Internal Function Declarations
@@ -68,5 +74,18 @@
  *
  ******************************************************************************/
 extern void lpm_send_conn_cback(const RawAddress& bda, int master);
+
+/*******************************************************************************
+ *
+ * Function         lpm_gatts_serv_db_element
+ *
+ * Description      Updates gatts db elements
+ *
+ * Parameter        db_el: GATTS DB
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+extern void lpm_gatts_serv_db_element(tGATT_SRV_LIST_ELEM& db_el);
 
 #endif /* LPM_INT_H */

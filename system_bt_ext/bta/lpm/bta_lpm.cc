@@ -58,7 +58,10 @@ void bta_lpm_enable(tBTA_LPM_CBACK* p_cback);
 static void bta_lpm_ble_conn_cb (const RawAddress& rmt_addr, bool addr_type, bool master,
                                             bool connected, uint16_t hci_handle);
 
+static void bta_lpm_gatts_service_cb (std::vector<tLPM_GATTS_SRVC_ATTR> attr_list);
+
 static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
+                                   bta_lpm_gatts_service_cb,
                                   };
 
 #ifndef CASE_RETURN_STR
@@ -242,5 +245,24 @@ static void bta_lpm_ble_conn_cb(const RawAddress& rmt_addr, bool addr_type,
     ble_conn_update.ble_conn.master = master;
     ble_conn_update.ble_conn.hci_handle = hci_handle;
     bta_lpm_cb.p_lpm_cback(LPM_BLE_CONN_EVT, &ble_conn_update);
+  }
+}
+
+
+/*******************************************************************************
+ *
+ * Function         bta_gatts_service_cb
+ *
+ * Description      LPM callback for services added
+ *
+ *feturns          void
+ *
+ ******************************************************************************/
+static void bta_lpm_gatts_service_cb(std::vector<tLPM_GATTS_SRVC_ATTR> attr_list) {
+  if(bta_lpm_cb.p_lpm_cback != NULL) {
+    tBTA_LPM gatts_evt;
+    gatts_evt.gatts_srvc.num_attr = attr_list.size();
+    gatts_evt.gatts_srvc.srvc_attr = attr_list.data();
+    bta_lpm_cb.p_lpm_cback(LPM_GATTS_EVT, &gatts_evt);
   }
 }

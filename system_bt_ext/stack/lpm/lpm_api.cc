@@ -70,10 +70,16 @@ typedef struct {
   tLPM_mode mode;
   bool flow_off;
   std::vector<tLPM_BLE_CONN> ble_conn;
+  std::vector<tLPM_GATTS_SRVC_ATTR> srvc_list;
 } tLPM_CB;
 
 /* Control Block */
 tLPM_CB lpm_cb;
+
+extern tGATT_STATUS read_gap_attr_value(uint16_t handle, tGATT_VALUE* p_value,
+                              bool is_long);
+
+static std::vector<tLPM_GATTS_SRVC_ATTR> srvc_attr_list;
 
  /*******************************************************************************
  *
@@ -89,6 +95,9 @@ tLPM_CB lpm_cb;
 void LPM_Enable(tLPM_CBACK* p_cb) {
   LOG_DEBUG(LOG_TAG, "%s:", __func__);
   lpm_cb.lpm_cback = *p_cb;
+  if (srvc_attr_list.size() != 0) {
+    lpm_cb.lpm_cback.p_gatts_service_cb(srvc_attr_list);
+  }
 }
 
  /*******************************************************************************
@@ -119,9 +128,9 @@ void LPM_ModeSwitchReq(tLPM_mode mode) {
  * Returns          None
  *
  ******************************************************************************/
-void lpm_send_conn_cback(const RawAddress& bda, int conn) {
+void lpm_send_conn_cback(const RawAddress& bda, int state) {
   LOG_DEBUG(LOG_TAG, "%s:", __func__);
-  if (master == LPM_BLE_NONE) {
+  if (state == LPM_BLE_NONE) {
     lpm_cb.lpm_cback.p_ble_conn_cb(bda, 0, 0, 0, 0);
     auto it = lpm_cb.ble_conn.begin();
     for(;it != lpm_cb.ble_conn.end(); it++) {
@@ -133,10 +142,82 @@ void lpm_send_conn_cback(const RawAddress& bda, int conn) {
     tACL_CONN* p = btm_bda_to_acl(bda, BT_TRANSPORT_LE);
     lpm_cb.ble_conn.emplace_back();
     tLPM_BLE_CONN& conn = lpm_cb.ble_conn.back();
-    conn.master = master;
+    conn.master = state;
     conn.rmt_addr = bda;
     conn.ble_handle = p->hci_handle;
-    lpm_cb.lpm_cback.p_ble_conn_cb(bda, 1, ((master == LPM_BLE_MASTER)? 1: 0),1, conn.ble_handle );
+    lpm_cb.lpm_cback.p_ble_conn_cb(bda, 1, ((state == LPM_BLE_MASTER)? 1: 0),1, conn.ble_handle );
     /* tcb is skipped as of now */
+  }
+}
+
+
+/*******************************************************************************
+ *
+ * Function         lpm_gatts_serv_db_element
+ *
+ * Description      Updates gatts db elements
+ *
+ * Parameter        db_el: GATTS DB
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void lpm_gatts_serv_db_element(tGATT_SRV_LIST_ELEM& db_el) {
+  tGATT_SVC_DB* p_srvc_db = NULL;
+  Uuid svc_uuid;
+  Uuid char_uuid;
+  tGATT_VALUE gap_attr_value;
+
+  LOG_DEBUG(LOG_TAG, "%s:", __func__);
+  if (db_el.type == GATT_UUID_PRI_SERVICE) {
+    p_srvc_db = db_el.p_db;
+  srvc_attr_list.clear();
+  }
+
+  if (p_srvc_db || !(p_srvc_db->attr_list.empty())) {
+    svc_uuid = p_srvc_db->attr_list[0].p_value->uuid;
+  if (svc_uuid == Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER)) {
+      srvc_attr_list.emplace_back();
+      tLPM_GATTS_SRVC_ATTR& srvc_attr = srvc_attr_list.back();
+      srvc_attr.attr_uuid = Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER);
+      srvc_attr.handle = db_el.s_hdl;
+      srvc_attr.gatt_type = BTGATT_DB_PRIMARY_SERVICE;
+      for (auto& attr : p_srvc_db->attr_list) {
+        if (attr.uuid == Uuid::From16Bit(GATT_UUID_GATT_SRV_CHGD)) {
+        srvc_attr_list.emplace_back();
+        srvc_attr = srvc_attr_list.back();
+        srvc_attr.attr_uuid = Uuid::From16Bit(GATT_UUID_GATT_SRV_CHGD);
+        srvc_attr.handle = attr.handle;
+        srvc_attr.gatt_type = BTGATT_DB_CHARACTERISTIC;
+        break;
+        }
+      }
+      /*GATTS is usually intialized before LPM is registered*/
+      /*Callback is sent after LPM is registered*/
+  } else if (svc_uuid == Uuid::From16Bit(UUID_SERVCLASS_GAP_SERVER)) {
+      srvc_attr_list.emplace_back();
+      tLPM_GATTS_SRVC_ATTR& srvc_attr = srvc_attr_list.back();
+      srvc_attr.attr_uuid = Uuid::From16Bit(UUID_SERVCLASS_GAP_SERVER);
+      srvc_attr.handle = db_el.s_hdl;
+      srvc_attr.gatt_type = BTGATT_DB_PRIMARY_SERVICE;
+      for (auto& attr : p_srvc_db->attr_list) {
+        char_uuid = attr.uuid;
+        if (char_uuid == Uuid::From16Bit(GATT_UUID_GAP_DEVICE_NAME) ||
+                 char_uuid == Uuid::From16Bit(GATT_UUID_GAP_ICON) ||
+                 char_uuid== Uuid::From16Bit(GATT_UUID_GAP_CENTRAL_ADDR_RESOL)) {
+          if (read_gap_attr_value(attr.handle, &gap_attr_value, 0) == GATT_SUCCESS) {
+            srvc_attr_list.emplace_back();
+            srvc_attr = srvc_attr_list.back();
+            srvc_attr.attr_uuid = attr.uuid;
+            srvc_attr.handle = gap_attr_value.handle;
+            srvc_attr.gatt_type = BTGATT_DB_CHARACTERISTIC;
+            srvc_attr.offset = gap_attr_value.offset;
+            strlcpy((char *)srvc_attr.value, (char *)gap_attr_value.value, gap_attr_value.len);
+          }
+        }
+      }
+      /*GATTS is usually intialized before LPM is registered*/
+      /*Callback is sent after LPM is registered*/
+    }
   }
 }
