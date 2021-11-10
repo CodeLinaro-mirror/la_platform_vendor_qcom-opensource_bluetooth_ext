@@ -59,6 +59,8 @@
  *  Structures and Macros
  ******************************************************************************/
 #define BT_STATUS_OK 0x01
+#define MAX_OFFLOADBLE_DEVICES 7
+#define OFFLOADBLE_APP_MTU_SIZE GATT_DEF_BLE_MTU_SIZE
 
 /*******************************************************************************
  *  Static variables
@@ -459,6 +461,197 @@ void btif_lpm_process_profile_update(uint8_t profile_id,
   /* Post Profile update to state machine */
 }
 
+
+/*******************************************************************************
+ *
+ * Function         lpm_fetch_ble_conn_by_addr
+ *
+ * Description      Searches BLE connection in LPM CB by address
+ *
+ * Parameters       addr - Remote address
+ *
+ * Returns          Iterator to BLE CB
+ *
+ ******************************************************************************/
+std::vector<btif_lpm_ble_conn_t>::iterator lpm_fetch_ble_conn_by_addr
+                                                    (const RawAddress& addr) {
+  auto it = btif_lpm_cb.ble_conns.begin();
+  for (; it!=btif_lpm_cb.ble_conns.end(); it++) {
+    if (it->remote_addr == addr)
+    break;
+  }
+  return it;
+}
+
+/*******************************************************************************
+ *
+ * Function         lpm_update_ble_conn_connid
+ *
+ * Description      Updates BLE conn_id to remote address in LPM CB
+ *
+ * Parameters       conn_id - Connection id of Remote address
+ *                  add - adds(1)/delete(0)
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void lpm_update_ble_conn_connid(RawAddress& addr,uint16_t conn_id, bool add) {
+  auto it = btif_lpm_cb.ble_conns.begin();
+  for (; it!=btif_lpm_cb.ble_conns.end(); it++) {
+    if (it->remote_addr == addr)
+      break;
+  }
+  if (it != btif_lpm_cb.ble_conns.end()) {
+    auto find_connid =
+         std::find(it->conn_id_list.begin(), it->conn_id_list.end(), conn_id);
+    if (add && find_connid == it->conn_id_list.end())
+      it->conn_id_list.emplace_back(conn_id);
+    else if (!add && find_connid != it->conn_id_list.end())
+      it->conn_id_list.erase(find_connid);
+    else
+      LOG(ERROR) << "Not a valid operation";
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         lpm_fetch_ble_conn_by_connid
+ *
+ * Description      Searches BLE connection in LPM CB by conn_id
+ *
+ * Parameters       conn_id - Connection id
+ *
+ * Returns          Iterator to BLE CB
+ *
+ ******************************************************************************/
+std::vector<btif_lpm_ble_conn_t>::iterator
+                     lpm_fetch_ble_conn_by_connid(uint16_t conn_id){
+  BTIF_TRACE_DEBUG(" %s: conn_id: %u ", __FUNCTION__, conn_id);
+  auto it = btif_lpm_cb.ble_conns.begin();
+  for (; it!=btif_lpm_cb.ble_conns.end(); it++) {
+    auto find_connid = std::find(it->conn_id_list.begin(), it->conn_id_list.end(), conn_id);
+    if (find_connid != it->conn_id_list.end())
+      break;
+  }
+  return it;
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_ble_conn_srvc_db
+ *
+ * Description      Stores the service db of ble connection
+ *
+ * Parameters       conn_id - Remote Address connection id
+ *                  db - Pointer to remote gatt db elements
+ *                  count - Size of the db elements
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_ble_conn_srvc_db(int conn_id, btgatt_db_element_t* db, int count){
+  btif_lpm_ble_conn_t& conn = *lpm_fetch_ble_conn_by_connid((uint16_t)conn_id);
+  BTIF_TRACE_DEBUG(" %s: conn id : %d count: %d ", __FUNCTION__, conn_id, count);
+  btgatt_db_element_t* curr_db = db;
+  for( int i=0; i <count; i++) {
+    if(curr_db->type == BTGATT_DB_PRIMARY_SERVICE) {
+      BTIF_TRACE_DEBUG(" %s: service uuid : %s ", __FUNCTION__, curr_db->uuid.ToString().c_str());
+      conn.gatt_srvc.emplace_back();
+      btif_lpm_gatt_t& srvc_el = conn.gatt_srvc.back();
+      srvc_el.uuid = curr_db->uuid;
+      srvc_el.s_handle= curr_db->start_handle;
+      srvc_el.e_handle= curr_db->end_handle;
+    }
+    curr_db++;
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_update_ble_conn_evt
+ *
+ * Description      Updates BLE ACL link to Control Block
+ *
+ * Parameters       rmt_addr - Remote Address
+ *                  rmt_addr_type - Public/Random
+ *                  hci_handle - BLE Connection handle
+ *                  conn_evt - Connected/Disconnected
+ *                  master - Master/Slave
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_update_ble_conn_evt(RawAddress& rmt_addr, bool rmt_addr_type,
+           uint16_t hci_handle, bool conn_evt, bool master) {
+  BTIF_TRACE_DEBUG(" %s hci_handle:%d conn_evt: %d master %d", __FUNCTION__,
+                                               hci_handle, conn_evt, master);
+  if (conn_evt) {
+    BTIF_TRACE_DEBUG(" %s Add %s to the list", __FUNCTION__,
+                                                 rmt_addr.ToString().c_str());
+    btif_lpm_cb.ble_conns.emplace_back();
+    btif_lpm_ble_conn_t& conn = btif_lpm_cb.ble_conns.back();
+    if(master) {
+        conn.conn_flags = CONN_ROLE_MASTER;
+    } else {
+        conn.conn_flags = CONN_ROLE_SLAVE;
+    }
+    BTIF_TRACE_DEBUG(" %s Master: %d", __FUNCTION__, conn.conn_flags);
+    conn.remote_addr = rmt_addr;
+    conn.hci_handle = hci_handle;
+    /* set mtu size to default */
+    conn.mtu = OFFLOADBLE_APP_MTU_SIZE;
+  } else {
+    auto it = btif_lpm_cb.ble_conns.begin();
+    for (; it!=btif_lpm_cb.ble_conns.end(); it++) {
+      if (it->remote_addr == rmt_addr) 
+      break;
+    }
+    btif_lpm_cb.ble_conns.erase(it);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_update_gattc_upstreams_evt
+ *
+ * Description      Updates gatt client events to LPM
+ *
+ * Parameters       event - GATT Client event
+ *                  p_data - data associated with the event
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_update_gattc_upstreams_evt(tBTA_GATTC_EVT event, tBTA_GATTC* p_data) {
+  BTIF_TRACE_DEBUG(" %s: event : %d ", __FUNCTION__, event);
+  switch (event) {
+    case BTA_GATTC_OPEN_EVT: {
+    if (p_data->open.status == GATT_SUCCESS)
+      lpm_update_ble_conn_connid(p_data->open.remote_bda, p_data->open.conn_id, true);
+      if (GATT_DEF_BLE_MTU_SIZE != p_data->open.mtu && p_data->open.mtu) {
+        btif_lpm_ble_conn_t& conn = *lpm_fetch_ble_conn_by_connid(p_data->open.conn_id);
+        conn.mtu = p_data->open.mtu;
+      }
+      break;
+    }
+    case BTA_GATTC_CLOSE_EVT: {
+    if (p_data->status == GATT_SUCCESS)
+        lpm_update_ble_conn_connid(p_data->close.remote_bda,p_data->close.conn_id, false);
+      break;
+    }
+    case BTA_GATTC_CFG_MTU_EVT: {
+    if (p_data->cfg_mtu.status == GATT_SUCCESS) {
+      btif_lpm_ble_conn_t& conn = *lpm_fetch_ble_conn_by_connid(p_data->cfg_mtu.conn_id);
+      conn.mtu = p_data->cfg_mtu.mtu;
+      BTIF_TRACE_DEBUG("%s, updated mtu size:%d", __FUNCTION__, conn.mtu);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
 /*******************************************************************************
  *
  * Function         btif_lpm_upstreams_evt
@@ -478,6 +671,11 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
     case LPM_PROFILE_UPDATE_EVT: {
       btif_lpm_process_profile_update(p_data->profile_update.profile_id,
                                           p_data->profile_update.profile_evt);
+      break;
+    }
+    case LPM_BLE_CONN_EVT: {
+      btif_lpm_update_ble_conn_evt(p_data->ble_conn.rmt_addr, p_data->ble_conn.rmt_addr_type,
+           p_data->ble_conn.hci_handle, p_data->ble_conn.conn_evt, p_data->ble_conn.master);
       break;
     }
     default:

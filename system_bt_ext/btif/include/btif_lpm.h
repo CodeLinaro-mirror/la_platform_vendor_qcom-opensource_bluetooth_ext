@@ -69,6 +69,27 @@
  *  Structures and Macros
  ****************************************************************************/
 #define DEFAULT_PARAM_LENGTH 0x01
+#define CONN_ROLE_MASTER 0x01
+#define CONN_ROLE_SLAVE  0x02
+
+typedef struct {
+  bluetooth::Uuid uuid;
+  uint16_t s_handle;
+  uint16_t e_handle;
+  bool is_notify_reg;
+} btif_lpm_gatt_t;
+
+typedef struct {
+  RawAddress remote_addr;
+  uint16_t hci_handle;
+  bool in_use;
+  uint16_t conn_flags;
+  uint8_t mtu;
+  bool srvc_bit_set;
+  uint16_t remote_gatt_srvc_handle;
+  std::vector<btif_lpm_gatt_t> gatt_srvc;
+  std::vector<uint16_t> conn_id_list;
+} btif_lpm_ble_conn_t;
 
 /* BTIF LPM Control Block */
 typedef struct {
@@ -76,6 +97,7 @@ typedef struct {
   std::string device_addr;
   char device_name[BD_NAME_LEN + 1];
   uint8_t logging_byte;
+  std::vector<btif_lpm_ble_conn_t> ble_conns;
 } btif_lpm_cb_t;
 
 /*****************************************************************************
@@ -200,4 +222,32 @@ void btif_lpm_send_flow_off_cmd(void);
  ******************************************************************************/
 void btif_lpm_check_timer_activity(void);
 
+/*******************************************************************************
+ *
+ * Function         btif_lpm_update_gattc_upstreams_evt
+ *
+ * Description      Updates gatt client events to LPM
+ *
+ * Parameters       event - GATT Client event
+ *                  p_data - data associated with the event
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_update_gattc_upstreams_evt(tBTA_GATTC_EVT event, tBTA_GATTC* p_data);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_ble_conn_srvc_db
+ *
+ * Description      Stores the service db of ble connection
+ *
+ * Parameters       conn_id - Remote Address connection id
+ *                  db - Pointer to remote gatt db elements
+ *                  count - Size of the db elements
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_ble_conn_srvc_db(int conn_id, btgatt_db_element_t* db, int count);
 #endif /* BTIF_LPM_H */

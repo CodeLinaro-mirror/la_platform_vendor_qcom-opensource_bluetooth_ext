@@ -58,11 +58,18 @@ using bluetooth::Uuid;
  *  Structures and static
  ****************************************************************************/
 
+typedef struct {
+  uint16_t ble_handle;
+  RawAddress rmt_addr;
+  uint8_t master;
+}tLPM_BLE_CONN;
+
 /* LPM Control Block */
 typedef struct {
   tLPM_CBACK lpm_cback;
   tLPM_mode mode;
   bool flow_off;
+  std::vector<tLPM_BLE_CONN> ble_conn;
 } tLPM_CB;
 
 /* Control Block */
@@ -98,4 +105,38 @@ void LPM_Enable(tLPM_CBACK* p_cb) {
 void LPM_ModeSwitchReq(tLPM_mode mode) {
   LOG_DEBUG(LOG_TAG, "%s:", __func__);
   lpm_cb.mode = mode;
+}
+
+/*******************************************************************************
+ *
+ * Function         lpm_send_conn_cback
+ *
+ * Description      Informs about ACL connection to LPM higher layers
+ *
+ * Parameter        bda: Remote address
+ *                  conn: Connection Role (Master/Slave/Disconnected)
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void lpm_send_conn_cback(const RawAddress& bda, int conn) {
+  LOG_DEBUG(LOG_TAG, "%s:", __func__);
+  if (master == LPM_BLE_NONE) {
+    lpm_cb.lpm_cback.p_ble_conn_cb(bda, 0, 0, 0, 0);
+    auto it = lpm_cb.ble_conn.begin();
+    for(;it != lpm_cb.ble_conn.end(); it++) {
+      if(it->rmt_addr == bda)
+        break;
+    }
+    lpm_cb.ble_conn.erase(it);
+  } else {
+    tACL_CONN* p = btm_bda_to_acl(bda, BT_TRANSPORT_LE);
+    lpm_cb.ble_conn.emplace_back();
+    tLPM_BLE_CONN& conn = lpm_cb.ble_conn.back();
+    conn.master = master;
+    conn.rmt_addr = bda;
+    conn.ble_handle = p->hci_handle;
+    lpm_cb.lpm_cback.p_ble_conn_cb(bda, 1, ((master == LPM_BLE_MASTER)? 1: 0),1, conn.ble_handle );
+    /* tcb is skipped as of now */
+  }
 }

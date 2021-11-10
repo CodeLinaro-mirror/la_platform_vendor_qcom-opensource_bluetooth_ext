@@ -55,7 +55,10 @@ static const tBTA_SYS_REG bta_lpm_reg = {bta_lpm_hdl_msg, BTA_DisableLPM};
 
 void bta_lpm_enable(tBTA_LPM_CBACK* p_cback);
 
-static tLPM_CBACK bta_lpm_cback = {
+static void bta_lpm_ble_conn_cb (const RawAddress& rmt_addr, bool addr_type, bool master,
+                                            bool connected, uint16_t hci_handle);
+
+static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
                                   };
 
 #ifndef CASE_RETURN_STR
@@ -215,5 +218,29 @@ void lpm_profile_update_evt(uint8_t profile, tBTA_LPM_PROFILE_UPDATE_EVT event) 
     profile_update_evt.profile_update.profile_id = profile;
     profile_update_evt.profile_update.profile_evt= event;
     bta_lpm_cb.p_lpm_cback(LPM_PROFILE_UPDATE_EVT, (tBTA_LPM*)&profile_update_evt);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_lpm_ble_conn_cb
+ *
+ * Description      LPM callback for services added
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void bta_lpm_ble_conn_cb(const RawAddress& rmt_addr, bool addr_type,
+                            bool master, bool connected, uint16_t hci_handle) {
+  APPL_TRACE_DEBUG(" %s lpm connected: %d hci_handle %d master %d",
+                                        __func__, connected, hci_handle, master);
+  if(bta_lpm_cb.p_lpm_cback != NULL) {
+    tBTA_LPM ble_conn_update;
+    ble_conn_update.ble_conn.conn_evt = connected;
+    ble_conn_update.ble_conn.rmt_addr = rmt_addr;
+    ble_conn_update.ble_conn.rmt_addr_type = addr_type;
+    ble_conn_update.ble_conn.master = master;
+    ble_conn_update.ble_conn.hci_handle = hci_handle;
+    bta_lpm_cb.p_lpm_cback(LPM_BLE_CONN_EVT, &ble_conn_update);
   }
 }

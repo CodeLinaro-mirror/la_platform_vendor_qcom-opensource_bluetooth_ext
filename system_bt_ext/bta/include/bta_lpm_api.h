@@ -53,6 +53,7 @@
 
 /* Callback events from BTA to BTIF */
 #define LPM_PROFILE_UPDATE_EVT 0
+#define LPM_BLE_CONN_EVT 1
 
 typedef uint8_t tBTA_LPM_EVT;
 
@@ -63,12 +64,21 @@ typedef enum {
 } tBTA_LPM_PROFILE_UPDATE_EVT;
 
 typedef struct {
+  RawAddress rmt_addr;
+  bool rmt_addr_type;
+  uint16_t hci_handle;
+  bool conn_evt;
+  bool master;
+} tBTA_LPM_BLE_CONN_UPDATE;
+
+typedef struct {
   uint8_t profile_id; /* BTA subsystem id */
   tBTA_LPM_PROFILE_UPDATE_EVT profile_evt;
 } tBTA_LPM_PROFILE_UPDATE;
 
 typedef union {
   tBTA_LPM_PROFILE_UPDATE profile_update;
+  tBTA_LPM_BLE_CONN_UPDATE ble_conn;
 } tBTA_LPM;
 
 /*  LPM Profile Callback from BTA to BTIF */

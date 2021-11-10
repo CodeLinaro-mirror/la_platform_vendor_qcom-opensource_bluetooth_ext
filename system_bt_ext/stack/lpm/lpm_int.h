@@ -55,4 +55,18 @@
  * LPM Internal Function Declarations
  ****************************************************************************/
 
+/*******************************************************************************
+ *
+ * Function         lpm_send_conn_cback
+ *
+ * Description      Informs about ACL connection to LPM higher layers
+ *
+ * Parameter        bda: Remote address
+ *                  conn: Connection Role (Master/Slave/Disconnected)
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+extern void lpm_send_conn_cback(const RawAddress& bda, int master);
+
 #endif /* LPM_INT_H */

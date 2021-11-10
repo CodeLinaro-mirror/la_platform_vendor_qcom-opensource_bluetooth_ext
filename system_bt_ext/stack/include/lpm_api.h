@@ -51,8 +51,11 @@
  *  Callbacks
  ****************************************************************************/
 
-typedef struct {
+typedef void (tLPM_BLE_CONN_CBACK) (const RawAddress& rmt_addr, bool addr_type,
+                                     bool master, bool connected, uint16_t hci_handle);
 
+typedef struct {
+  tLPM_BLE_CONN_CBACK* p_ble_conn_cb;
 } tLPM_CBACK;
 
  /*******************************************************************************
