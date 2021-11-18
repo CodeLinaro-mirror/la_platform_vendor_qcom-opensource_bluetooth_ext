@@ -118,6 +118,21 @@ void LPM_ModeSwitchReq(tLPM_mode mode) {
 
 /*******************************************************************************
  *
+ * Function         btu_inform_lpm_profile
+ *
+ * Description      Informs about Tx packet at hci layer
+ *
+ * Parameter        None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btu_inform_lpm_profile(void) {
+  lpm_cb.lpm_cback.p_packet_after_flow_off();
+}
+
+/*******************************************************************************
+ *
  * Function         lpm_send_conn_cback
  *
  * Description      Informs about ACL connection to LPM higher layers

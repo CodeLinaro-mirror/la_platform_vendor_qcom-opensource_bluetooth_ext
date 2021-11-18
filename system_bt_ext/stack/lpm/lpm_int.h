@@ -88,4 +88,16 @@ extern void lpm_send_conn_cback(const RawAddress& bda, int master);
  ******************************************************************************/
 extern void lpm_gatts_serv_db_element(tGATT_SRV_LIST_ELEM& db_el);
 
+/*******************************************************************************
+ *
+ * Function         btu_inform_lpm_profile
+ *
+ * Description      Informs about Tx packet at hci layer
+ *
+ * Parameter        None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+extern void btu_inform_lpm_profile();
 #endif /* LPM_INT_H */

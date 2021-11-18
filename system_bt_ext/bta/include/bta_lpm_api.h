@@ -56,6 +56,7 @@
 #define LPM_BLE_CONN_EVT 1
 #define LPM_GATTS_EVT 2
 #define LPM_ALARM_EVT 3
+#define LPM_PACKET_AFTER_FLOW_OFF 4
 
 typedef uint8_t tBTA_LPM_EVT;
 

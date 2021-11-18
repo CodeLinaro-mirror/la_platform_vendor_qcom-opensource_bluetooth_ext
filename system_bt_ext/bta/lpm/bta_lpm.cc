@@ -62,8 +62,11 @@ static void bta_lpm_ble_conn_cb (const RawAddress& rmt_addr, bool addr_type, boo
 
 static void bta_lpm_gatts_service_cb (std::vector<tLPM_GATTS_SRVC_ATTR> attr_list);
 
+static void bta_lpm_packet_after_flow_off_cb(void);
+
 static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
                                    bta_lpm_gatts_service_cb,
+                                   bta_lpm_packet_after_flow_off_cb,
                                   };
 
 #ifndef CASE_RETURN_STR
@@ -268,6 +271,22 @@ static void bta_lpm_gatts_service_cb(std::vector<tLPM_GATTS_SRVC_ATTR> attr_list
     gatts_evt.gatts_srvc.num_attr = attr_list.size();
     gatts_evt.gatts_srvc.srvc_attr = attr_list.data();
     bta_lpm_cb.p_lpm_cback(LPM_GATTS_EVT, &gatts_evt);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_lpm_packet_after_flow_off_cb
+ *
+ * Description      LPM callback if Tx packet at hci/l2cap after flow off
+ *
+ *feturns          void
+ *
+ ******************************************************************************/
+static void bta_lpm_packet_after_flow_off_cb(void) {
+  APPL_TRACE_DEBUG("%s: ", __func__);
+  if(bta_lpm_cb.p_lpm_cback != NULL) {
+    bta_lpm_cb.p_lpm_cback(LPM_PACKET_AFTER_FLOW_OFF, NULL);
   }
 }
 

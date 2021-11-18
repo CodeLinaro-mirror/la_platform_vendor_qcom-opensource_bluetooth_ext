@@ -150,12 +150,12 @@ void btif_lpm_deinit(void);
  *
  * Description      Function to send Prepare Offload Command to stack
  *
- * Parameters       None
+ * Parameters       flow on/off - sets flow off at hci layer
  *
  * Returns          None
  *
  ******************************************************************************/
-void btif_lpm_send_prepare_offload_cmd(void);
+void btif_lpm_send_prepare_offload_cmd(bool flow_off);
 
 /*******************************************************************************
  *
@@ -282,5 +282,16 @@ void btif_lpm_update_adapter_property(bt_property_t* p_prop);
 void btif_lpm_gattc_inform_notify_reg(const RawAddress& addr, uint16_t handle,
                                                    bool reg, tGATT_STATUS status);
 
-
+/*******************************************************************************
+ *
+ * Function         is_bt_active_during_offload
+ *
+ * Description      Informs Notification Registration to LPM
+ *
+ * Parameters       None
+ *
+ * Returns          bool - status of BT Tx at hci/l2cap after flow off
+ *
+ ******************************************************************************/
+bool is_bt_active_during_offload(void);
 #endif /* BTIF_LPM_H */

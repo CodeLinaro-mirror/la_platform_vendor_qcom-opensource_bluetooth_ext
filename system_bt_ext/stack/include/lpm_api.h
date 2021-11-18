@@ -70,9 +70,12 @@ typedef void (tLPM_BLE_CONN_CBACK) (const RawAddress& rmt_addr, bool addr_type,
 
 typedef void (tLPM_GATTS_DB_ELEM_CBACK) (std::vector<tLPM_GATTS_SRVC_ATTR> attr_list);
 
+typedef void (tLPM_PACKET_AFTER_FLOW_OFF) (void);
+
 typedef struct {
   tLPM_BLE_CONN_CBACK* p_ble_conn_cb;
   tLPM_GATTS_DB_ELEM_CBACK* p_gatts_service_cb;
+  tLPM_PACKET_AFTER_FLOW_OFF* p_packet_after_flow_off;
 } tLPM_CBACK;
 
  /*******************************************************************************

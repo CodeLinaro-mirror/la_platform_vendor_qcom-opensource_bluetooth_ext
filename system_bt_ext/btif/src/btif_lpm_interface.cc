@@ -100,8 +100,7 @@ class BluetoothOffloadCallbacks:
   }
 
   Return<BtOffloadStatus> checkBtMsgActivity() {
-    //return btif_lpm_native_bt_activity_status_interface()? (BtOffloadStatus::BT_OK) : (BtOffloadStatus::BT_FAIL);
-    return BtOffloadStatus::BT_OK;
+    return is_bt_active_during_offload()? (BtOffloadStatus::BT_FAIL): (BtOffloadStatus::BT_OK);
   }
 
   Return<BtOffloadStatus> flowOff() {

@@ -49,6 +49,7 @@
 #include "osi/include/log.h"
 
 #include <vector>
+#include <mutex>
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -71,6 +72,11 @@ typedef struct {
  *  Static variables
  ******************************************************************************/
 static btif_lpm_cb_t btif_lpm_cb;
+static bool bt_activity_after_flow_off;
+static std::mutex bt_activity_lock;
+static bool wakelock_flag;
+static std::mutex wl_lock;
+
 std::vector<alarm_info_t> active_alarm;
 
 void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data);
@@ -333,15 +339,29 @@ void btif_lpm_init_done() {
  *
  * Description      Function to send Prepare Offload Command to stack
  *
- * Parameters       None
+ * Parameters       flow_off_flag - sets flow on/off at hci
  *
  * Returns          None
  *
  ******************************************************************************/
-void btif_lpm_send_prepare_offload_cmd(void) {
+void btif_lpm_send_prepare_offload_cmd(bool flow_off_flag) {
   BTIF_TRACE_EVENT("%s", __FUNCTION__);
-  BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, 0, NULL,
-      send_prepare_offload_cmd_complete);
+  uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
+  uint8_t *pp = (uint8_t *)msg;
+  *pp++ = flow_off_flag;
+   BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, DEFAULT_PARAM_LENGTH,
+           msg, send_prepare_offload_cmd_complete);
+   if (!flow_off_flag) {
+     bt_activity_after_flow_off = false;
+     {
+       std::unique_lock<std::mutex> lock(wl_lock);
+       if (wakelock_flag) {
+         wakelock_flag = false;
+         wakelock_release();
+       }
+     }
+   }
+   osi_free(msg);
 }
 
 /*******************************************************************************
@@ -378,11 +398,19 @@ void btif_lpm_send_enter_lpm_cmd(void) {
  ******************************************************************************/
 void btif_lpm_send_exit_lpm_cmd(void) {
   BTIF_TRACE_EVENT("%s", __FUNCTION__);
+  bt_activity_after_flow_off = false;
   uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
   uint8_t *pp = (uint8_t *)msg;
   *pp++ = HCI_BLE_LPM_EXIT_SUB_OPCODE;
   BTM_VendorSpecificCommand(HCI_BLE_LPM_VSC_OPCODE, DEFAULT_PARAM_LENGTH, msg,
     send_exit_lpm_cmd_complete);
+  {
+    std::unique_lock<std::mutex> lock(wl_lock);
+    if (wakelock_flag) {
+      wakelock_flag = false;
+      wakelock_release();
+    }
+  }
   osi_free(msg);
 }
 
@@ -399,11 +427,19 @@ void btif_lpm_send_exit_lpm_cmd(void) {
  ******************************************************************************/
 void btif_lpm_send_flow_on_cmd(void) {
   BTIF_TRACE_EVENT("%s", __FUNCTION__);
+  bt_activity_after_flow_off = false;
   uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
   uint8_t *pp = (uint8_t *)msg;
   *pp++ = HCI_BLE_FLOW_ON_SUB_OPCODE;
   BTM_VendorSpecificCommand(HCI_BLE_LPM_VSC_OPCODE, DEFAULT_PARAM_LENGTH, msg,
     send_flow_on_cmd_complete);
+  {
+    std::unique_lock<std::mutex> lock(wl_lock);
+    if (wakelock_flag) {
+      wakelock_flag = false;
+      wakelock_release();
+    }
+  }
   osi_free(msg);
 }
 
@@ -839,9 +875,40 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
         btif_lpm_alarm_stop(alarm->alarm_evt.name);
       break;
     }
+    
+    case LPM_PACKET_AFTER_FLOW_OFF: {
+      {
+        std::unique_lock<std::mutex> lock(bt_activity_lock);
+        bt_activity_after_flow_off = true;
+      }
+      {
+        std::unique_lock<std::mutex> lock(wl_lock);
+        if (!wakelock_flag) {
+          wakelock_flag = true;
+          wakelock_acquire();
+        }
+      }
+      break;
+    }
     default:
       break;
   }
+}
+
+/*******************************************************************************
+ *
+ * Function         is_bt_active_during_offload
+ *
+ * Description      Informs Notification Registration to LPM
+ *
+ * Parameters       None
+ *
+ * Returns          bool - status of BT Tx at hci/l2cap after flow off
+ *
+ ******************************************************************************/
+bool is_bt_active_during_offload(void) {
+  std::unique_lock<std::mutex> lock(bt_activity_lock);
+  return bt_activity_after_flow_off;
 }
 
 /*******************************************************************************
