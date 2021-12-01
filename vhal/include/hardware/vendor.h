@@ -143,6 +143,8 @@ typedef void (*btvendor_acl_state_changed_with_reason_callback)(bt_status_t stat
 /** Callback to notify role info to app.*/
 typedef void (*btvendor_role_info_callback)(bt_dm_role_info role_info);
 
+typedef void (* btvendor_a2dp_tx_complete_callback)(bt_bdaddr_t *bd_addr, bool flush);
+
 /** BT-Vendor callback structure. */
 typedef struct {
     /** set to sizeof(BtVendorCallbacks) */
@@ -154,6 +156,7 @@ typedef struct {
     btvendor_ssr_cleanup_callback    ssr_cleanup_cb;
     btvendor_acl_state_changed_with_reason_callback acl_state_changed_with_reason_cb;
     btvendor_role_info_callback role_info_cb;
+    btvendor_a2dp_tx_complete_callback a2dp_tx_complete_cb;
 } btvendor_callbacks_t;
 
 typedef int (*property_set_callout)(const char* key, const char* value);
