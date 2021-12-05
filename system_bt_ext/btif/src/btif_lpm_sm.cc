@@ -273,7 +273,8 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       /* Sends LPM pending offload pending to LPM Native */
       btif_lpm_native_interface_prepare_offload_done(LPM_PENDING,
                         OFFLOAD_PENDING);
-      /* TODo: send context_info to lpm native  */
+      /* Send context_info to lpm native  */
+      btif_lpm_fetch_ble_context_info_req();
       break;
     case BTIF_LPM_SM_NOTIFY_NACK_MSG:
       /* (yes) reset flow off flag */

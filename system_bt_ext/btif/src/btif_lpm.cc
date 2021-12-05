@@ -78,8 +78,11 @@ static bool wakelock_flag;
 static std::mutex wl_lock;
 
 std::vector<alarm_info_t> active_alarm;
+std::vector<RawAddress> offloaded_remote_list;
 
 void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data);
+
+using namespace ::vendor::qti::hardware::bluetooth_offload::V1_0;
 /*******************************************************************************
 * BTIF LPM Interface Functions
 ******************************************************************************/
@@ -330,6 +333,35 @@ void btif_lpm_init_done() {
     strlcpy(btif_lpm_cb.device_name, (char*) bdname.name, BD_NAME_LEN + 1);
     vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_set_local_device_name(
       btif_lpm_cb.device_name);
+  }
+}
+
+/*******************************************************************************
+  *
+  * Function         btif_lpm_fetch_ble_context_info_req
+  *
+  * Description      Updates the context info based on the offloaded connections
+  *
+  * Parameters       None
+  *
+  * Returns          None
+  *
+******************************************************************************/
+void btif_lpm_fetch_ble_context_info_req(void) {
+  bool offloaded_device;
+
+  for (auto it = btif_lpm_cb.ble_conns.begin(); it!=btif_lpm_cb.ble_conns.end(); it++) {
+    offloaded_device = false;
+    for (auto device : offloaded_remote_list) {
+      if (device == it->remote_addr) {
+        offloaded_device = true;
+        break;
+      }
+    }
+    if (offloaded_device) {
+      if(!btif_lpm_native_set_le_context_info(*it, btif_lpm_cb.device_addr))
+        BTIF_TRACE_ERROR("Context not set for %s", (it->remote_addr).ToString().c_str());
+    }
   }
 }
 
@@ -772,6 +804,26 @@ void btif_lpm_update_gatts_service(uint8_t num_attr, tLPM_GATTS_SRVC_ATTR* srvc_
   }
 }
 
+/*******************************************************************************
+ *
+ * Function         btif_lpm_prepare_offload_info
+ *
+ * Description      LPM native offload information
+ *
+ * Parameters       mode - LPM Mode requested
+ *                  remote_devices - List of offloadable devices
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_prepare_offload_info(tLPM_mode mode,
+                                      std::vector<RawAddress> remote_devices) {
+  /* Inform BTA layer regarding offloadable connections */
+  BTA_DmSetLPMInfo(mode, remote_devices);
+
+  /* Store the new list of remote devices - used for fetching context info*/
+  offloaded_remote_list.assign(remote_devices.begin(), remote_devices.end());
+}
 /*******************************************************************************
  *
 

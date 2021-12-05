@@ -224,6 +224,19 @@ void btif_lpm_send_flow_off_cmd(void);
 void btif_lpm_check_timer_activity(void);
 
 /*******************************************************************************
+  *
+  * Function         btif_lpm_fetch_ble_context_info_req
+  *
+  * Description      Updates the context info based on the offloaded connections
+  *
+  * Parameters       None
+  *
+  * Returns          None
+  *
+******************************************************************************/
+void btif_lpm_fetch_ble_context_info_req(void);
+
+/*******************************************************************************
  *
  * Function         btif_lpm_update_gattc_upstreams_evt
  *
@@ -281,6 +294,21 @@ void btif_lpm_update_adapter_property(bt_property_t* p_prop);
  ******************************************************************************/
 void btif_lpm_gattc_inform_notify_reg(const RawAddress& addr, uint16_t handle,
                                                    bool reg, tGATT_STATUS status);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_prepare_offload_info
+ *
+ * Description      LPM native offload information
+ *
+ * Parameters       mode - LPM Mode requested
+ *                  remote_devices - List of offloadable devices
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_prepare_offload_info(tLPM_mode mode,
+                                         std::vector<RawAddress> remote_devices);
 
 /*******************************************************************************
  *

@@ -98,5 +98,4 @@ extern bool bta_lpm_hdl_msg(BT_HDR* p_msg);
  *
  ******************************************************************************/
 extern void lpm_profile_update_evt(uint8_t profile, tBTA_LPM_PROFILE_UPDATE_EVT event);
-
 #endif /* BTA_LPM_INT_H */
