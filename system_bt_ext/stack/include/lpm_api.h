@@ -78,6 +78,13 @@ typedef struct {
   uint16_t keep_mtu;
 } tLPM_PORT_INFO;
 
+typedef struct{
+  uint32_t hci_handle;
+  uint32_t mode;
+  uint32_t role;
+  uint32_t direction;
+} tLPM_HCI_INFO;
+
 /*****************************************************************************
  *  Callbacks
  ****************************************************************************/
@@ -91,11 +98,14 @@ typedef void (tLPM_PACKET_AFTER_FLOW_OFF) (void);
 
 typedef void (tLPM_RFCOMM_PORT_INFO_CBACK) (tLPM_PORT_INFO *port_info);
 
+typedef void (tLPM_HCI_INFO_CBACK) (tLPM_HCI_INFO *hci_info,const RawAddress& rmt_addr);
+
 typedef struct {
   tLPM_BLE_CONN_CBACK* p_ble_conn_cb;
   tLPM_GATTS_DB_ELEM_CBACK* p_gatts_service_cb;
   tLPM_PACKET_AFTER_FLOW_OFF* p_packet_after_flow_off;
   tLPM_RFCOMM_PORT_INFO_CBACK* p_rfcomm_port_info_cb;
+  tLPM_HCI_INFO_CBACK* p_hci_info_cb;
 } tLPM_CBACK;
 
 
@@ -126,4 +136,6 @@ extern void LPM_Enable(tLPM_CBACK* p_cb);
 extern void LPM_ModeSwitchReq(tLPM_mode mode);
 
 extern void LPM_CopyPortInfo(tPORT*);
+
+extern void LPM_CopyHCIInfo(uint16_t,uint8_t,const RawAddress&);
 #endif /* LPM_API_H */

@@ -265,3 +265,16 @@ void LPM_CopyPortInfo(tPORT* port) {
   LOG_DEBUG(LOG_TAG, "%s:  sendong to bta layer", __func__);
   lpm_cb.lpm_cback.p_rfcomm_port_info_cb(&p_lpm_port_info);
 }
+
+void LPM_CopyHCIInfo(uint16_t handle,uint8_t role,const RawAddress& bda){
+   LOG_DEBUG(LOG_TAG, "%s", __func__);
+   //need to populate structure here
+   tLPM_HCI_INFO p_lpm_hci_info;
+   std::string addr = bda.ToString();
+   LOG_DEBUG(LOG_TAG, "%s bda = %s", __func__,bda.ToString().c_str());
+   p_lpm_hci_info.hci_handle = handle;
+   p_lpm_hci_info.role = role;
+   p_lpm_hci_info.mode =0;
+   p_lpm_hci_info.direction = 1;
+   lpm_cb.lpm_cback.p_hci_info_cb(&p_lpm_hci_info,bda);
+}
