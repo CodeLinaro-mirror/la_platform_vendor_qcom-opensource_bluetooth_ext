@@ -69,6 +69,7 @@ typedef struct {
   tLPM_CBACK lpm_cback;
   tLPM_mode mode;
   bool flow_off;
+  bool refresh_raddr_timer_state;
   std::vector<tLPM_BLE_CONN> ble_conn;
   std::vector<tLPM_GATTS_SRVC_ATTR> srvc_list;
 } tLPM_CB;
@@ -114,6 +115,13 @@ void LPM_Enable(tLPM_CBACK* p_cb) {
 void LPM_ModeSwitchReq(tLPM_mode mode) {
   LOG_DEBUG(LOG_TAG, "%s:", __func__);
   lpm_cb.mode = mode;
+  LOG_DEBUG(LOG_TAG, "Mode: %d", mode);
+  if (mode == LPM_TRACKER) {
+    lpm_cb.refresh_raddr_timer_state = btm_ble_cancel_refresh_raddr_timer();
+  } else if ((mode == LPM_ACTIVE) && lpm_cb.refresh_raddr_timer_state) {
+    btm_ble_restart_refresh_raddr_timer();
+    lpm_cb.refresh_raddr_timer_state = false;
+  }
 }
 
 /*******************************************************************************

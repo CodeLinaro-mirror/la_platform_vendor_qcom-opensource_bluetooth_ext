@@ -219,6 +219,7 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
           } else {
             /* Send Check offload command VSC */
             btif_lpm_flow_off_flag = true;
+            BTA_LPM_ModeSwitchReq(LPM_TRACKER);
             btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
           }
     //}
@@ -240,6 +241,7 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
     case BTIF_LPM_SM_NOTIFY_NACK_MSG:
       /* (yes) reset flow off flag */
       btif_lpm_flow_off_flag = false;
+      BTA_LPM_ModeSwitchReq(LPM_ACTIVE);
       btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
       break;
     default:
@@ -284,6 +286,7 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
       wakelock_release();
       /* reset flow off flag */
       btif_lpm_flow_off_flag = false;
+      BTA_LPM_ModeSwitchReq(LPM_ACTIVE);
       btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
       break;
     case BTIF_LPM_SM_PROFILE_UPDATE_EVT:
@@ -415,6 +418,7 @@ static bool btif_lpm_state_stack_offload_pending_handler(btif_sm_event_t event,
       wakelock_release();
       /* Reset flow off flag */
       btif_lpm_flow_off_flag = false;
+      BTA_LPM_ModeSwitchReq(LPM_ACTIVE);
       btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
       break;
     default:
