@@ -334,4 +334,5 @@ void btif_lpm_prepare_offload_info(tLPM_mode mode,
  ******************************************************************************/
 bool is_bt_active_during_offload(void);
 void  btif_lpm_update_rfcomm_context(tBTA_LPM*);
+void btif_lpm_fetch_rfcomm_context_info_req();
 #endif /* BTIF_LPM_H */

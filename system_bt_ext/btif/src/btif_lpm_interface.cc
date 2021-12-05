@@ -343,6 +343,19 @@ bool btif_lpm_native_disable_offload_status_interface(LPMNativeStatus status) {
       return false;
   return true;
 }
+
+bool btif_lpm_native_interface_set_rfcomm_context_info(std::vector<btif_rfcomm_context_t> comm_context,std::string addr)
+  LOG_INFO(LOG_TAG,"btif_lpm_native_interface_send_rfcomm_context_info");
+  std::vector<vendor::qti::hardware::bluetooth_offload::V1_0::RfcommContextType> rfcommContextVec;
+  for(auto it =  comm_context.begin();it != comm_context.end();++it){
+     vendor::qti::hardware::bluetooth_offload::V1_0::RfcommContextType rfcommContext;
+     rfcommContext.dlciId = it->dlci;
+     rfcommContextVec.push_back(rfcommContext);
+  }
+  auto ret = btLpmNative->setRfcommContext(addr, rfcommContextVec);
+  return true;
+}
+
 }  // namespace V1_0
 }  // namespace bluetooth_offload
 }  // namespace hardware

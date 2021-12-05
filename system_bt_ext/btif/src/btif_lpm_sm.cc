@@ -275,6 +275,8 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
                         OFFLOAD_PENDING);
       /* Send context_info to lpm native  */
       btif_lpm_fetch_ble_context_info_req();
+      BTIF_TRACE_EVENT("%s, rfcomm context info req start ..", __FUNCTION__);
+      btif_lpm_fetch_rfcomm_context_info_req();
       break;
     case BTIF_LPM_SM_NOTIFY_NACK_MSG:
       /* (yes) reset flow off flag */

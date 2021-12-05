@@ -1018,3 +1018,21 @@ void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data) {
 
   ASSERTC(status == BT_STATUS_SUCCESS, "context transfer failed", status);
 }
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_fetch_rfcomm_context_info_req
+ *
+ * Description      Callback function
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void  btif_lpm_fetch_rfcomm_context_info_req(){
+  BTIF_TRACE_ERROR("%s", __FUNCTION__);
+  BTIF_TRACE_EVENT("%s, before lpm_native_set context info", __FUNCTION__);
+  if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_rfcomm_context_info(btif_lpm_cb.comm_context, btif_lpm_cb.device_addr))
+  BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
+ }
