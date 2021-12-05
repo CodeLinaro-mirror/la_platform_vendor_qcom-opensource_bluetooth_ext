@@ -57,6 +57,7 @@
 #define LPM_GATTS_EVT 2
 #define LPM_ALARM_EVT 3
 #define LPM_PACKET_AFTER_FLOW_OFF 4
+#define LPM_RFCOMM_EVT 7
 
 typedef uint8_t tBTA_LPM_EVT;
 
@@ -69,6 +70,12 @@ typedef enum {
     BTA_LPM_DISC_PROGRESS,
     BTA_LPM_DISC_DONE
 } tBTA_LPM_PROFILE_UPDATE_EVT;
+
+typedef enum {
+    BTA_LPM_SOCKET_CONN_OPEN,
+    BTA_LPM_SOCKET_CONN_CLOSED
+} tBTA_LPM_RFCOMM_CONN_EVT;
+
 
 typedef struct {
   RawAddress rmt_addr;
@@ -98,11 +105,17 @@ typedef struct {
   tBTA_LPM_PROFILE_UPDATE_EVT profile_evt;
 } tBTA_LPM_PROFILE_UPDATE;
 
+typedef struct {
+    tBTA_LPM_RFCOMM_CONN_EVT conn_evt;
+    tLPM_PORT_INFO port_info;
+} tBTA_LPM_RFCOMM_EVT;
+
 typedef union {
   tBTA_LPM_PROFILE_UPDATE profile_update;
   tBTA_LPM_BLE_CONN_UPDATE ble_conn;
   tBTA_LPM_GATTS_EVT gatts_srvc;
   tBTA_LPM_ALARM_EVT alarm_evt;
+  tBTA_LPM_RFCOMM_EVT rfcomm_evt;
 } tBTA_LPM;
 
 /*  LPM Profile Callback from BTA to BTIF */

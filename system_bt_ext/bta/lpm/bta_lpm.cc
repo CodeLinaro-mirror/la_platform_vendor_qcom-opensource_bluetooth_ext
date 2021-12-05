@@ -64,9 +64,12 @@ static void bta_lpm_gatts_service_cb (std::vector<tLPM_GATTS_SRVC_ATTR> attr_lis
 
 static void bta_lpm_packet_after_flow_off_cb(void);
 
+static void bta_lpm_rfcomm_port_cb(tLPM_PORT_INFO*);
+
 static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
                                    bta_lpm_gatts_service_cb,
                                    bta_lpm_packet_after_flow_off_cb,
+                                   bta_lpm_rfcomm_port_cb
                                   };
 
 #ifndef CASE_RETURN_STR
@@ -309,5 +312,21 @@ static void alarm_info_cb (bool state, char* name) {
       alarm_evt.alarm_evt.state = ALARM_STOP;
     if(bta_lpm_cb.p_lpm_cback != NULL)
       bta_lpm_cb.p_lpm_cback(LPM_ALARM_EVT, &alarm_evt);
+  }
+}
+
+
+static void bta_lpm_rfcomm_port_cb (tLPM_PORT_INFO* port_info) {
+  APPL_TRACE_DEBUG(" %s lpm callback ", __func__);
+  if(bta_lpm_cb.p_lpm_cback != NULL) {
+    tBTA_LPM rfcomm_context_evt;
+    APPL_TRACE_DEBUG(" %s lpm callback ", __func__);
+    rfcomm_context_evt.rfcomm_evt.conn_evt = BTA_LPM_SOCKET_CONN_OPEN;
+    memset(&(rfcomm_context_evt.rfcomm_evt.port_info), 0, sizeof(rfcomm_context_evt.rfcomm_evt.port_info));
+    if(port_info != NULL) {
+      memcpy(&(rfcomm_context_evt.rfcomm_evt.port_info),port_info,sizeof(rfcomm_context_evt.rfcomm_evt.port_info));
+      APPL_TRACE_ERROR(" rfcomm_context_evt.rfcomm_evt.port_info.dlci  = %d",rfcomm_context_evt.rfcomm_evt.port_info.dlci);
+    }
+   bta_lpm_cb.p_lpm_cback(LPM_RFCOMM_EVT, &rfcomm_context_evt);
   }
 }
