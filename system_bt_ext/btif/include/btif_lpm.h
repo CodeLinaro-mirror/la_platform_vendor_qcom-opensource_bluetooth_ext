@@ -101,6 +101,14 @@ typedef struct {
   uint8_t flags;
 } btif_rfcomm_context_t;
 
+typedef struct {
+  RawAddress remote_addr;
+  uint32_t hci_handle;
+  uint32_t role;
+  uint32_t mode;
+  uint32_t direction;
+} btif_hci_context_t;
+
 /* BTIF LPM Control Block */
 typedef struct {
   bool privacy_enabled;
@@ -110,6 +118,7 @@ typedef struct {
   std::vector<btif_lpm_ble_conn_t> ble_conns;
   std::vector<tLPM_GATTS_SRVC_ATTR> gatts_db;
   std::vector<btif_rfcomm_context_t> comm_context;
+  std::vector<btif_hci_context_t> bredr_context;
 } btif_lpm_cb_t;
 
 /*****************************************************************************
@@ -335,4 +344,5 @@ void btif_lpm_prepare_offload_info(tLPM_mode mode,
 bool is_bt_active_during_offload(void);
 void  btif_lpm_update_rfcomm_context(tBTA_LPM*);
 void btif_lpm_fetch_rfcomm_context_info_req();
+void btif_lpm_fetch_hci_context_info_req();
 #endif /* BTIF_LPM_H */

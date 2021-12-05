@@ -263,6 +263,7 @@ bool btif_lpm_native_set_local_device_address(std::string addr, bool privacy);
  ******************************************************************************/
 bool btif_lpm_native_set_le_context_info(btif_lpm_ble_conn_t& ble_conn, std::string dev_addr);
 bool btif_lpm_native_interface_set_rfcomm_context_info(std::vector<btif_rfcomm_context_t>,std::string dev_addr);
+bool btif_lpm_native_interface_set_hci_context_info(std::string addr,btif_hci_context_t  hci_context);
 }  // namespace V1_0
 }  // namespace bluetooth_offload
 }  // namespace hardware

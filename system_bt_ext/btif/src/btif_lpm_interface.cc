@@ -356,6 +356,20 @@ bool btif_lpm_native_interface_set_rfcomm_context_info(std::vector<btif_rfcomm_c
   return true;
 }
 
+bool btif_lpm_native_interface_set_hci_context_info(std::string addr,btif_hci_context_t hci_context){
+  LOG_INFO(LOG_TAG,"btif_lpm_native_interface_set_hci_context_info");
+  LOG_INFO(LOG_TAG,"btif_lpm_native_interface_set_hci_context_info addr: %s hci_context.hci_handle = %d hci_context.role = %d",addr.c_str(),hci_context.hci_handle,hci_context.role);
+  HciBrEdrContextType bredrContext;
+  bredrContext.hciBrEdrHandle = hci_context.hci_handle;
+  //bredrContext.brEdrMode = 0;
+  bredrContext.role=DeviceRole::ROLE_MASTER;
+  //bredrContext.dir=1;
+  auto ret = btLpmNative->setBrEdrHciContext(addr,bredrContext);
+  if(ret != BtOffloadStatus::BT_OK){
+    return false;
+  }
+  return true;
+}
 }  // namespace V1_0
 }  // namespace bluetooth_offload
 }  // namespace hardware

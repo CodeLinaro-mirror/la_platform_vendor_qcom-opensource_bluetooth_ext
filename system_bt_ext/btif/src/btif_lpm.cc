@@ -812,6 +812,15 @@ void btif_lpm_update_rfcomm_context(tBTA_LPM *p_rfcomm){
   btif_lpm_cb.comm_context.emplace_back(p_context);
 }
 
+void btif_lpm_update_hci_info(tBTA_LPM *p_hci){
+  BTIF_TRACE_ERROR("%s, hci context info", __FUNCTION__);
+  btif_hci_context_t p_context;
+  p_context.remote_addr = p_hci->hci_evt.bd_addr;
+  BTIF_TRACE_ERROR("%s, hci context info addr : %s", __FUNCTION__,p_context.remote_addr.ToString().c_str());
+  p_context.hci_handle = p_hci->hci_evt.hci_info.hci_handle;
+  p_context.role = p_hci->hci_evt.hci_info.role;
+  btif_lpm_cb.bredr_context.emplace_back(p_context);
+}
 
 /*******************************************************************************
  *
@@ -977,6 +986,11 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
       btif_lpm_update_rfcomm_context(p_data);
       break;
 
+    case LPM_HCI_INFO_EVT:
+      LOG(ERROR) << "LPM_HCI_INFO_EVT";
+      BTIF_TRACE_DEBUG("%s p_data.hci_evt.hci_info.bd_addr: %s",__FUNCTION__,p_data->hci_evt.bd_addr.ToString().c_str());
+      btif_lpm_update_hci_info(p_data);
+
     default:
       break;
   }
@@ -1036,3 +1050,23 @@ void  btif_lpm_fetch_rfcomm_context_info_req(){
   if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_rfcomm_context_info(btif_lpm_cb.comm_context, btif_lpm_cb.device_addr))
   BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
  }
+
+void btif_lpm_fetch_hci_context_info_req(){
+  BTIF_TRACE_EVENT("%s, before lpm_native_set context info", __FUNCTION__);
+  bool offloaded_device;
+
+  for (auto it = btif_lpm_cb.bredr_context.begin(); it!=btif_lpm_cb.bredr_context.end(); it++) {
+    offloaded_device = false;
+    for (auto device : offloaded_remote_list) {
+      if (device == it->remote_addr) {
+        offloaded_device = true;
+        break;
+      }
+    }
+    if (offloaded_device) {
+      BTIF_TRACE_EVENT("%s, offload_device = true", __FUNCTION__);
+      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_hci_context_info(btif_lpm_cb.device_addr,*it))
+        BTIF_TRACE_ERROR("Context not set for %s", (it->remote_addr).ToString().c_str());
+    }
+  }
+}
