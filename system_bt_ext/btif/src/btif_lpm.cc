@@ -74,6 +74,8 @@ typedef struct {
 static btif_lpm_cb_t btif_lpm_cb;
 static bool bt_activity_after_flow_off;
 static std::mutex bt_activity_lock;
+static bool btif_flow_off_flag;
+static std::mutex bt_flow_lock;
 static bool wakelock_flag;
 static std::mutex wl_lock;
 
@@ -381,9 +383,12 @@ void btif_lpm_send_prepare_offload_cmd(bool flow_off_flag) {
   uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
   uint8_t *pp = (uint8_t *)msg;
   *pp++ = flow_off_flag;
-   BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, DEFAULT_PARAM_LENGTH,
-           msg, send_prepare_offload_cmd_complete);
+  {
+   std::unique_lock<std::mutex> lock(bt_flow_lock);
+   btif_flow_off_flag = flow_off_flag;
+  }
    if (!flow_off_flag) {
+     std::unique_lock<std::mutex> lock(bt_activity_lock);
      bt_activity_after_flow_off = false;
      {
        std::unique_lock<std::mutex> lock(wl_lock);
@@ -393,6 +398,8 @@ void btif_lpm_send_prepare_offload_cmd(bool flow_off_flag) {
        }
      }
    }
+   BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, DEFAULT_PARAM_LENGTH,
+           msg, send_prepare_offload_cmd_complete);
    osi_free(msg);
 }
 
@@ -430,7 +437,14 @@ void btif_lpm_send_enter_lpm_cmd(void) {
  ******************************************************************************/
 void btif_lpm_send_exit_lpm_cmd(void) {
   BTIF_TRACE_EVENT("%s", __FUNCTION__);
+  {
+  std::unique_lock<std::mutex> lock(bt_activity_lock);
   bt_activity_after_flow_off = false;
+  }
+  {
+  std::unique_lock<std::mutex> lock(bt_flow_lock);
+  btif_flow_off_flag = false;
+  }
   uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
   uint8_t *pp = (uint8_t *)msg;
   *pp++ = HCI_BLE_LPM_EXIT_SUB_OPCODE;
@@ -459,7 +473,14 @@ void btif_lpm_send_exit_lpm_cmd(void) {
  ******************************************************************************/
 void btif_lpm_send_flow_on_cmd(void) {
   BTIF_TRACE_EVENT("%s", __FUNCTION__);
+  {
+  std::unique_lock<std::mutex> lock(bt_activity_lock);
+  btif_flow_off_flag = false;
+  }
+  {
+  std::unique_lock<std::mutex> lock(bt_flow_lock);
   bt_activity_after_flow_off = false;
+  }
   uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
   uint8_t *pp = (uint8_t *)msg;
   *pp++ = HCI_BLE_FLOW_ON_SUB_OPCODE;
@@ -877,6 +898,9 @@ void btif_lpm_prepare_offload_info(tLPM_mode mode,
 
 void btif_lpm_alarm_start(char* alarm_name) {
   /* Check if alarm already present in list*/
+  BTIF_TRACE_DEBUG("alarm_type %s",alarm_name);
+  if (btif_flow_off_flag && !strcmp(alarm_name,"hci.command_response_timer"))
+    return;
   std::vector<alarm_info_t>::iterator it;
   for(it = active_alarm.begin(); it != active_alarm.end(); it++) {
     if(!strcmp(alarm_name, it->alarm_name)) {
