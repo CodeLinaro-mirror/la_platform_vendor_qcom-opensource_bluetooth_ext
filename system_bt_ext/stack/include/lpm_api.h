@@ -86,6 +86,22 @@ typedef struct{
   uint32_t direction;
 } tLPM_HCI_INFO;
 
+// Structure for holding L2CAP Context info
+typedef struct {
+  uint16_t psm;
+  uint16_t local_mtu;
+  uint16_t remote_mtu;
+  uint16_t remote_cid;
+  uint16_t local_cid;
+}tLPM_L2CAP_INFO;
+
+// Structure for holding L2CAP Context info
+typedef struct {
+  uint8_t dlci;
+  uint16_t credits;
+  bool is_tx_credits;
+}tLPM_RFCOMM_CREDITS;
+
 /*****************************************************************************
  *  Callbacks
  ****************************************************************************/
@@ -105,6 +121,10 @@ typedef void (tLPM_L2CAP_INFO_CBACK) (tL2CAP_credits credit_info);
 
 typedef void (tLPM_GATTS_RMT_SRVC_DB_CBACK) (uint16_t hci_handle, btgatt_db_element_t* db_element, uint8_t count);
 
+typedef void (tLPM_L2CAP_CFG_INFO_CBACK) (tLPM_L2CAP_INFO *l2cap_info,const RawAddress& rmt_addr);
+
+typedef void (tLPM_RFCMM_CREDIT_INFO_CBACK) (tLPM_RFCOMM_CREDITS *rfcomm_credit_info);
+
 typedef struct {
   tLPM_BLE_CONN_CBACK* p_ble_conn_cb;
   tLPM_GATTS_DB_ELEM_CBACK* p_gatts_service_cb;
@@ -113,6 +133,8 @@ typedef struct {
   tLPM_HCI_INFO_CBACK* p_hci_info_cb;
   tLPM_L2CAP_INFO_CBACK* P_l2cap_credit_info_cb;
   tLPM_GATTS_RMT_SRVC_DB_CBACK* p_gatts_rmt_srvc_db_cb;
+  tLPM_L2CAP_CFG_INFO_CBACK* p_l2cap_info_cb;
+  tLPM_RFCMM_CREDIT_INFO_CBACK* p_rfcomm_credit_info_cb;
 } tLPM_CBACK;
 
 
@@ -147,5 +169,9 @@ extern void LPM_CopyPortInfo(tPORT*);
 extern void LPM_CopyHCIInfo(uint16_t,uint8_t,const RawAddress&);
 
 extern void LPM_CopyL2CAPCredits(tL2CAP_credits credits);
+
+extern void LPM_CopyL2CAPInfo(const RawAddress& bda, uint16_t psm, uint16_t local_cid, uint16_t remote_cid, uint16_t local_mtu, uint16_t remote_mtu);
+
+extern void LPM_CopyRfCommCredits(uint8_t dlci, uint16_t credits, bool is_tx_credits);
 
 #endif /* LPM_API_H */

@@ -312,6 +312,9 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       btif_lpm_fetch_rfcomm_context_info_req();
       BTIF_TRACE_EVENT("%s, hci  context info req start ..", __FUNCTION__);
       btif_lpm_fetch_hci_context_info_req();
+      BTIF_TRACE_EVENT("%s, l2cap  context info req start ..", __FUNCTION__);
+      btif_lpm_fetch_l2cap_context_info_req();
+
       break;
     case BTIF_LPM_SM_NOTIFY_NACK_MSG:
       /* (yes) reset flow off flag */

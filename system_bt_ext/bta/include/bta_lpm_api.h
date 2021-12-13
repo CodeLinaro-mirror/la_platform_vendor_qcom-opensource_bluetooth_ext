@@ -62,6 +62,8 @@
 #define LPM_HCI_INFO_EVT 8
 #define LPM_L2CAP_EVT 9
 #define LPM_GATT_REMOTE_SRVC_DB_EVT 10
+#define LPM_L2CAP_INFO_EVT 11
+#define LPM_RFCOMM_CREDIT_EVT 12
 
 typedef uint8_t tBTA_LPM_EVT;
 
@@ -84,6 +86,11 @@ typedef enum {
   BTA_LPM_BREDR_CONN_OPEN,
   BTA_LPM_BREDR_CONN_CLOSED
 }tBTA_LPM_HCI_CONN_EVT;
+
+typedef enum {
+    BTA_LPM_L2CAP_CONN_OPEN,
+    BTA_LPM_L2CAP_CONN_CLOSED
+} tBTA_LPM_L2CAP_CONN_EVT;
 
 typedef struct {
   RawAddress rmt_addr;
@@ -135,6 +142,17 @@ typedef struct {
   tL2CAP_credits credit_info;
 }tBTA_LPM_L2CAP_EVT;
 
+typedef struct {
+  tBTA_LPM_L2CAP_CONN_EVT conn_evt;
+  tLPM_L2CAP_INFO l2cap_info;
+  RawAddress bd_addr;
+} tBTA_LPM_L2CAP_CFG_EVT;
+
+typedef struct {
+  tLPM_RFCOMM_CREDITS credit_info;
+}tBTA_LPM_RFCOMM_CREDIT_EVT;
+
+
 typedef union {
   tBTA_LPM_PROFILE_UPDATE profile_update;
   tBTA_LPM_BLE_CONN_UPDATE ble_conn;
@@ -144,6 +162,8 @@ typedef union {
   tBTA_LPM_HCI_EVT hci_evt;
   tBTA_LPM_L2CAP_EVT l2cap_evt;
   tBTA_LPM_GATT_REMOTE_SRVC_DB_EVT rmt_srvc_db_evt;
+  tBTA_LPM_L2CAP_CFG_EVT l2cap_cfg_evt;
+  tBTA_LPM_RFCOMM_CREDIT_EVT rfcomm_crd_evt;
 } tBTA_LPM;
 
 /*  LPM Profile Callback from BTA to BTIF */

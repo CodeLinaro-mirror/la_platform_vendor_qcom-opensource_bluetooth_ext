@@ -262,7 +262,7 @@ void lpm_gatts_serv_db_element(tGATT_SRV_LIST_ELEM& db_el) {
 }
 
 void LPM_CopyPortInfo(tPORT* port) {
-  LOG_DEBUG(LOG_TAG, "%s:  port->dlci = %d", __func__,port->dlci);
+  LOG_DEBUG(LOG_TAG, "%s:  port->dlci = %d, port->scn = %d", __func__,port->dlci, port->scn);
   tLPM_PORT_INFO p_lpm_port_info;
   p_lpm_port_info.state = port->state;
   p_lpm_port_info.scn = port->scn;
@@ -298,4 +298,24 @@ void LPM_CopyHCIInfo(uint16_t handle,uint8_t role,const RawAddress& bda){
 void LPM_CopyL2CAPCredits(tL2CAP_credits credits) {
    LOG_DEBUG(LOG_TAG, "%s", __func__);
    lpm_cb.lpm_cback.P_l2cap_credit_info_cb(credits);
+}
+
+void LPM_CopyL2CAPInfo(const RawAddress& bda, uint16_t psm, uint16_t local_cid, uint16_t remote_cid, uint16_t local_mtu, uint16_t remote_mtu) {
+   LOG_DEBUG(LOG_TAG, "%s", __func__);
+   tLPM_L2CAP_INFO p_lpm_l2cap_info;
+   p_lpm_l2cap_info.psm = psm;
+   p_lpm_l2cap_info.local_cid = local_cid;
+   p_lpm_l2cap_info.remote_cid = remote_cid;
+   p_lpm_l2cap_info.local_mtu = local_mtu;
+   p_lpm_l2cap_info.remote_mtu = remote_mtu;
+   lpm_cb.lpm_cback.p_l2cap_info_cb(&p_lpm_l2cap_info, bda);
+}
+
+void LPM_CopyRfCommCredits(uint8_t dlci, uint16_t credits, bool is_tx_credits) {
+   LOG_DEBUG(LOG_TAG, "%s, dlci %d credits %d, is tx %d", __func__, dlci, credits, is_tx_credits);
+   tLPM_RFCOMM_CREDITS p_lpm_rfcomm_credit;
+   p_lpm_rfcomm_credit.dlci = dlci;
+   p_lpm_rfcomm_credit.credits = credits;
+   p_lpm_rfcomm_credit.is_tx_credits = is_tx_credits;
+   lpm_cb.lpm_cback.p_rfcomm_credit_info_cb(&p_lpm_rfcomm_credit);
 }

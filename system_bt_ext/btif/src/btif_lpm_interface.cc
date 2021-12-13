@@ -365,6 +365,19 @@ bool btif_lpm_native_interface_set_rfcomm_context_info(std::vector<btif_rfcomm_c
   for(auto it =  comm_context.begin();it != comm_context.end();++it){
      vendor::qti::hardware::bluetooth_offload::V1_0::RfcommContextType rfcommContext;
      rfcommContext.dlciId = it->dlci;
+     rfcommContext.localCredits = it->localCredits;
+     rfcommContext.remoteCredits = it->remoteCredits;
+     rfcommContext.maxFrameSize = it->mtu;
+     if (it->flags == 1) {
+         rfcommContext.muxMode = 1;
+         rfcommContext.connMode = 1;
+     } else {
+         rfcommContext.muxMode = 0;
+         rfcommContext.connMode = 0;
+     }
+     rfcommContext.flags = it->flags;
+     LOG_INFO(LOG_TAG,"btif_lpm_native_interface_send_rfcomm_context_info dlci %d, rfcomm flag%d, it flags %d",rfcommContext.dlciId , rfcommContext.flags, it->flags);
+
      rfcommContextVec.push_back(rfcommContext);
   }
   auto ret = btLpmNative->setRfcommContext(addr, rfcommContextVec);
@@ -376,9 +389,13 @@ bool btif_lpm_native_interface_set_hci_context_info(std::string addr,btif_hci_co
   LOG_INFO(LOG_TAG,"btif_lpm_native_interface_set_hci_context_info addr: %s hci_context.hci_handle = %d hci_context.role = %d",addr.c_str(),hci_context.hci_handle,hci_context.role);
   HciBrEdrContextType bredrContext;
   bredrContext.hciBrEdrHandle = hci_context.hci_handle;
-  //bredrContext.brEdrMode = 0;
-  bredrContext.role=DeviceRole::ROLE_MASTER;
-  //bredrContext.dir=1;
+  bredrContext.brEdrMode = HciMode::HCI_ACTIVE;
+  if (hci_context.role == 0)
+      bredrContext.role=DeviceRole::ROLE_MASTER;
+  else
+      bredrContext.role=DeviceRole::ROLE_SLAVE;
+
+  bredrContext.dir=ConnectionDirection::DIR_INCOMING;
   auto ret = btLpmNative->setBrEdrHciContext(addr,bredrContext);
   if(ret != BtOffloadStatus::BT_OK){
     return false;
@@ -396,6 +413,24 @@ bool btif_lpm_native_interface_set_Hci_Acl_Credits(BtType btType, uint16_t credi
   }
   return true;
 
+}
+
+bool btif_lpm_native_interface_set_l2cap_context_info(std::vector<btif_l2cap_context_t> comm_context,std::string addr) {
+  LOG_INFO(LOG_TAG,"btif_lpm_native_interface_send_l2cap_context_info");
+  std::vector<vendor::qti::hardware::bluetooth_offload::V1_0::L2CapRfcommContextType> l2capContextVec;
+  for(auto it =  comm_context.begin();it != comm_context.end();++it){
+     vendor::qti::hardware::bluetooth_offload::V1_0::L2CapRfcommContextType l2capContext;
+     l2capContext.psm = it->psm;
+     l2capContext.localCid = it->local_cid;
+     l2capContext.remoteCid = it->remote_cid;
+     l2capContext.localMtu = it->local_mtu;
+     l2capContext.remoteMtu = it->remote_mtu;
+     LOG_INFO(LOG_TAG,"btif_lpm_native_interface_send_l2cap_context_info psm %d, locCid %d, rmtCid %d, locMtu %d, rmtMtu %d",l2capContext.psm , l2capContext.localCid, l2capContext.remoteCid, l2capContext.localMtu, l2capContext.remoteMtu);
+
+     l2capContextVec.push_back(l2capContext);
+  }
+  auto ret = btLpmNative->setL2CapRfcommContext(addr, l2capContextVec);
+  return true;
 }
 
 }  // namespace V1_0

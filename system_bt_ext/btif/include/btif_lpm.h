@@ -72,6 +72,9 @@
 #define CONN_ROLE_MASTER 0x01
 #define CONN_ROLE_SLAVE  0x02
 
+#define IS_SERVER 0
+#define IS_CLIENT 1
+
 typedef struct {
   bluetooth::Uuid uuid;
   uint16_t s_handle;
@@ -99,6 +102,7 @@ typedef struct {
   uint8_t dlci;
   uint8_t localCredits;
   uint8_t remoteCredits;
+  uint16_t mtu;
   uint8_t flags;
 } btif_rfcomm_context_t;
 
@@ -110,6 +114,15 @@ typedef struct {
   uint32_t direction;
 } btif_hci_context_t;
 
+typedef struct {
+  RawAddress remote_addr;
+  uint16_t psm;
+  uint16_t local_cid;
+  uint16_t remote_cid;
+  uint16_t local_mtu;
+  uint16_t remote_mtu;
+} btif_l2cap_context_t;
+
 /* BTIF LPM Control Block */
 typedef struct {
   bool privacy_enabled;
@@ -120,6 +133,7 @@ typedef struct {
   std::vector<tLPM_GATTS_SRVC_ATTR> gatts_db;
   std::vector<btif_rfcomm_context_t> comm_context;
   std::vector<btif_hci_context_t> bredr_context;
+  std::vector<btif_l2cap_context_t> l2cap_context;
 } btif_lpm_cb_t;
 
 /*****************************************************************************
@@ -359,4 +373,5 @@ bool is_bt_active_during_offload(void);
 void  btif_lpm_update_rfcomm_context(tBTA_LPM*);
 void btif_lpm_fetch_rfcomm_context_info_req();
 void btif_lpm_fetch_hci_context_info_req();
+void btif_lpm_fetch_l2cap_context_info_req();
 #endif /* BTIF_LPM_H */

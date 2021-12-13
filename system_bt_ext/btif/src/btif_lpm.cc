@@ -849,11 +849,35 @@ void btif_lpm_update_gatts_service(uint8_t num_attr, tLPM_GATTS_SRVC_ATTR* srvc_
   }
 }
 
+bool btif_lpm_check_remote_addr(RawAddress& bd_addr) {
+  BTIF_TRACE_DEBUG("%s, addr : %s", __FUNCTION__,bd_addr.ToString().c_str());
+   if (strcmp(bd_addr.ToString().c_str(),"ff:ff:ff:ff:ff:ff")) {
+       BTIF_TRACE_DEBUG("%s, valid address found returing true", __FUNCTION__);
+       return true;
+   } else {
+       BTIF_TRACE_ERROR("%s, invalid address returning false", __FUNCTION__);
+       return false;
+   }
+}
+
 void btif_lpm_update_rfcomm_context(tBTA_LPM *p_rfcomm){
-  BTIF_TRACE_ERROR("%s, rfcomm context info", __FUNCTION__);
+  BTIF_TRACE_DEBUG("%s, rfcomm context info", __FUNCTION__);
+  if (!(btif_lpm_check_remote_addr(p_rfcomm->rfcomm_evt.port_info.bd_addr))) {
+      BTIF_TRACE_ERROR("%s, rfcomm context info with bad address", __FUNCTION__);
+      return;
+  }
   btif_rfcomm_context_t p_context;
   p_context.dlci = p_rfcomm->rfcomm_evt.port_info.dlci;
-  BTIF_TRACE_ERROR("%s, p_context.dlci: %d", __FUNCTION__,p_context.dlci);
+  p_context.remote_addr = p_rfcomm->rfcomm_evt.port_info.bd_addr;
+  p_context.localCredits = p_rfcomm->rfcomm_evt.port_info.credit_tx;
+  p_context.remoteCredits = p_rfcomm->rfcomm_evt.port_info.credit_rx;
+  p_context.mtu = p_rfcomm->rfcomm_evt.port_info.mtu;
+  if (p_rfcomm->rfcomm_evt.port_info.is_server) {
+      p_context.flags = IS_SERVER;
+  } else {
+      p_context.flags = IS_CLIENT;
+  }
+  BTIF_TRACE_DEBUG("%s, p_context.dlci: %d, flags %d", __FUNCTION__,p_context.dlci,p_context.flags);
   btif_lpm_cb.comm_context.emplace_back(p_context);
 }
 
@@ -865,6 +889,36 @@ void btif_lpm_update_hci_info(tBTA_LPM *p_hci){
   p_context.hci_handle = p_hci->hci_evt.hci_info.hci_handle;
   p_context.role = p_hci->hci_evt.hci_info.role;
   btif_lpm_cb.bredr_context.emplace_back(p_context);
+}
+
+void btif_lpm_update_l2cap_info(tBTA_LPM *p_l2cap){
+  BTIF_TRACE_DEBUG("%s, hci context info", __FUNCTION__);
+  btif_l2cap_context_t p_context;
+  p_context.remote_addr = p_l2cap->l2cap_cfg_evt.bd_addr;
+  BTIF_TRACE_DEBUG("%s, hci context info addr : %s", __FUNCTION__,p_context.remote_addr.ToString().c_str());
+  p_context.psm = p_l2cap->l2cap_cfg_evt.l2cap_info.psm;
+  p_context.local_cid = p_l2cap->l2cap_cfg_evt.l2cap_info.local_cid;
+  p_context.remote_cid = p_l2cap->l2cap_cfg_evt.l2cap_info.remote_cid;
+  p_context.local_mtu = p_l2cap->l2cap_cfg_evt.l2cap_info.local_mtu;
+  p_context.remote_mtu = p_l2cap->l2cap_cfg_evt.l2cap_info.remote_mtu;
+  btif_lpm_cb.l2cap_context.emplace_back(p_context);
+}
+
+void btif_lpm_update_rfcomm_credits(tBTA_LPM *rfcomm_credits) {
+   //to do based on dlsi value need to update that rfcomm context
+   BTIF_TRACE_DEBUG("%s, dlci %d, credits %d, is_tx_credits %d", __FUNCTION__, rfcomm_credits->rfcomm_crd_evt.credit_info.dlci, rfcomm_credits->rfcomm_crd_evt.credit_info.credits, rfcomm_credits->rfcomm_crd_evt.credit_info.is_tx_credits);
+   uint8_t dlci = rfcomm_credits->rfcomm_crd_evt.credit_info.dlci;
+   for(auto it =  btif_lpm_cb.comm_context.begin();it != btif_lpm_cb.comm_context.end();++it){
+	   if (dlci == it->dlci) {
+		   BTIF_TRACE_DEBUG("%s, DLCI found and Updating credits", __FUNCTION__);
+		   if (rfcomm_credits->rfcomm_crd_evt.credit_info.is_tx_credits) {
+			   it->localCredits = rfcomm_credits->rfcomm_crd_evt.credit_info.credits;
+		   } else {
+			   it->remoteCredits = rfcomm_credits->rfcomm_crd_evt.credit_info.credits;
+		   }
+		   break;
+	   }
+   }
 }
 
 /*******************************************************************************
@@ -1056,6 +1110,15 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
       BTIF_TRACE_DEBUG("%s p_data.rmt_srvc_db_evt.hci_handle: %d",__FUNCTION__,p_data->rmt_srvc_db_evt.hci_handle);
       btif_lpm_ble_conn_srvc_db(p_data->rmt_srvc_db_evt.hci_handle, p_data->rmt_srvc_db_evt.db_element, p_data->rmt_srvc_db_evt.num_attr);
       break;
+    case LPM_L2CAP_INFO_EVT:
+      LOG(ERROR) << "LPM_L2CAP_INFO_EVT";
+      BTIF_TRACE_DEBUG("%s p_data.l2cap_cfg_evt.l2cap_info.bd_addr: %s",__FUNCTION__,p_data->l2cap_cfg_evt.bd_addr.ToString().c_str());
+      btif_lpm_update_l2cap_info(p_data);
+      break;
+    case LPM_RFCOMM_CREDIT_EVT:
+      LOG(ERROR) << "LPM_RFCOMM_CREDIT_EVT";
+      btif_lpm_update_rfcomm_credits(p_data);
+      break;
     default:
       break;
   }
@@ -1110,28 +1173,35 @@ void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data) {
  *
  ******************************************************************************/
 void  btif_lpm_fetch_rfcomm_context_info_req(){
-  BTIF_TRACE_ERROR("%s", __FUNCTION__);
-  BTIF_TRACE_EVENT("%s, before lpm_native_set context info", __FUNCTION__);
-  if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_rfcomm_context_info(btif_lpm_cb.comm_context, btif_lpm_cb.device_addr))
-  BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
+  BTIF_TRACE_DEBUG("%s", __FUNCTION__);
+  if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_rfcomm_context_info(btif_lpm_cb.comm_context, btif_lpm_cb.l2cap_context.back().remote_addr.ToString()))
+    BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
  }
 
 void btif_lpm_fetch_hci_context_info_req(){
   BTIF_TRACE_EVENT("%s, before lpm_native_set context info", __FUNCTION__);
-  bool offloaded_device;
+  //bool offloaded_device;
 
   for (auto it = btif_lpm_cb.bredr_context.begin(); it!=btif_lpm_cb.bredr_context.end(); it++) {
-    offloaded_device = false;
+   /* offloaded_device = false;
     for (auto device : offloaded_remote_list) {
       if (device == it->remote_addr) {
         offloaded_device = true;
         break;
       }
     }
-    if (offloaded_device) {
+    if (offloaded_device) {*/
       BTIF_TRACE_EVENT("%s, offload_device = true", __FUNCTION__);
-      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_hci_context_info(btif_lpm_cb.device_addr,*it))
+      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_hci_context_info((it->remote_addr).ToString(),*it)) {
         BTIF_TRACE_ERROR("Context not set for %s", (it->remote_addr).ToString().c_str());
-    }
+      } else {
+        BTIF_TRACE_DEBUG("Context set for %s", (it->remote_addr).ToString().c_str());
+      }
   }
 }
+
+void  btif_lpm_fetch_l2cap_context_info_req(){
+  BTIF_TRACE_DEBUG("%s", __FUNCTION__);
+  if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_l2cap_context_info(btif_lpm_cb.l2cap_context, btif_lpm_cb.l2cap_context.back().remote_addr.ToString()))
+    BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
+ }

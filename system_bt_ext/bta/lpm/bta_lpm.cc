@@ -72,13 +72,19 @@ static void bta_lpm_hci_info_cb(tLPM_HCI_INFO* info, const RawAddress& bd_addr);
 
 static void bta_lpm_l2cap_credit_cb(tL2CAP_credits credit_info);
 
+static void bta_lpm_rfcomm_credit_cb(tLPM_RFCOMM_CREDITS *rfcomm_credit_info);
+
+static void bta_lpm_l2cap_info_cb(tLPM_L2CAP_INFO* info, const RawAddress& bd_addr);
+
 static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
                                    bta_lpm_gatts_service_cb,
                                    bta_lpm_packet_after_flow_off_cb,
                                    bta_lpm_rfcomm_port_cb,
                                    bta_lpm_hci_info_cb,
                                    bta_lpm_l2cap_credit_cb,
-                                   bta_lpm_gatts_rmt_srvc_cb
+                                   bta_lpm_gatts_rmt_srvc_cb,
+                                   bta_lpm_l2cap_info_cb,
+                                   bta_lpm_rfcomm_credit_cb
                                   };
 
 #ifndef CASE_RETURN_STR
@@ -390,4 +396,27 @@ void bta_lpm_l2cap_credit_cb (tL2CAP_credits credit_info) {
     memcpy(&l2cap_evt.l2cap_evt.credit_info, &credit_info, sizeof(tL2CAP_credits));
     bta_lpm_cb.p_lpm_cback(LPM_L2CAP_EVT, &l2cap_evt);
   }
+}
+
+static void bta_lpm_l2cap_info_cb(tLPM_L2CAP_INFO* l2cap_info,const RawAddress& bd_addr){
+    APPL_TRACE_DEBUG(" %s lpm callback addr: %s", __func__,bd_addr.ToString().c_str());
+    tBTA_LPM l2cap_context_evt;
+    if(l2cap_info != NULL){
+        l2cap_context_evt.l2cap_cfg_evt.conn_evt = BTA_LPM_L2CAP_CONN_OPEN;
+        l2cap_context_evt.l2cap_cfg_evt.bd_addr = bd_addr;
+        memset(&(l2cap_context_evt.l2cap_cfg_evt.l2cap_info), 0, sizeof(l2cap_context_evt.l2cap_cfg_evt.l2cap_info));
+        memcpy(&(l2cap_context_evt.l2cap_cfg_evt.l2cap_info),l2cap_info,sizeof(l2cap_context_evt.l2cap_cfg_evt.l2cap_info));
+        APPL_TRACE_DEBUG(" %s l2cap_info_copied psm: %d, local_cid %d, remote_cid %d, local_mtu %d, remote_mtu %d", __func__,l2cap_context_evt.l2cap_cfg_evt.l2cap_info.psm,l2cap_context_evt.l2cap_cfg_evt.l2cap_info.local_cid, l2cap_context_evt.l2cap_cfg_evt.l2cap_info.remote_cid, l2cap_context_evt.l2cap_cfg_evt.l2cap_info.local_mtu, l2cap_context_evt.l2cap_cfg_evt.l2cap_info.remote_mtu);
+    }
+    bta_lpm_cb.p_lpm_cback(LPM_L2CAP_INFO_EVT, &l2cap_context_evt);
+}
+
+static void bta_lpm_rfcomm_credit_cb(tLPM_RFCOMM_CREDITS *rfcomm_cred_evt) {
+    APPL_TRACE_ERROR("%s: ", __func__);
+    if(bta_lpm_cb.p_lpm_cback != NULL) {
+        tBTA_LPM rfcomm_credit_evt;
+        memset(&(rfcomm_credit_evt.rfcomm_crd_evt.credit_info), 0, sizeof(rfcomm_credit_evt.rfcomm_crd_evt.credit_info));
+        memcpy(&(rfcomm_credit_evt.rfcomm_crd_evt.credit_info),rfcomm_cred_evt,sizeof(rfcomm_credit_evt.rfcomm_crd_evt.credit_info));
+        bta_lpm_cb.p_lpm_cback(LPM_RFCOMM_CREDIT_EVT, &rfcomm_credit_evt);
+    }
 }
