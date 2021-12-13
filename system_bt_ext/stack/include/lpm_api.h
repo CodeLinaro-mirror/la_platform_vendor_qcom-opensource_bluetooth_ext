@@ -115,6 +115,8 @@ typedef void (tLPM_PACKET_AFTER_FLOW_OFF) (void);
 
 typedef void (tLPM_RFCOMM_PORT_INFO_CBACK) (tLPM_PORT_INFO *port_info);
 
+typedef void (tLPM_RFCOMM_PORT_RELEASE_CBACK) (tLPM_PORT_INFO *port_info);
+
 typedef void (tLPM_HCI_INFO_CBACK) (tLPM_HCI_INFO *hci_info,const RawAddress& rmt_addr);
 
 typedef void (tLPM_L2CAP_INFO_CBACK) (tL2CAP_credits credit_info);
@@ -135,6 +137,7 @@ typedef struct {
   tLPM_GATTS_RMT_SRVC_DB_CBACK* p_gatts_rmt_srvc_db_cb;
   tLPM_L2CAP_CFG_INFO_CBACK* p_l2cap_info_cb;
   tLPM_RFCMM_CREDIT_INFO_CBACK* p_rfcomm_credit_info_cb;
+  tLPM_RFCOMM_PORT_RELEASE_CBACK* p_rfcomm_port_release_cb;
 } tLPM_CBACK;
 
 
@@ -165,6 +168,8 @@ extern void LPM_Enable(tLPM_CBACK* p_cb);
 extern void LPM_ModeSwitchReq(tLPM_mode mode);
 
 extern void LPM_CopyPortInfo(tPORT*);
+
+extern void LPM_ReleasePortInfo(tPORT*);
 
 extern void LPM_CopyHCIInfo(uint16_t,uint8_t,const RawAddress&);
 

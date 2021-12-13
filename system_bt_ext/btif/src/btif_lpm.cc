@@ -861,24 +861,40 @@ bool btif_lpm_check_remote_addr(RawAddress& bd_addr) {
 }
 
 void btif_lpm_update_rfcomm_context(tBTA_LPM *p_rfcomm){
-  BTIF_TRACE_DEBUG("%s, rfcomm context info", __FUNCTION__);
+  BTIF_TRACE_DEBUG("%s, rfcomm context info and Connection event %d", __FUNCTION__,  p_rfcomm->rfcomm_evt.conn_evt);
   if (!(btif_lpm_check_remote_addr(p_rfcomm->rfcomm_evt.port_info.bd_addr))) {
       BTIF_TRACE_ERROR("%s, rfcomm context info with bad address", __FUNCTION__);
       return;
   }
-  btif_rfcomm_context_t p_context;
-  p_context.dlci = p_rfcomm->rfcomm_evt.port_info.dlci;
-  p_context.remote_addr = p_rfcomm->rfcomm_evt.port_info.bd_addr;
-  p_context.localCredits = p_rfcomm->rfcomm_evt.port_info.credit_tx;
-  p_context.remoteCredits = p_rfcomm->rfcomm_evt.port_info.credit_rx;
-  p_context.mtu = p_rfcomm->rfcomm_evt.port_info.mtu;
-  if (p_rfcomm->rfcomm_evt.port_info.is_server) {
-      p_context.flags = IS_SERVER;
+  if (p_rfcomm->rfcomm_evt.conn_evt == BTA_LPM_SOCKET_CONN_OPEN) {
+      btif_rfcomm_context_t p_context;
+      p_context.dlci = p_rfcomm->rfcomm_evt.port_info.dlci;
+      p_context.remote_addr = p_rfcomm->rfcomm_evt.port_info.bd_addr;
+      p_context.localCredits = p_rfcomm->rfcomm_evt.port_info.credit_tx;
+      p_context.remoteCredits = p_rfcomm->rfcomm_evt.port_info.credit_rx;
+      p_context.mtu = p_rfcomm->rfcomm_evt.port_info.mtu;
+      if (p_rfcomm->rfcomm_evt.port_info.is_server) {
+          p_context.flags = IS_SERVER;
+      } else {
+          p_context.flags = IS_CLIENT;
+      }
+      BTIF_TRACE_DEBUG("%s, p_context.dlci: %d, flags %d", __FUNCTION__,p_context.dlci,p_context.flags);
+      btif_lpm_cb.comm_context.emplace_back(p_context);
   } else {
-      p_context.flags = IS_CLIENT;
+      for(auto it =  btif_lpm_cb.comm_context.begin();it != btif_lpm_cb.comm_context.end();++it){
+          if (p_rfcomm->rfcomm_evt.port_info.dlci == it->dlci) {
+              BTIF_TRACE_DEBUG("%s, clearing port with dlci: %d", __FUNCTION__,it->dlci);
+              btif_lpm_cb.comm_context.erase(it);
+              if (btif_lpm_cb.comm_context.size() == 1) {
+                  BTIF_TRACE_DEBUG("%s, clearing multiplexer port with dlci: %d", __FUNCTION__,btif_lpm_cb.comm_context.front().dlci);
+                  btif_lpm_cb.comm_context.clear();
+                  btif_lpm_cb.l2cap_context.clear();
+                  btif_lpm_cb.bredr_context.clear();
+              }
+              break;
+          }
+      }
   }
-  BTIF_TRACE_DEBUG("%s, p_context.dlci: %d, flags %d", __FUNCTION__,p_context.dlci,p_context.flags);
-  btif_lpm_cb.comm_context.emplace_back(p_context);
 }
 
 void btif_lpm_update_hci_info(tBTA_LPM *p_hci){
