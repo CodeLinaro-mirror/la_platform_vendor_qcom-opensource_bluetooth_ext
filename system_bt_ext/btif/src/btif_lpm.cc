@@ -187,6 +187,45 @@ static void send_exit_lpm_cmd_complete(tBTM_VSC_CMPL* p_data) {
       status = BT_STATUS_OK;
     }
     /* take the backup of context info ?? */
+
+    //Process context info
+    BTIF_TRACE_DEBUG(" : %s processing context info", __func__);
+    uint8_t context_length;
+    uint8_t version;
+    STREAM_TO_UINT8(context_length, stream);
+    STREAM_TO_UINT8(version, stream);
+    BTIF_TRACE_DEBUG(" : %s Length : 0x%X ",__func__, context_length);
+    BTIF_TRACE_DEBUG(" : %s version : 0x%X ",__func__, version);
+
+    //Read and update ACL credits info
+    tL2CAP_credits credits;
+    STREAM_TO_UINT16(credits.controller_xmit_window, stream);
+    STREAM_TO_UINT16(credits.controller_le_xmit_window, stream);
+    BTIF_TRACE_DEBUG(" : %s credits.controller_xmit_window : 0x%X ",__func__, credits.controller_xmit_window);
+    BTIF_TRACE_DEBUG(" : %s credits.controller_le_xmit_window : 0x%X ",__func__, credits.controller_le_xmit_window);
+    L2CA_updateLpmFlowoffCredits(false, credits);
+
+    //Read hci_mode
+    uint8_t hci_mode;
+    STREAM_TO_UINT8(hci_mode, stream);
+    BTIF_TRACE_DEBUG(" : %s hci_mode : 0x%X ",__func__, hci_mode);
+
+    //Read and update RFCOMM port info
+    tPORT* port_info = (tPORT*)osi_calloc(sizeof(tPORT));
+    uint8_t num_dlci = 0;
+    STREAM_TO_UINT8(num_dlci, stream);
+    BTIF_TRACE_DEBUG(" : %s num_dlci : 0x%X ",__func__, num_dlci);
+
+    STREAM_TO_UINT8(port_info->dlci, stream);
+    STREAM_TO_UINT8(port_info->credit_tx, stream);
+    STREAM_TO_UINT8(port_info->credit_rx, stream);
+
+    BTIF_TRACE_DEBUG(" : %s dlci : 0x%X ",__func__, port_info->dlci);
+    BTIF_TRACE_DEBUG(" : %s credit_tx : 0x%X ",__func__, port_info->credit_tx);
+    BTIF_TRACE_DEBUG(" : %s credit_rx : 0x%X ",__func__, port_info->credit_rx);
+
+    RFCOMM_UpdatePortInfo(port_info);
+
     /* Send context info to stack */
     btif_dispatch_lpm_event(BTIF_LPM_SM_LPM_EXIT_EVT,
             (void *)&status, DEFAULT_PARAM_LENGTH);
@@ -992,7 +1031,7 @@ void btif_lpm_alarm_start(char* alarm_name) {
   /* If alarm is not present add to list */
   if((it == active_alarm.end()) && (strcmp(alarm_name, "btif.config"))) {
     alarm_info_t tmp;
-    strlcpy(tmp.alarm_name, alarm_name, strlen(alarm_name));
+    strlcpy(tmp.alarm_name, alarm_name, (strlen(alarm_name)+1));
     tmp.count = 1;
     active_alarm.push_back(tmp);
     if (active_alarm.size()==1)
