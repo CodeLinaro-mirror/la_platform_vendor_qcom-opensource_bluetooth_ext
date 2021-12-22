@@ -97,12 +97,12 @@ class BluetoothOffloadCallbacks:
 
   Return<BtOffloadStatus> prepareOffload(PwrMode mode,
                      const hidl_vec<hidl_string>& remoteAddrs) {
-    LOG_INFO(LOG_TAG,"Prepare Offload");
+    LOG_INFO(LOG_TAG,"Prepare Offload size %d", remoteAddrs.size());
     std::vector<RawAddress> remote_devices;
     for (auto device : remoteAddrs) {
-      remote_devices.emplace_back();
-      RawAddress& bdaddr = remote_devices.back();
+      RawAddress bdaddr;
       RawAddress::FromString(device, bdaddr);
+      remote_devices.emplace_back(bdaddr);
     }
     btif_lpm_prepare_offload_info((uint8_t) mode, remote_devices);
     btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD,(void *)&mode, 0);

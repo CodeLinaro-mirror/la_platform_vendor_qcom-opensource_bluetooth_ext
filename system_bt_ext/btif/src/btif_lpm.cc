@@ -411,20 +411,20 @@ void btif_lpm_init_done() {
   *
 ******************************************************************************/
 void btif_lpm_fetch_ble_context_info_req(void) {
-  //bool offloaded_device;
+  bool offloaded_device;
 
   for (auto it = btif_lpm_cb.ble_conns.begin(); it!=btif_lpm_cb.ble_conns.end(); it++) {
-    /*offloaded_device = false;
+    offloaded_device = false;
     for (auto device : offloaded_remote_list) {
       if (device == it->remote_addr) {
         offloaded_device = true;
         break;
       }
     }
-    if (offloaded_device) {*/
+    if (offloaded_device) {
       if(!btif_lpm_native_set_le_context_info(*it, btif_lpm_cb.device_addr))
         BTIF_TRACE_ERROR("Context not set for %s", (it->remote_addr).ToString().c_str());
-    //}
+    }
   }
 }
 
@@ -990,11 +990,15 @@ void btif_lpm_update_rfcomm_credits(tBTA_LPM *rfcomm_credits) {
  ******************************************************************************/
 void btif_lpm_prepare_offload_info(tLPM_mode mode,
                                       std::vector<RawAddress> remote_devices) {
+  BTIF_TRACE_DEBUG("%s", __FUNCTION__);
   /* Inform BTA layer regarding offloadable connections */
   BTA_DmSetLPMInfo(mode, remote_devices);
 
   /* Store the new list of remote devices - used for fetching context info*/
   offloaded_remote_list.assign(remote_devices.begin(), remote_devices.end());
+  for(auto it =  remote_devices.begin();it != remote_devices.end();++it) {
+	BTIF_TRACE_DEBUG("%s, remote_devices address %s", __FUNCTION__, it->ToString().c_str());
+  }
 }
 
 /*******************************************************************************
@@ -1229,34 +1233,63 @@ void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data) {
  ******************************************************************************/
 void  btif_lpm_fetch_rfcomm_context_info_req(){
   BTIF_TRACE_DEBUG("%s", __FUNCTION__);
-  if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_rfcomm_context_info(btif_lpm_cb.comm_context, btif_lpm_cb.l2cap_context.back().remote_addr.ToString()))
-    BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
- }
+  bool offloaded_device;
 
-void btif_lpm_fetch_hci_context_info_req(){
-  BTIF_TRACE_EVENT("%s, before lpm_native_set context info", __FUNCTION__);
-  //bool offloaded_device;
-
-  for (auto it = btif_lpm_cb.bredr_context.begin(); it!=btif_lpm_cb.bredr_context.end(); it++) {
-   /* offloaded_device = false;
+  for (auto it = btif_lpm_cb.comm_context.begin(); it!=btif_lpm_cb.comm_context.end(); it++) {
+    offloaded_device = false;
     for (auto device : offloaded_remote_list) {
       if (device == it->remote_addr) {
         offloaded_device = true;
         break;
       }
     }
-    if (offloaded_device) {*/
+    if (offloaded_device) {
+      BTIF_TRACE_EVENT("%s, offload_device = true", __FUNCTION__);
+      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_rfcomm_context_info(btif_lpm_cb.comm_context, btif_lpm_cb.l2cap_context.back().remote_addr.ToString()))
+        BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
+    }
+  }
+ }
+
+void btif_lpm_fetch_hci_context_info_req(){
+  BTIF_TRACE_EVENT("%s, before lpm_native_set context info", __FUNCTION__);
+  bool offloaded_device;
+
+  for (auto it = btif_lpm_cb.bredr_context.begin(); it!=btif_lpm_cb.bredr_context.end(); it++) {
+    offloaded_device = false;
+    for (auto device : offloaded_remote_list) {
+      if (device == it->remote_addr) {
+        offloaded_device = true;
+        break;
+      }
+    }
+    if (offloaded_device) {
       BTIF_TRACE_EVENT("%s, offload_device = true", __FUNCTION__);
       if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_hci_context_info((it->remote_addr).ToString(),*it)) {
         BTIF_TRACE_ERROR("Context not set for %s", (it->remote_addr).ToString().c_str());
       } else {
         BTIF_TRACE_DEBUG("Context set for %s", (it->remote_addr).ToString().c_str());
       }
+	}
   }
 }
 
 void  btif_lpm_fetch_l2cap_context_info_req(){
   BTIF_TRACE_DEBUG("%s", __FUNCTION__);
-  if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_l2cap_context_info(btif_lpm_cb.l2cap_context, btif_lpm_cb.l2cap_context.back().remote_addr.ToString()))
-    BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
- }
+  bool offloaded_device;
+
+  for (auto it = btif_lpm_cb.l2cap_context.begin(); it!=btif_lpm_cb.l2cap_context.end(); it++) {
+    offloaded_device = false;
+    for (auto device : offloaded_remote_list) {
+      if (device == it->remote_addr) {
+        offloaded_device = true;
+        break;
+      }
+    }
+    if (offloaded_device) {
+      BTIF_TRACE_EVENT("%s, offload_device = true", __FUNCTION__);
+      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_l2cap_context_info(btif_lpm_cb.l2cap_context, btif_lpm_cb.l2cap_context.back().remote_addr.ToString()))
+        BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
+    }
+  }
+}
