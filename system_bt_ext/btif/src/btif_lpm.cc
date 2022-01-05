@@ -216,15 +216,16 @@ static void send_exit_lpm_cmd_complete(tBTM_VSC_CMPL* p_data) {
     STREAM_TO_UINT8(num_dlci, stream);
     BTIF_TRACE_DEBUG(" : %s num_dlci : 0x%X ",__func__, num_dlci);
 
-    STREAM_TO_UINT8(port_info->dlci, stream);
-    STREAM_TO_UINT8(port_info->credit_tx, stream);
-    STREAM_TO_UINT8(port_info->credit_rx, stream);
+    for (int i = 0; i< num_dlci; i++) {
+        STREAM_TO_UINT8(port_info->dlci, stream);
+        STREAM_TO_UINT8(port_info->credit_tx, stream);
+        STREAM_TO_UINT8(port_info->credit_rx, stream);
 
-    BTIF_TRACE_DEBUG(" : %s dlci : 0x%X ",__func__, port_info->dlci);
-    BTIF_TRACE_DEBUG(" : %s credit_tx : 0x%X ",__func__, port_info->credit_tx);
-    BTIF_TRACE_DEBUG(" : %s credit_rx : 0x%X ",__func__, port_info->credit_rx);
-
-    RFCOMM_UpdatePortInfo(port_info);
+        BTIF_TRACE_DEBUG(" : %s dlci[%d] : 0x%X ",__func__, i, port_info->dlci);
+        BTIF_TRACE_DEBUG(" : %s credit_tx[%d] : 0x%X ",__func__, i, port_info->credit_tx);
+        BTIF_TRACE_DEBUG(" : %s credit_rx[%d] : 0x%X ",__func__, i, port_info->credit_rx);
+        RFCOMM_UpdatePortInfo(port_info);
+    }
 
     /* Send context info to stack */
     btif_dispatch_lpm_event(BTIF_LPM_SM_LPM_EXIT_EVT,
