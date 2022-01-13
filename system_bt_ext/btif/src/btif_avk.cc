@@ -2605,8 +2605,13 @@ static bt_status_t update_supported_codecs_param_vendor(btav_codec_configuration
                 p_bta_avk_codec_pri_list[i].codec_cap.sbc_caps.samp_freq =
                 p_codec_config_list[i].codec_config.sbc_config.samp_freq;
                 /* Check if supported capability needs to be updated */
-                is_value_to_be_updated(&sbc_supported_cap.samp_freq,
-                    &p_codec_config_list[i].codec_config.sbc_config.samp_freq, 1);
+                //is_value_to_be_updated(&sbc_supported_cap.samp_freq,
+                //    &p_codec_config_list[i].codec_config.sbc_config.samp_freq, 1);
+
+                // Add sampling rate requested from btapp to
+                // the mandatory 44.1 and 48 sampling frequencies
+                sbc_supported_cap.samp_freq |=
+                p_codec_config_list[i].codec_config.sbc_config.samp_freq;
                 break;
 #if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
             case A2DP_SINK_AUDIO_CODEC_AAC:
