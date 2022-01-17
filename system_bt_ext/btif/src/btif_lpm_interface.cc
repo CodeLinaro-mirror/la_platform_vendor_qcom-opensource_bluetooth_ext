@@ -346,7 +346,6 @@ bool btif_lpm_native_interface_send_le_gatt_handle_range_info(
 }
 
 bool btif_lpm_native_disable_offload_status_interface(LPMNativeStatus status) {
-  btLpmNative->clearAll();
 
   BtOffloadStatus ret;
   if(status == 0x01) {
