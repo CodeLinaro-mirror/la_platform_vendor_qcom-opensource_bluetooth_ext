@@ -1,0 +1,6 @@
+filegroup {
+    name: "framework-bluetooth_offload-adapter-srcs",
+    srcs: [
+        "java/vendor/qti/bluetooth_offload/*.java",
+    ],
+}
