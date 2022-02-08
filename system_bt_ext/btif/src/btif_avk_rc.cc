@@ -3756,10 +3756,10 @@ static void initialize_transaction(int lbl, int index)
     pthread_mutex_lock(&btif_avk_rc_cb[index].device.lbllock);
     if(lbl < MAX_TRANSACTIONS_PER_SESSION)
     {
-       if (alarm_is_scheduled(btif_avk_rc_cb[index].device.transaction[lbl].txn_timer))
-          clear_cmd_timeout(lbl, index);
+       //if (alarm_is_scheduled(btif_avk_rc_cb[index].device.transaction[lbl].txn_timer))
+         // clear_cmd_timeout(lbl, index);
        //free alarm before assigning null to it
-       alarm_free(btif_avk_rc_cb[index].device.transaction[lbl].txn_timer);
+       //alarm_free(btif_avk_rc_cb[index].device.transaction[lbl].txn_timer);
        btif_avk_rc_cb[index].device.transaction[lbl].txn_timer = NULL;
        btif_avk_rc_cb[index].device.transaction[lbl].lbl = lbl;
        btif_avk_rc_cb[index].device.transaction[lbl].in_use=FALSE;

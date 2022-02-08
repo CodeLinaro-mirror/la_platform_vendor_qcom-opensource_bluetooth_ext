@@ -918,7 +918,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
 #if (BTA_AV_SINK_INCLUDED == TRUE)
                     bta_avk_cb.sdp_a2d_snk_handle = SDP_CreateRecord();
                     A2DP_AddRecord(UUID_SERVCLASS_AUDIO_SINK, p_service_name, NULL,
-                                  A2DP_SUPF_PLAYER, bta_avk_cb.sdp_a2d_snk_handle);
+                                  A2DP_SUPF_SPEAKER, bta_avk_cb.sdp_a2d_snk_handle);
                     bta_sys_add_uuid(UUID_SERVCLASS_AUDIO_SINK);
 #endif
                 }
