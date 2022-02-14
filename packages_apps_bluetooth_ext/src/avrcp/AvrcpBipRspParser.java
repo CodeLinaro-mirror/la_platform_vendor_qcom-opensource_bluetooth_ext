@@ -101,21 +101,22 @@ public class AvrcpBipRspParser {
     private final int COEFF9 = -5329;
     /* Tmp path for storing file before compressing and sending to obex.
      * This file is deleted after the operation */
-    private String mTmpFilePath;
+    private String mTmpFilePath = "";
     private final String ORDER_BY = MediaStore.Audio.Albums.DEFAULT_SORT_ORDER;
     private final String[] COL_ALBUM = new String[] {
              MediaStore.Audio.Albums._ID,
              MediaStore.Audio.Albums.ALBUM_ID,
     };
     private final String WHERE = MediaStore.Audio.Albums.ALBUM + "=?";
+    private String tag = "";
 
     public AvrcpBipRspParser(Context context, String tag) {
         setTag(tag);
         mContext = context;
         mArtHandleMap.clear();
         mCoverArtAttributesMap.clear();
-        setTmpPath(tag);
-        delTmpFile();
+        this.tag = tag;
+        isStorageReady();
     }
 
     private void setTag(String tag){
@@ -558,6 +559,10 @@ public class AvrcpBipRspParser {
             Log.w(TAG, "getImgThumb: imageHandle =" +  imgHandle + " is not in hashmap");
             return false;
         }
+        if (!isStorageReady()) {
+            Log.e(TAG, "getImgThumb: Storage not mounted ");
+            return false;
+        }
         Bitmap bm = getScaledBitmap(artAttributes.getmAlbumUri(),
                 BIP_THUMB_WIDTH, BIP_THUMB_HEIGHT);
         FileOutputStream tmp = null;
@@ -644,6 +649,10 @@ public class AvrcpBipRspParser {
         if (mCoverArtAttributesMap.get(imgHandle) == null) {
             Log.w(TAG, "getImg: imageHandle =" +  imgHandle + " is not in hashmap");
             return retVal;
+        }
+        if (!isStorageReady()) {
+            Log.e(TAG, "getImg: Storage not mounted ");
+            return false;
         }
         if(D) Log.d(TAG,"Enter getImg");
         AvrcpBipRspImgDescriptor imgDesc = new AvrcpBipRspImgDescriptor();
@@ -912,6 +921,10 @@ public class AvrcpBipRspParser {
     }
 
     private synchronized void delTmpFile() {
+        if (TextUtils.isEmpty(mTmpFilePath)) {
+            Log.e(TAG," delTmpFile storage not mounted yet");
+            return;
+        }
         File f = new File(mTmpFilePath);
         boolean isDeleted = false;
         if (f != null && f.isFile() && f.exists()) {
@@ -954,4 +967,11 @@ public class AvrcpBipRspParser {
         return  albumFound;
     }
 
+    private boolean isStorageReady() {
+        if (TextUtils.isEmpty(mTmpFilePath)) {
+            setTmpPath(tag);
+            delTmpFile();
+        }
+        return !TextUtils.isEmpty(mTmpFilePath);
+    }
 }
