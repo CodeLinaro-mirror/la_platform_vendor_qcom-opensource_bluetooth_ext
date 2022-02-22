@@ -159,7 +159,11 @@ void btif_lpm_sm_update_profile_active_status(tBTA_LPM_PROFILE_UPDATE_EVT lpm_ev
 void btif_dispatch_lpm_event(btif_lpm_sm_event_t event, void *p_data, int len) {
   BTIF_TRACE_EVENT("%s: event=%s", __FUNCTION__,
                   dump_btif_lpm_sm_event_name(event));
-  btif_sm_dispatch(lpm_sm_handle, event, p_data);
+  if (lpm_sm_handle != NULL) {
+      btif_sm_dispatch(lpm_sm_handle, event, p_data);
+  } else {
+      BTIF_TRACE_EVENT("%s: state handlers already deinitialized, so ignoring", __FUNCTION__);
+  }
 }
 
 /*******************************************************************************
@@ -192,6 +196,7 @@ void initialize_lpm_sm(void) {
 void deinitialize_lpm_sm(void) {
   btif_lpm_native_interface_deinit();
   btif_sm_shutdown(lpm_sm_handle);
+  lpm_sm_handle = NULL;
 }
 
 /*******************************************************************************
