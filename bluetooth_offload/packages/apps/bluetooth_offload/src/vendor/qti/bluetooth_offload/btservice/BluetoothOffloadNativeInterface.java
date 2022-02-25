@@ -65,8 +65,10 @@ public class BluetoothOffloadNativeInterface {
     public static final int BT_INACTIVE = 1;
     public static final int BT_INVALID_STATE = 2;
 
-    public static final int ACTIVE_MODE = 0;
-    public static final int TRACKER_MODE = 1;
+
+    public static final int TRACKER_MODE = 0;
+    public static final int TWM_MODE = 1;
+    public static final int ACTIVE_MODE = 2;
 
     private IBluetoothOffloadService mBtOffloadService;
     private PowerManager mPowerManager = null;
@@ -237,6 +239,22 @@ public class BluetoothOffloadNativeInterface {
             ". exception " + e);
         }
         return BT_FAIL;
+    }
+
+    public int SendtransitionToPwrState(int mode) {
+        Log.i(TAG, "SendtransitionToPwrState");
+        try {
+            int ret = mBtOffloadService.SendtransitionToPwrState(mode);
+            if (BT_OK != ret) {
+                Log.e(TAG, "transitionToPwrState failed");
+                return BT_FAIL;
+            }
+                return BT_OK;
+        } catch (Exception e) {
+            Log.e(TAG, "transitionToPwrState: failed for BluetoothOffloadService " +
+            ". exception " + e);
+        }
+            return BT_FAIL;
     }
 
     public int checkBtMsgActivityStatus() {
