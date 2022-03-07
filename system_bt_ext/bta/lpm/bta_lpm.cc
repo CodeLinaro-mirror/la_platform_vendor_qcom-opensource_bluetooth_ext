@@ -78,6 +78,8 @@ static void bta_lpm_rfcomm_credit_cb(tLPM_RFCOMM_CREDITS *rfcomm_credit_info);
 
 static void bta_lpm_l2cap_info_cb(tLPM_L2CAP_INFO* info, const RawAddress& bd_addr);
 
+static void bta_lpm_l2cap_clear_info_cb(uint16_t local_cid);
+
 static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
                                    bta_lpm_gatts_service_cb,
                                    bta_lpm_packet_after_flow_off_cb,
@@ -87,7 +89,8 @@ static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
                                    bta_lpm_gatts_rmt_srvc_cb,
                                    bta_lpm_l2cap_info_cb,
                                    bta_lpm_rfcomm_credit_cb,
-                                   bta_lpm_rfcomm_port_release_cb
+                                   bta_lpm_rfcomm_port_release_cb,
+                                   bta_lpm_l2cap_clear_info_cb
                                   };
 
 #ifndef CASE_RETURN_STR
@@ -436,4 +439,11 @@ static void bta_lpm_rfcomm_credit_cb(tLPM_RFCOMM_CREDITS *rfcomm_cred_evt) {
         memcpy(&(rfcomm_credit_evt.rfcomm_crd_evt.credit_info),rfcomm_cred_evt,sizeof(rfcomm_credit_evt.rfcomm_crd_evt.credit_info));
         bta_lpm_cb.p_lpm_cback(LPM_RFCOMM_CREDIT_EVT, &rfcomm_credit_evt);
     }
+}
+
+static void bta_lpm_l2cap_clear_info_cb(uint16_t local_cid) {
+    APPL_TRACE_DEBUG(" %s lpm cid %d", __func__, local_cid);
+    tBTA_LPM l2cap_context_evt;
+    l2cap_context_evt.l2cap_cfg_evt.l2cap_info.local_cid = local_cid;
+    bta_lpm_cb.p_lpm_cback(LPM_L2CAP_CLEAR_EVT, &l2cap_context_evt);
 }
