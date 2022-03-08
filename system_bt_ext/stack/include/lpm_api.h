@@ -129,6 +129,8 @@ typedef void (tLPM_RFCMM_CREDIT_INFO_CBACK) (tLPM_RFCOMM_CREDITS *rfcomm_credit_
 
 typedef void (tLPM_L2CAP_CLEAR_INFO_CBACK) (uint16_t local_cid);
 
+typedef void (tLPM_HCI_UPDATE_MODE_CBACK) (uint16_t hci_handle, uint8_t mode);
+
 typedef struct {
   tLPM_BLE_CONN_CBACK* p_ble_conn_cb;
   tLPM_GATTS_DB_ELEM_CBACK* p_gatts_service_cb;
@@ -141,6 +143,7 @@ typedef struct {
   tLPM_RFCMM_CREDIT_INFO_CBACK* p_rfcomm_credit_info_cb;
   tLPM_RFCOMM_PORT_RELEASE_CBACK* p_rfcomm_port_release_cb;
   tLPM_L2CAP_CLEAR_INFO_CBACK* p_l2cap_clear_info_cb;
+  tLPM_HCI_UPDATE_MODE_CBACK* p_hci_update_mode_cb;
 } tLPM_CBACK;
 
 
@@ -183,5 +186,7 @@ extern void LPM_CopyL2CAPInfo(const RawAddress& bda, uint16_t psm, uint16_t loca
 extern void LPM_CopyRfCommCredits(uint8_t dlci, uint16_t credits, bool is_tx_credits);
 
 extern void LPM_ClearL2CAPInfo(uint16_t local_cid);
+
+extern void LPM_UpdateHCIMode(uint16_t hci_handle,uint8_t mode);
 
 #endif /* LPM_API_H */

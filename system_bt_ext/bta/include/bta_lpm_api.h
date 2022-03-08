@@ -65,6 +65,7 @@
 #define LPM_L2CAP_INFO_EVT 11
 #define LPM_RFCOMM_CREDIT_EVT 12
 #define LPM_L2CAP_CLEAR_EVT 13
+#define LPM_HCI_MODE_UPDATE_EVT 14
 
 typedef uint8_t tBTA_LPM_EVT;
 

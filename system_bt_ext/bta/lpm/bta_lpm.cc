@@ -80,6 +80,8 @@ static void bta_lpm_l2cap_info_cb(tLPM_L2CAP_INFO* info, const RawAddress& bd_ad
 
 static void bta_lpm_l2cap_clear_info_cb(uint16_t local_cid);
 
+static void bta_lpm_hci_update_mode_info_cb(uint16_t hci_handle, uint8_t mode);
+
 static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
                                    bta_lpm_gatts_service_cb,
                                    bta_lpm_packet_after_flow_off_cb,
@@ -90,7 +92,8 @@ static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
                                    bta_lpm_l2cap_info_cb,
                                    bta_lpm_rfcomm_credit_cb,
                                    bta_lpm_rfcomm_port_release_cb,
-                                   bta_lpm_l2cap_clear_info_cb
+                                   bta_lpm_l2cap_clear_info_cb,
+                                   bta_lpm_hci_update_mode_info_cb
                                   };
 
 #ifndef CASE_RETURN_STR
@@ -446,4 +449,12 @@ static void bta_lpm_l2cap_clear_info_cb(uint16_t local_cid) {
     tBTA_LPM l2cap_context_evt;
     l2cap_context_evt.l2cap_cfg_evt.l2cap_info.local_cid = local_cid;
     bta_lpm_cb.p_lpm_cback(LPM_L2CAP_CLEAR_EVT, &l2cap_context_evt);
+}
+
+static void bta_lpm_hci_update_mode_info_cb(uint16_t hci_handle, uint8_t mode) {
+	APPL_TRACE_DEBUG(" %s hci mode change handleId %d, mode %d", __func__, hci_handle, mode);
+	tBTA_LPM hci_context_evt;
+	hci_context_evt.hci_evt.hci_info.hci_handle = hci_handle;
+	hci_context_evt.hci_evt.hci_info.mode = mode;
+	bta_lpm_cb.p_lpm_cback(LPM_HCI_MODE_UPDATE_EVT, &hci_context_evt);
 }

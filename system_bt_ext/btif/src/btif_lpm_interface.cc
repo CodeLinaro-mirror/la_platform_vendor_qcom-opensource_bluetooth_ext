@@ -384,11 +384,10 @@ bool btif_lpm_native_interface_set_rfcomm_context_info(std::vector<btif_rfcomm_c
 }
 
 bool btif_lpm_native_interface_set_hci_context_info(std::string addr,btif_hci_context_t hci_context){
-  LOG_INFO(LOG_TAG,"btif_lpm_native_interface_set_hci_context_info");
-  LOG_INFO(LOG_TAG,"btif_lpm_native_interface_set_hci_context_info addr: %s hci_context.hci_handle = %d hci_context.role = %d",addr.c_str(),hci_context.hci_handle,hci_context.role);
+  LOG_INFO(LOG_TAG,"btif_lpm_native_interface_set_hci_context_info addr: %s hci_context.hci_handle = %d hci_context.role = %d, hci_context.mode = %d",addr.c_str(),hci_context.hci_handle,hci_context.role, hci_context.mode);
   HciBrEdrContextType bredrContext;
   bredrContext.hciBrEdrHandle = hci_context.hci_handle;
-  bredrContext.brEdrMode = HciMode::HCI_ACTIVE;
+  bredrContext.brEdrMode = (::vendor::qti::hardware::bluetooth_offload::V1_0::HciMode)hci_context.mode;
   if (hci_context.role == 0)
       bredrContext.role=DeviceRole::ROLE_MASTER;
   else
