@@ -87,7 +87,7 @@ typedef struct {
   uint16_t hci_handle;
   bool in_use;
   uint16_t conn_flags;
-  uint8_t mtu;
+  uint16_t mtu;
   bool srvc_bit_set;
   bool addrtype;
   uint16_t remote_gatt_srvc_handle;
