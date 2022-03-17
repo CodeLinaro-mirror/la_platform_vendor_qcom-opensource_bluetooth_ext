@@ -527,9 +527,11 @@ public class BluetoothOffloadService extends Service {
         } else if (pwrState == mNativeInterface.TWM_MODE) {
             NativeStateMachine.mStateMachine.sendMessage(
                       NativeStateMachine.NotificationOffloadStateMachine.MSG_LN_SM_TWM);
+        } else if (pwrState == mNativeInterface.DS_MODE) {
+                      NativeStateMachine.mStateMachine.sendMessage(
+                      NativeStateMachine.NotificationOffloadStateMachine.MSG_LN_SM_DS);
         }
     }
-
     public void acquire_pm_wakelock() {
         Log.i(TAG, "acquire_pm_wakelock");
 

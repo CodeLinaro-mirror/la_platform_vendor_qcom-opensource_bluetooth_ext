@@ -68,7 +68,9 @@ public class BluetoothOffloadNativeInterface {
 
     public static final int TRACKER_MODE = 0;
     public static final int TWM_MODE = 1;
-    public static final int ACTIVE_MODE = 2;
+    public static final int DS_MODE = 2;
+    public static final int ACTIVE_MODE = 3;
+
 
     private IBluetoothOffloadService mBtOffloadService;
     private PowerManager mPowerManager = null;

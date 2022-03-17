@@ -101,6 +101,7 @@ public class NativeStateMachine {
         public static final int MSG_LN_SM_PREPARE_OFFLOAD_FAILED = 17;
         public static final int MSG_LN_CPU_SUSPEND_ONLY = 18;
         public static final int MSG_LN_SM_TWM = 19;
+		public static final int MSG_LN_SM_DS = 20;
         public static final int POWER_STATUS_NACK = 0;
         public static final int POWER_STATUS_ACK = 1;
 
@@ -183,6 +184,20 @@ public class NativeStateMachine {
                            mBluetoothOffloadService.notifyEnableOffload(mNativeInterface.TWM_MODE);
                             Log.i(TAG,"MSG_LN_TWM, in else");
                             mNativeInterface.SendtransitionToPwrState(mNativeInterface.TWM_MODE);
+                            transitionTo(mAppsPending);
+                            mStateMachine.sendMessage(
+                                    NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD);
+                        }
+                        break;
+                     case MSG_LN_SM_DS:
+                          if (no_apps_register) {
+                            Log.d(TAG,"mstackActive");
+                            //send cpu suspend ok to power manager
+                            mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_ACK);
+                        } else {
+                            mBluetoothOffloadService.notifyEnableOffload(mNativeInterface.TWM_MODE);
+                            Log.i(TAG,"MSG_LN_DS, in else");
+                            mNativeInterface.SendtransitionToPwrState(mNativeInterface.DS_MODE);
                             transitionTo(mAppsPending);
                             mStateMachine.sendMessage(
                                     NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD);
