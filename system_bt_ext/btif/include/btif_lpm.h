@@ -149,6 +149,19 @@ typedef struct {
   uint8_t er[16];
 } btif_dm_local_key_id_t_local;
 
+typedef enum {
+    BTAV_LPM_AUDIO_STATE_REMOTE_SUSPEND = 0,
+    BTAV_LPM_AUDIO_STATE_STOPPED,
+    BTAV_LPM_AUDIO_STATE_STARTED,
+} btav_lpm_audio_state_t;
+
+typedef enum {
+    BTHF_LPM_AUDIO_STATE_DISCONNECTED = 0,
+    BTHF_LPM_AUDIO_STATE_CONNECTING,
+    BTHF_LPM_AUDIO_STATE_CONNECTED,
+    BTHF_LPM_AUDIO_STATE_DISCONNECTING
+} bthf_audio_state_t;
+
 /*****************************************************************************
  *  BTIF LPM Function Declarations
  ****************************************************************************/
@@ -365,10 +378,10 @@ void btif_lpm_gattc_inform_notify_reg(const RawAddress& addr, uint16_t handle,
  * Parameters       mode - LPM Mode requested
  *                  remote_devices - List of offloadable devices
  *
- * Returns          None
+ * Returns          status - success or fail
  *
  ******************************************************************************/
-void btif_lpm_prepare_offload_info(tLPM_mode mode,
+int btif_lpm_prepare_offload_info(tLPM_mode mode,
                                          std::vector<RawAddress> remote_devices);
 
 /*******************************************************************************
@@ -387,4 +400,6 @@ void  btif_lpm_update_rfcomm_context(tBTA_LPM*);
 void btif_lpm_fetch_rfcomm_context_info_req();
 void btif_lpm_fetch_hci_context_info_req();
 void btif_lpm_fetch_l2cap_context_info_req();
+void btif_lpm_a2dp_on_stream_update(btav_lpm_audio_state_t state);
+void btif_lpm_hf_audio_update(bthf_audio_state_t state);
 #endif /* BTIF_LPM_H */
