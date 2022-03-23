@@ -303,15 +303,39 @@ bool btif_lpm_native_set_le_context_info(btif_lpm_ble_conn_t& ble_conn, std::str
     }
     gattContext.mtu = ble_conn.mtu;
     LOG_INFO(LOG_TAG, "gatt mtu:%d", ble_conn.mtu);
+    LOG_INFO(LOG_TAG,"PowerTesting btif_lpm_native_set_le_context_info ble_conn.gatt_srvc = %d", ble_conn.gatt_srvc.size());
      for (auto& gattServiceInfo : ble_conn.gatt_srvc) {
-        //if(gattServiceInfo.is_notify_reg){
-            GattServiceInfo serviceInfo;
-            serviceInfo.service_uuid = gattServiceInfo.uuid.ToString();
-            serviceInfo.start = gattServiceInfo.s_handle;
-            serviceInfo.end   = gattServiceInfo.e_handle;
-            gattServiceInfoVec.push_back(serviceInfo);
-        //}
+        GattServiceInfo serviceInfo;
+        serviceInfo.service_uuid = gattServiceInfo.uuid.ToString();
+        serviceInfo.start = gattServiceInfo.s_handle;
+        serviceInfo.end   = gattServiceInfo.e_handle;
+        std::vector<GattCharInfo> gattCharInfoVec;
+        for (auto& lmp_gattCharInfo: gattServiceInfo.gatt_chars)
+        {
+            LOG_INFO(LOG_TAG,"populating char");
+            GattCharInfo charInfo;
+            charInfo.char_uuid = lmp_gattCharInfo.uuid.ToString();
+            charInfo.char_handle = lmp_gattCharInfo.char_handle;
+            //TODO fill char_value and char_property
+            std::vector<GattDescInfo> gattDescInfoVec;
+            for (auto & lmp_desc_info: lmp_gattCharInfo.gatt_descs)
+            {
+                LOG_INFO(LOG_TAG,"populating desc");
+                GattDescInfo descInfo;
+                descInfo.desc_uuid = lmp_desc_info.uuid.ToString();
+                descInfo.desc_handle = lmp_desc_info.desc_handle;
+                gattDescInfoVec.push_back(descInfo);
+                //gattCharInfo.descriptor.push_back(desc);
+            }
+            charInfo.descriptor = gattDescInfoVec;
+            gattCharInfoVec.push_back(charInfo);
+        }
+
+        serviceInfo.characteristics = gattCharInfoVec;
+        gattServiceInfoVec.push_back(serviceInfo);
     }
+
+    LOG_INFO(LOG_TAG,"PowerTesting btif_lpm_native_set_le_context_info serviceInfo size = %d", gattServiceInfoVec.size());
 
     btif_lpm_native_interface_send_le_hci_context_info((ble_conn.remote_addr).ToString(), leHciContext, ble_conn.addrtype);
     btif_lpm_native_interface_send_le_gatt_context_info((ble_conn.remote_addr).ToString(), gattContext);
