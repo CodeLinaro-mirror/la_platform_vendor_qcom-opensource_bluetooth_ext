@@ -326,6 +326,20 @@ void btif_lpm_update_gattc_upstreams_evt(tBTA_GATTC_EVT event, tBTA_GATTC* p_dat
 
 /*******************************************************************************
  *
+ * Function         btif_lpm_update_gatts_handle_event
+ *
+ * Description      Updates gatt server events to LPM
+ *
+ * Parameters       event - GATT Server event
+ *                  p_data - data associated with the event
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_update_gatts_handle_event(tBTA_GATTS_EVT event, tBTA_GATTS* p_data);
+
+/*******************************************************************************
+ *
  * Function         btif_lpm_ble_conn_srvc_db
  *
  * Description      Stores the service db of ble connection
