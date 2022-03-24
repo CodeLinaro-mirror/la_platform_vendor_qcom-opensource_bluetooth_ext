@@ -891,9 +891,13 @@ void btif_lpm_update_gatts_handle_event(tBTA_GATTS_EVT event, tBTA_GATTS* p_data
         BTIF_TRACE_DEBUG(" %s: p_data->req_data.p_data->mtu : %d ", __FUNCTION__, p_data->req_data.p_data->mtu);
         if (GATT_DEF_BLE_MTU_SIZE != p_data->req_data.p_data->mtu && p_data->req_data.p_data->mtu) {
             if (lpm_update_ble_conn_mtu(p_data->conn.remote_bda, p_data->req_data.p_data->mtu))
+            {
                 BTIF_TRACE_DEBUG(" %s: lpm_update_ble_conn_mtu success", __FUNCTION__);
+            }
             else
+            {
                 BTIF_TRACE_ERROR("%s: lpm_update_ble_conn_mtu failed", __FUNCTION__);
+            }
         }
         break;
     }
