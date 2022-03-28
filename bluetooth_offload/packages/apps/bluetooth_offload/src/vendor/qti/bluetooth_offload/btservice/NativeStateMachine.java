@@ -379,6 +379,7 @@ public class NativeStateMachine {
                     case MSG_LN_SM_ACTIVE:
                         //check if synchronous call is working
                         //int status = mNativeInterface.SendDisableOffloadAonStack();
+                        mNativeInterface.FetchAppData();
                         transitionTo(mActivePending);
                         break;
                     case MSG_LN_SM_ATHERTON_WAKEUP_EVENT:

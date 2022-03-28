@@ -378,6 +378,16 @@ public class BluetoothOffloadNativeInterface {
         return BT_FAIL;
     }
 
+    public void FetchAppData() {
+        Log.i(TAG, "FetchAppData");
+        try {
+            mBtOffloadService.FetchAppData();
+        } catch (Exception e) {
+            Log.e(TAG, "FetchAppData: failed for BluetoothOffloadService " +
+            ". exception " + e);
+        }
+    }
+
     public void notifyPwrTransitionDone(int status) {
         Log.i(TAG, "SendtransitionToPwrState, status:" + status);
         //ToDo: send to pwr mgr
