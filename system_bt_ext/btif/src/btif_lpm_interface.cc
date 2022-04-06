@@ -473,6 +473,12 @@ bool btif_lpm_native_smp_keys_ir_er(uint8_t *ir, uint8_t *er, std::string addr) 
     return true ;
 }
 
+bool btif_lpm_native_set_linkkey(uint8_t *link_key, std::string addr) {
+    std::vector<uint8_t> linkkey(&link_key[0], &link_key[16]);
+    auto ret = btLpmNative->setBREDRLinkKey(linkkey, addr);
+    return true ;
+}
+
 }  // namespace V1_0
 }  // namespace bluetooth_offload
 }  // namespace hardware
