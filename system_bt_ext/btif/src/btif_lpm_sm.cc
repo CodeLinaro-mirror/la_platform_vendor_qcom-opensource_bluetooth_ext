@@ -251,7 +251,7 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
   BTIF_TRACE_EVENT("%s event = %s ", __FUNCTION__,
       dump_btif_lpm_sm_event_name((btif_lpm_sm_event_t)event));
   uint8_t status;
-  int32_t mode;
+  int32_t mode = (int)PwrMode::PWR_MODE_ACTIVE;
   bool offloadable_links = true;
   tBTA_LPM_PROFILE_UPDATE_EVT lpm_event;
 
@@ -270,14 +270,23 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_OFFLOAD_PENDING);
       break;
     case BTIF_LPM_SM_TIMER_ACTIVE_EVT:
-      btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
+      BTIF_TRACE_EVENT("%s, mode: %d", __FUNCTION__, mode);
+      if (mode != (int)PwrMode::PWR_MODE_TWM) {
+          btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
+      } else {
+          BTIF_TRACE_EVENT("%s, Timer active event is not allowed", __FUNCTION__);
+      }
       break;
     case BTIF_LPM_SM_PROFILE_UPDATE_EVT:
-      lpm_event = *(tBTA_LPM_PROFILE_UPDATE_EVT*)data;
-      BTIF_TRACE_EVENT("%s, event-%d", __FUNCTION__, lpm_event);
-      btif_lpm_sm_update_profile_active_status(lpm_event);
-      if(btif_lpm_is_bt_active_flag){
-        btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
+      if (mode != (int)PwrMode::PWR_MODE_TWM) {
+          lpm_event = *(tBTA_LPM_PROFILE_UPDATE_EVT*)data;
+          BTIF_TRACE_EVENT("%s, event-%d", __FUNCTION__, lpm_event);
+          btif_lpm_sm_update_profile_active_status(lpm_event);
+          if (btif_lpm_is_bt_active_flag){
+              btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
+          }
+      } else {
+          BTIF_TRACE_EVENT("%s, profile update event is not allowed", __FUNCTION__);
       }
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
@@ -303,6 +312,9 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       /* twm mode - disconnects all the links except offloaded */
       else if (mode == (int)PwrMode::PWR_MODE_TWM) {
         BTIF_TRACE_EVENT("%s: TWM mode",__func__);
+        //Stop advertisement and scanning
+        btif_lpm_stop_advertisements();
+        btif_lpm_stop_scan();
         /* check if there are any non offloadable links */
         offloadable_links = btif_lpm_check_offloadable_links();
         if(offloadable_links) {
@@ -345,12 +357,16 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
 
       break;
     case BTIF_LPM_SM_NOTIFY_NACK_MSG:
-      /* (yes) reset flow off flag */
-      btif_lpm_flow_off_flag = false;
-      BTA_LPM_ModeSwitchReq(LPM_ACTIVE);
-      btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
+      if (mode != (int)PwrMode::PWR_MODE_TWM) {
+          /* (yes) reset flow off flag */
+          btif_lpm_flow_off_flag = false;
+          BTA_LPM_ModeSwitchReq(LPM_ACTIVE);
+          btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
+      } else {
+          BTIF_TRACE_EVENT("%s, BTIF_LPM_SM_NOTIFY_NACK_MSG is not allowed in TWM", __FUNCTION__);
+      }
       break;
-    default:
+      default:
       BTIF_TRACE_WARNING("%s: Unhandled event=%s",
                          __FUNCTION__,
                          dump_btif_lpm_sm_event_name((btif_lpm_sm_event_t)event));

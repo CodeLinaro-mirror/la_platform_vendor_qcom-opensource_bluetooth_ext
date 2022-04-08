@@ -57,6 +57,15 @@
 #define LOG_TAG "btif_lpm"
 #endif
 
+/*bt_gatt_types.h GATT_TRANSPORT_LE and gatt_api.h macro GATT_TRANSPORT_LE conflicts so undefining*/
+#ifdef GATT_TRANSPORT_LE
+#undef GATT_TRANSPORT_LE
+#endif
+
+#include "hardware/ble_advertiser.h"
+#include "hardware/ble_scanner.h"
+//#include "ble_advertiser.h"
+
 /*******************************************************************************
  *  Structures and Macros
  ******************************************************************************/
@@ -91,6 +100,10 @@ int hf_connected_clients_count = 0;
 bool is_hf_audio_active;
 
 void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data);
+
+BleAdvertiserInterface* get_ble_advertiser_instance();
+BleScannerInterface* get_ble_scanner_instance();
+
 
 using namespace ::vendor::qti::hardware::bluetooth_offload::V1_0;
 /*******************************************************************************
@@ -448,9 +461,10 @@ void btif_lpm_fetch_ble_context_info_req(void) {
  ******************************************************************************/
 void btif_lpm_send_prepare_offload_cmd(bool flow_off_flag) {
   BTIF_TRACE_EVENT("%s", __FUNCTION__);
-  uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
+  uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH + 1);
   uint8_t *pp = (uint8_t *)msg;
   *pp++ = flow_off_flag;
+  *pp++ = lpm_mode;
   {
    std::unique_lock<std::mutex> lock(bt_flow_lock);
    btif_flow_off_flag = flow_off_flag;
@@ -467,7 +481,7 @@ void btif_lpm_send_prepare_offload_cmd(bool flow_off_flag) {
       }
     }
   }
-  BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, DEFAULT_PARAM_LENGTH,
+  BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, DEFAULT_PARAM_LENGTH + 1,
           msg, send_prepare_offload_cmd_complete);
   osi_free(msg);
 }
@@ -680,6 +694,8 @@ void btif_lpm_check_timer_activity(void) {
 void btif_lpm_process_profile_update(uint8_t profile_id,
                                   tBTA_LPM_PROFILE_UPDATE_EVT profile_evt) {
   /* Post Profile update to state machine */
+  btif_dispatch_lpm_event(BTIF_LPM_SM_PROFILE_UPDATE_EVT,
+                  (void*) &profile_evt, sizeof(profile_evt));
 }
 
 
@@ -1408,6 +1424,8 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
  ******************************************************************************/
 bool is_bt_active_during_offload(void) {
   std::unique_lock<std::mutex> lock(bt_activity_lock);
+  if (lpm_mode == LPM_TWM)
+      return false;
   return bt_activity_after_flow_off;
 }
 
@@ -1526,5 +1544,50 @@ void btif_lpm_hf_audio_update(bthf_audio_state_t state) {
         hf_connected_clients_count--;
         if(hf_connected_clients_count == 0)
             is_hf_audio_active = false;
+    }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_stop_advertisements
+ *
+ * Description      Stop all advertisements
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_stop_advertisements(void)
+{
+    BleAdvertiserInterface* advertiser = get_ble_advertiser_instance();
+    if (advertiser != NULL)
+    {
+        BTIF_TRACE_DEBUG("%s advertiser is not null", __FUNCTION__);
+        advertiser->StopAdvertisements();
+    }
+    else {
+        BTIF_TRACE_DEBUG("%s advertiser is NULL", __FUNCTION__);
+    }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_stop_scan
+ *
+ * Description      Stop scan
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_stop_scan(void)
+{
+    BleScannerInterface* scanner = get_ble_scanner_instance();
+    if (scanner != NULL)
+    {
+        BTIF_TRACE_DEBUG("%s scanner is not null", __FUNCTION__);
+        scanner->Scan(false);
     }
 }

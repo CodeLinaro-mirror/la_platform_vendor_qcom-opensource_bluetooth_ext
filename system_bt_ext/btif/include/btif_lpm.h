@@ -458,6 +458,33 @@ int btif_lpm_prepare_offload_info(tLPM_mode mode,
  *
  ******************************************************************************/
 bool is_bt_active_during_offload(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_stop_advertisements
+ *
+ * Description      Stop all advertisements
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_stop_advertisements(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_stop_scan
+ *
+ * Description      Stop scan
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_stop_scan(void);
+
 void  btif_lpm_update_rfcomm_context(tBTA_LPM*);
 void btif_lpm_fetch_rfcomm_context_info_req();
 void btif_lpm_fetch_hci_context_info_req();
