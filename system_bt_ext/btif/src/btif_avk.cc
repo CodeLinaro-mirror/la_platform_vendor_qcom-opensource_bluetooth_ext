@@ -155,6 +155,7 @@ static btif_avk_cb_t btif_avk_cb[BTIF_AVK_NUM_CB];
 static alarm_t *avk_open_on_rc_timer = NULL;
 int btif_max_avk_clients = 1;
 bool enable_scmst = false;
+static bool is_wl_enabled = false;
 static bool enable_multicast = FALSE;
 static bool is_multicast_supported = FALSE;
 static bool multicast_disabled = FALSE;
@@ -2293,6 +2294,8 @@ static bt_status_t init_sink_vendor(btav_sink_vendor_callbacks_t* callbacks, int
     enable_notification_cb = streaming_prarm & A2DP_SINK_ENABLE_NOTIFICATION_CB;
     //enable_timestamp is valid only if enable_notification_cb is enabled
     enable_timestamp = streaming_prarm & A2DP_SINK_ENABLE_TIMESTAMP;
+    property_get("vendor.bt.a2dp.whitelist.device", value, "false");
+    is_wl_enabled = (strcmp(value, "true") == 0);
 
     BTIF_TRACE_IMP("%s, enable_sbc_decoding = %d, retreive RTP header = %d"
                    ", enable_delay_reporting = %d, enable_avrc_browsing = %d"
@@ -3053,7 +3056,10 @@ uint32_t btif_media_enque_sink_data(uint16_t codec_type, uint8_t *data, uint16_t
                     BTIF_TRACE_DEBUG(" %s ~~ SBC steam decoded packet enque, enque_ns = [%09llu]", __func__,p_msg->enque_ns);
                 }
         }
-        fixed_queue_enqueue(RxDataQ, p_msg);
+        /* Don't queue 42 byte packets, If whitelist for the device is enabled */
+        if (!is_wl_enabled || p_msg->len > 42)
+          fixed_queue_enqueue(RxDataQ, p_msg);
+
         BTIF_TRACE_DEBUG("%s pkt_size %d  DATA_Q_Size %d bd_addr %s, codec_type = %d",
                   __FUNCTION__, size, fixed_queue_length(RxDataQ), p_msg->bd_addr.ToString().c_str(), p_msg->codec_type);
     }
