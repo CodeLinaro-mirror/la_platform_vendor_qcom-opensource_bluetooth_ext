@@ -449,7 +449,8 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
                   dump_btif_lpm_sm_event_name((btif_lpm_sm_event_t)event));
 
   tBTA_LPM_PROFILE_UPDATE_EVT lpm_event;
-
+  int32_t mode;
+  bool offloadable_links = true;
   switch (event) {
     case BTIF_SM_ENTER_EVT:
       wakelock_acquire();
@@ -482,13 +483,30 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
       btif_lpm_native_interface_prepare_offload_done(LPM_FAILED, OFFLOAD_FAILED);
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
-      if (btif_lpm_is_cancel_discovery_initiated) {
-          BTIF_TRACE_EVENT("%s: TWM mode - started cancel discovery wait till it's complete ",__func__);
-          /* started cancel discovery wait till it's complete */
+      mode = *(int32_t*)data;
+      if (mode == (int)PwrMode::PWR_MODE_TWM && btif_lpm_is_cancel_discovery_initiated) {
+        btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_TWM_PENDING);
+      } else if (mode == (int)PwrMode::PWR_MODE_TWM) {
+        BTIF_TRACE_EVENT("%s: TWM mode",__func__);
+        //Stop advertisement and scanning
+        btif_lpm_stop_advertisements();
+        btif_lpm_stop_scan();
+        /* check if there are any non offloadable links */
+        offloadable_links = btif_lpm_check_offloadable_links();
+        if(offloadable_links) {
+          BTIF_TRACE_EVENT("%s: TWM mode - offloadable_links",__func__);
+          /* Send Check offload command VSC */
+          btif_lpm_flow_off_flag = true;
+          BTA_LPM_ModeSwitchReq(mode);
+          btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
+          /* Send flow off status to stack */
+          BTIF_TRACE_EVENT("%s: calling L2cap_flowoff api",__func__);
+          L2CA_setLpmFlowoff(true);
+        } else {
+          BTIF_TRACE_EVENT("%s: TWM mode - non offloadable_links",__func__);
+          /* there are non offloadable links too, wait till they get disconnected */
           btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_TWM_PENDING);
-      } else {
-          /* send offload failed to LPM Native */
-          btif_lpm_native_interface_prepare_offload_done(LPM_FAILED, OFFLOAD_FAILED);
+        }
       }
       break;
     case BTIF_LPM_SM_TIMER_INACTIVE_EVT:
