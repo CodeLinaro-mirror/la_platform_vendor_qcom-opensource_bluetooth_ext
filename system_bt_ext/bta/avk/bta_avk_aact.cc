@@ -43,6 +43,7 @@
 #include "l2c_api.h"
 #include "l2cdefs.h"
 #include "a2d_sbc.h"
+#include "bta/av/bta_av_int.h"
 #if( defined BTA_AR_INCLUDED ) && (BTA_AR_INCLUDED == TRUE)
 #include "bta_ar_api.h"
 #endif
@@ -1788,7 +1789,7 @@ void bta_avk_connect_req (tBTA_AVK_SCB *p_scb, tBTA_AVK_DATA *p_data)
     property_get("vendor.bt.pts.certification", value, "false");
 
     if(!strcmp(value, "false")){
-        if(bta_avk_find_lcb(p_scb->peer_addr, BTA_AVK_LCB_FIND) != NULL)
+        if(bta_av_find_lcb(p_scb->peer_addr, BTA_AV_LCB_FIND) != NULL)
         {
             APPL_TRACE_EVENT("bta_avk_connect_req: same address has connected to av");
             bta_avk_ssm_execute(p_scb, BTA_AVK_AVDT_DISCONNECT_EVT, NULL);
