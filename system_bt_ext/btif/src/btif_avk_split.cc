@@ -2909,6 +2909,7 @@ static bt_status_t suspend_req(const RawAddress& bd_addr) {
 void set_ttp_range_for_aptx_ad(uint16_t min, uint16_t max) {
 
     BTIF_TRACE_DEBUG("%s: with min %d max %d",__FUNCTION__, min, max);
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
     if (max >= min) {
 
        uint8_t ttp_min,ttp_max;
@@ -2945,6 +2946,7 @@ void set_ttp_range_for_aptx_ad(uint16_t min, uint16_t max) {
     else {
        BTIF_TRACE_DEBUG("Setting TTP range for aptxad codec failed: max < min");
     }
+#endif
 }
 
 /*******************************************************************************

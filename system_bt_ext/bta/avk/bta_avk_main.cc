@@ -844,13 +844,16 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
             {
                 if (!is_split_enabled()) {
                     /* APTX-Adaptive Decoder is enabled only in Split Mode */
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
                     if((index ==  BTIF_SV_AVK_AA_APTX_AD_INDEX) ||
                        (index ==  BTIF_SV_AVK_AA_APTX_HD_INDEX))
                     {
                         index ++;
                         continue;
                     }
+#endif
                 }
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
                 if((index ==  BTIF_SV_AVK_AA_APTX_AD_INDEX) ||
                    (index ==  BTIF_SV_AVK_AA_APTX_INDEX) ||
                    (index ==  BTIF_SV_AVK_AA_APTX_HD_INDEX))
@@ -862,6 +865,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA *p_data)
                         continue;
                     }
                 }
+#endif
                 // Initialize codec.
 
                 p_scb->p_cos->init(&codec_type, cs.cfg.codec_info,
