@@ -1370,8 +1370,9 @@ void bta_avk_stream_chg(tBTA_AVK_SCB *p_scb, bool started)
 
     if (started)
     {
-        /* Let L2CAP know this channel is processed with high priority */
-        L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_HIGH);
+        // Setting the ACL Priority to NORMAL as this is A2DP Sink Streaming.
+        // ACL High Priority is set for A2DP Source Streaming.
+        L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_NORMAL);
         (*p_streams) |= started_msk;
     }
     else
