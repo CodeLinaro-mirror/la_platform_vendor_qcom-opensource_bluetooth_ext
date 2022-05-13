@@ -532,8 +532,6 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
                 BTIF_TRACE_EVENT("reset A2dp states in IDLE ");
                 btif_avk_split_a2dp_on_idle();
             }
-            // reset all memorized messages list.
-            btif_avk_reset_messages(index);
             if((!streaming_bda.IsEmpty()) && (streaming_bda == btif_avk_cb[index].peer_bda)) {
                 //streaming bda is assigned to current device, but we move to opened state.
                 // mark it empty
