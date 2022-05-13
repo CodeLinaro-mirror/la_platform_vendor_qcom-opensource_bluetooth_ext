@@ -79,6 +79,12 @@ public class NativeStateMachine {
         mBluetoothOffloadService = BluetoothOffloadService.getBluetoothOffloadService();
     }
 
+    public void cleanUp() {
+        Log.i(TAG, "cleanUp");
+        mStateMachine.quitNow();
+        mStateMachine = null;
+    }
+
     public class NotificationOffloadStateMachine extends StateMachine {
 
         public static final int MSG_LN_SM_ACTIVE = 0;

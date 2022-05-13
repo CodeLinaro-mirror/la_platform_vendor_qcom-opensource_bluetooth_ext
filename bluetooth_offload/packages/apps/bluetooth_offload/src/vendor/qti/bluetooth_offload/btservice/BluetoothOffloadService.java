@@ -112,6 +112,7 @@ public class BluetoothOffloadService extends Service {
                 Log.e(TAG,"BT OFF - clearing object");
                 mNativeInterface.deregisterCb();
                 mNativeInterface = null;
+                mNativeStateMachine.cleanUp();
                 mNativeStateMachine = null;
             }
             else if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action) &&
