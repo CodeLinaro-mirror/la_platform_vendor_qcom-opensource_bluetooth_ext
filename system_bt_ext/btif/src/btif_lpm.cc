@@ -307,7 +307,8 @@ void btif_lpm_init_done() {
                              sizeof(bdaddr), &bdaddr);
   if(btif_storage_get_adapter_property(&prop_addr) == BT_STATUS_SUCCESS) {
     btif_lpm_cb.device_addr = bdaddr.ToString();
-  /* Call LPM Native interface function */
+    vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_set_local_device_address(
+      btif_lpm_cb.device_addr, btif_lpm_cb.privacy_enabled);
   }
 
   BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
@@ -315,7 +316,8 @@ void btif_lpm_init_done() {
 
   if (btif_storage_get_adapter_property(&prop_name) == BT_STATUS_SUCCESS) {
     strlcpy(btif_lpm_cb.device_name, (char*) bdname.name, BD_NAME_LEN + 1);
-  /* Call LPM Native interface function */
+    vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_set_local_device_name(
+      btif_lpm_cb.device_name);
   }
 }
 

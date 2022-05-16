@@ -94,30 +94,39 @@ class BluetoothOffloadCallbacks:
 
   Return<BtOffloadStatus> prepareOffload(PwrMode mode,
                      const hidl_vec<hidl_string>& remoteAddrs) {
+    LOG_INFO(LOG_TAG,"Prepare Offload");
+    btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD,(void *)&mode,0);
     return BtOffloadStatus::BT_OK;
   }
 
   Return<BtOffloadStatus> checkBtMsgActivity() {
+    //return btif_lpm_native_bt_activity_status_interface()? (BtOffloadStatus::BT_OK) : (BtOffloadStatus::BT_FAIL);
     return BtOffloadStatus::BT_OK;
   }
 
   Return<BtOffloadStatus> flowOff() {
+    btif_dispatch_lpm_event(BTIF_LPM_SM_SEND_FLOW_OFF_CMD,NULL,0);
     return BtOffloadStatus::BT_OK;
   }
 
   Return<BtOffloadStatus> flowOn() {
+    btif_dispatch_lpm_event(BTIF_LPM_SM_SEND_FLOW_ON_CMD,NULL,0);
     return BtOffloadStatus::BT_OK;
   }
 
   Return<BtOffloadStatus> commitOffload() {
+    btif_dispatch_lpm_event(BTIF_LPM_SM_SEND_LPM_ENTER_CMD,NULL,0);
     return BtOffloadStatus::BT_OK;
   }
 
   Return<void> notifyPwrTransitionStatus(PwrMgrStatus status) {
+    if (status == PwrMgrStatus::PWR_MGR_NACK)
+      btif_dispatch_lpm_event(BTIF_LPM_SM_NOTIFY_NACK_MSG,NULL,0);
     return Void();
   }
 
   Return<BtOffloadStatus> disableOffload() {
+    btif_dispatch_lpm_event(BTIF_LPM_SM_SEND_LPM_EXIT_CMD,NULL,0);
     return BtOffloadStatus::BT_OK;
   }
 };
@@ -176,6 +185,157 @@ void btif_lpm_native_interface_deinit(void) {
     }
     btLpmNative = nullptr;
   }
+}
+bool btif_lpm_native_interface_prepare_offload_done(
+        LPMNativeStatus lpm_status, StackStatus stack_status) {
+  if (lpm_status == LPM_FAILED && stack_status == OFFLOAD_FAILED) {
+    auto ret = btLpmNative->prepareOffloadDone(BtOffloadAttemptStatus::BT_NOT_ALLOWED);
+    if (!ret.isOk())
+      return false;
+  }
+
+  if (lpm_status == LPM_SUCCESS && stack_status == OFFLOAD_FAILED) {
+    auto ret = btLpmNative->prepareOffloadDone(BtOffloadAttemptStatus::BT_CPU_SUSPEND_OK);
+    if (!ret.isOk())
+      return false;
+  }
+
+  if (lpm_status == LPM_PENDING && stack_status == OFFLOAD_PENDING) {
+    /*Fetch and send context_info*/
+    auto ret = btLpmNative->prepareOffloadDone(BtOffloadAttemptStatus::BT_OFFLOAD_OK);
+    if (!ret.isOk())
+      return false;
+  }
+  return true;
+}
+
+bool btif_lpm_native_flow_on_ack_interface(uint8_t status) {
+  BtOffloadStatus ret;
+  if(status == 0x01) {
+      ret = btLpmNative->flowOnDone(BtOffloadStatus::BT_OK);
+  } else {
+      ret = btLpmNative->flowOnDone(BtOffloadStatus::BT_FAIL);
+  }
+  if (ret != BtOffloadStatus::BT_OK)
+      return false;
+  return true;
+}
+
+bool btif_lpm_native_flow_off_ack_interface(uint8_t status) {
+  BtOffloadStatus ret;
+  if(status == 0x01) {
+      ret = btLpmNative->flowOffDone(BtOffloadStatus::BT_OK);
+  } else {
+      ret = btLpmNative->flowOffDone(BtOffloadStatus::BT_FAIL);
+  }
+  if (ret != BtOffloadStatus::BT_OK)
+      return false;
+  return true;
+}
+
+bool btif_lpm_native_interface_commit_offload_done(
+        LPMNativeStatus lpm_status, StackStatus stack_status) {
+  if (lpm_status == LPM_SUCCESS && stack_status == OFFLOAD_PENDING) {
+    auto ret = btLpmNative->commitOffloadDone(BtOffloadStatus::BT_OK);
+    if (!ret.isOk())
+      return false;
+  } else {
+    auto ret = btLpmNative->commitOffloadDone(BtOffloadStatus::BT_FAIL);
+    if (!ret.isOk())
+      return false;
+  }
+  return true;
+}
+bool btif_lpm_native_set_local_device_address(std::string addr, bool privacy) {
+    LOG_INFO(LOG_TAG,"btif_lpm_native_set_local_device_address");
+    auto ret = btLpmNative->setLocalDeviceAddress(addr, (privacy ?
+               AddrType::ADDR_RANDOM :
+               AddrType::ADDR_PUBLIC));
+    if (!ret.isOk())
+      return false;
+  return true;
+}
+
+bool btif_lpm_native_set_local_device_name(std::string name) {
+    LOG_INFO(LOG_TAG,"btif_lpm_native_set_local_device_name");
+    auto ret = btLpmNative->setLocalDeviceName(name);
+    if (!ret.isOk())
+      return false;
+  return true;
+}
+bool btif_lpm_native_set_le_context_info(btif_lpm_ble_conn_t& ble_conn, std::string dev_addr) {
+    HciLeContextType leHciContext;
+    GattContextType gattContext;
+    std::vector<GattServiceInfo> gattServiceInfoVec;
+
+    /*TODO: update islpmRegistered from offloadable app? */
+    LOG_INFO(LOG_TAG,"btif_lpm_native_set_context_info");
+    leHciContext.hci_LeHandle = ble_conn.hci_handle;
+    //LOG_INFO(LOG_TAG, "hci handle:", ble_conn.hci_handle);
+
+    if(ble_conn.conn_flags == CONN_ROLE_MASTER) {
+        leHciContext.dir = ConnectionDirection::DIR_OUTGOING;
+        LOG_INFO(LOG_TAG, "hci dir is outgoing");
+    } else {
+        leHciContext.dir = ConnectionDirection::DIR_INCOMING;
+        LOG_INFO(LOG_TAG, "hci dir is incoming");
+    }
+    gattContext.mtu = ble_conn.mtu;
+    LOG_INFO(LOG_TAG, "gatt mtu:%d", ble_conn.mtu);
+     for (auto& gattServiceInfo : ble_conn.gatt_srvc) {
+        if(gattServiceInfo.is_notify_reg){
+            GattServiceInfo serviceInfo;
+            serviceInfo.uuid  = gattServiceInfo.uuid.As16Bit();
+            serviceInfo.start = gattServiceInfo.s_handle;
+            serviceInfo.end   = gattServiceInfo.e_handle;
+            gattServiceInfoVec.push_back(serviceInfo);
+        }
+    }
+
+    btif_lpm_native_interface_send_le_hci_context_info((ble_conn.remote_addr).ToString(), leHciContext);
+    btif_lpm_native_interface_send_le_gatt_context_info((ble_conn.remote_addr).ToString(), gattContext);
+    btif_lpm_native_interface_send_le_gatt_handle_range_info((ble_conn.remote_addr).ToString(), gattServiceInfoVec);
+    return true;
+}
+bool btif_lpm_native_interface_send_le_hci_context_info(
+        std::string addr, HciLeContextType LeHciContext) {
+    LOG_INFO(LOG_TAG,"btif_lpm_native_interface_send_le_hci_context_info");
+    auto ret = btLpmNative->setLeHciContext(addr, LeHciContext);
+    if (!ret.isOk())
+      return false;
+  return true;
+}
+
+bool btif_lpm_native_interface_send_le_gatt_context_info(
+        std::string remoteAddr, GattContextType gattContext) {
+    LOG_INFO(LOG_TAG,"btif_lpm_native_interface_send_le_gatt_context_info");
+    auto ret = btLpmNative->setGattContext(remoteAddr, gattContext);
+    if (!ret.isOk())
+      return false;
+  return true;
+}
+
+bool btif_lpm_native_interface_send_le_gatt_handle_range_info(
+        std::string remoteAddr, std::vector<GattServiceInfo> serviceInfo) {
+    LOG_INFO(LOG_TAG,"btif_lpm_native_interface_send_le_gatt_handle_range_info");
+    auto ret = btLpmNative->setGattHandleRange(remoteAddr, serviceInfo);
+    if (!ret.isOk())
+      return false;
+  return true;
+}
+
+bool btif_lpm_native_disable_offload_status_interface(LPMNativeStatus status) {
+  btLpmNative->clearAll();
+
+  BtOffloadStatus ret;
+  if(status == 0x01) {
+      ret = btLpmNative->disableOffloadDone(BtOffloadStatus::BT_OK);
+  } else {
+      ret = btLpmNative->disableOffloadDone(BtOffloadStatus::BT_FAIL);
+  }
+  if (ret != BtOffloadStatus::BT_OK)
+      return false;
+  return true;
 }
 }  // namespace V1_0
 }  // namespace bluetooth_offload

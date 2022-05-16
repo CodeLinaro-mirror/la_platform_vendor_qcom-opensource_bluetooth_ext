@@ -155,7 +155,7 @@ void initialize_lpm_sm(void) {
  *
  ******************************************************************************/
 void deinitialize_lpm_sm(void) {
-  vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_deinit();
+  btif_lpm_native_interface_deinit();
   btif_sm_shutdown(lpm_sm_handle);
 }
 
@@ -186,7 +186,7 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       break;
     case BTIF_LPM_SM_INIT_LPM_PROFILE:
       /* Register LPM Native */
-      vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_init();
+      btif_lpm_native_interface_init();
       break;
     case BTIF_LPM_SM_SEND_FLOW_OFF_CMD:
       /* Send flow off command - VSC */
@@ -210,17 +210,21 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       mode = *(int32_t*)data;
       BTIF_TRACE_EVENT("%s, in BTIF_LPM_SM_CHECK_OFFLOAD_CMD", __FUNCTION__);
       /* tracker mode - set flow off flag, check inactivity timer (VSC)*/
-      //if(mode == vendor::qti::hardware::bluetooth_offload::V1_0::PwrMode::PWR_MODE_TRK) {
-          btif_lpm_check_timer_activity();
-      break;
-    case BTIF_LPM_SM_TIMER_INACTIVE_EVT:
-      BTIF_TRACE_EVENT("%s, in BTIF_LPM_SM_TIMER_INACTIVE_EVT", __FUNCTION__);
-      /* Send Check offload command VSC */
-      btif_lpm_send_prepare_offload_cmd();
-      btif_lpm_flow_off_flag = true;
+      //if(mode == PwrMode::PWR_MODE_TRK) {
+          //btif_lpm_check_timer_activity();
+          if(btif_lpm_is_bt_active_flag) {
+            /* Sends LPM success, offload failed to LPM Native */
+            btif_lpm_native_interface_prepare_offload_done(LPM_SUCCESS,
+                          OFFLOAD_FAILED);
+          } else {
+            /* Send Check offload command VSC */
+            btif_lpm_flow_off_flag = true;
+            btif_lpm_send_prepare_offload_cmd();
+          }
+    //}
       /* Send flow off status to stack ?? */
       /* twm mode - disconnects all the links except offloaded */
-      /* vendor::qti::hardware::bluetooth_offload::V1_0::PwrMode::PWR_MODE_ACTIVE */
+      /* PwrMode::PWR_MODE_ACTIVE */
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_ACK_EVT:
       /* extract status */
@@ -228,7 +232,9 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       status = *(uint8_t*)data;
       /* send context info,offload pending to LPM Native */
       BTIF_TRACE_EVENT("%s, in SM_CHECK_OFFLOAD_ACK_EVT, LPM_PENDING", __FUNCTION__);
-      /* ToDo: Sends LPM pending offload pending to LPM Native */
+      /* Sends LPM pending offload pending to LPM Native */
+      btif_lpm_native_interface_prepare_offload_done(LPM_PENDING,
+                        OFFLOAD_PENDING);
       /* TODo: send context_info to lpm native  */
       break;
     case BTIF_LPM_SM_NOTIFY_NACK_MSG:
@@ -269,7 +275,7 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
     case BTIF_SM_ENTER_EVT:
       wakelock_acquire();
       BTIF_TRACE_DEBUG("%s, wakelock acquired",__FUNCTION__);
-      btif_lpm_check_timer_activity();
+      //btif_lpm_check_timer_activity();
       break;
     case BTIF_LPM_SM_NOTIFY_NACK_MSG:
       /* Release wakelock if any packet is received */
@@ -284,11 +290,14 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
       break;
     case BTIF_LPM_SM_TIMER_ACTIVE_EVT:
-      /* ToDo: Sends LPM success, offload failed to LPM Native */
+      /* Sends LPM success, offload failed to LPM Native */
+     btif_lpm_native_interface_prepare_offload_done(LPM_SUCCESS,
+                        OFFLOAD_FAILED);
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_ACK_EVT:
     case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
-      /* ToDo: send offload failed to LPM Native */
+      /* send offload failed to LPM Native */
+      btif_lpm_native_interface_prepare_offload_done(LPM_FAILED, OFFLOAD_FAILED);
       break;
     case BTIF_LPM_SM_TIMER_INACTIVE_EVT:
       /* Release wakelock if any packet is received */
@@ -332,7 +341,8 @@ static bool btif_lpm_state_stack_active_pending_handler(btif_sm_event_t event,
     case BTIF_SM_EXIT_EVT:
       break;
     case BTIF_LPM_SM_LPM_EXIT_EVT:
-      /* ToDo: reply success to LPM Native */
+      /* reply success to LPM Native */
+      btif_lpm_native_disable_offload_status_interface(LPM_SUCCESS);
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
       break;
     default:
@@ -371,7 +381,8 @@ static bool btif_lpm_state_stack_offload_pending_handler(btif_sm_event_t event,
     case BTIF_SM_EXIT_EVT:
       break;
     case BTIF_LPM_SM_LPM_ENTER_ACK_EVT:
-      /* ToDo: reply LPM success to LPM Native */
+      /* reply LPM success to LPM Native */
+      btif_lpm_native_interface_commit_offload_done(LPM_SUCCESS, OFFLOAD_PENDING);
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_OFFLOADED);
       break;
     case BTIF_LPM_SM_SEND_LPM_ENTER_CMD:
@@ -384,11 +395,13 @@ static bool btif_lpm_state_stack_offload_pending_handler(btif_sm_event_t event,
       break;
     case BTIF_LPM_SM_FLOW_ON_EVT:
       /* extract status */
-      /* ToDo: Send flow on status to LPM Native */
+      /* Send flow on status to LPM Native */
+      btif_lpm_native_flow_on_ack_interface(flow_on_off_status);
       break;
     case BTIF_LPM_SM_FLOW_OFF_EVT:
       /* extract status */
-      /* ToDo: Send flow off status to LPM Native */
+      /* Send flow off status to LPM Native */
+      btif_lpm_native_flow_off_ack_interface(flow_on_off_status);
       break;
     case BTIF_LPM_SM_SEND_FLOW_OFF_CMD:
       /* make flow off cmd and send (VSC) */

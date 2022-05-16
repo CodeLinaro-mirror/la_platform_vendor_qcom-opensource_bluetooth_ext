@@ -46,6 +46,7 @@
 #define BTIF_LPM_INTERFACE_H
 
 #include "btif_sm.h"
+#include "btif_lpm_sm.h"
 #include "btif_lpm.h"
 #include <vendor/qti/hardware/bluetooth_offload/1.0/IBluetoothOffload.h>
 #include <vendor/qti/hardware/bluetooth_offload/1.0/IBluetoothOffloadCb.h>
@@ -93,6 +94,174 @@ bool btif_lpm_native_interface_init(void);
  *
  ******************************************************************************/
 void btif_lpm_native_interface_deinit(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_flow_on_ack_interface
+ *
+ * Description      Inform LPM Native interface that Flow On is done
+ *
+ * Parameters       Status to be sent to LPM Native
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_flow_on_ack_interface(uint8_t status);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_flow_off_ack_interface
+ *
+ * Description      Inform LPM Native interface that Flow Off is done
+ *
+ * Parameters       Status to be sent to LPM Native
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_flow_off_ack_interface(uint8_t status);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_disable_offload_status_interface
+ *
+ * Description      Inform LPM Native interface that Disable Offload is done
+ *
+ * Parameters       Status to be sent to LPM Native
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_disable_offload_status_interface(LPMNativeStatus status);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_interface_prepare_offload_done
+ *
+ * Description      Inform LPM Native interface that Prepare Offload is done
+ *
+ * Parameters       lpm_status - status to be sent to LPM Native
+ *                  stack_status - offload status
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_interface_prepare_offload_done(LPMNativeStatus lpm_status,
+     StackStatus stack_status);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_interface_commit_offload_done
+ *
+ * Description      Inform LPM Native interface that Commit Offload is done
+ *
+ * Parameters       lpm_status - status to be sent to LPM Native
+ *                  stack_status - offload status
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_interface_commit_offload_done(
+    LPMNativeStatus lpm_status, StackStatus stack_status);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_bt_activity_status_interface
+ *
+ * Description      Wrapper to get BT Activity Status to LPM Native interface
+ *
+ * Parameters       None
+ *
+ * Returns          Offload status
+ *
+ ******************************************************************************/
+StackStatus btif_lpm_native_bt_activity_status_interface(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_interface_send_le_hci_context_info
+ *
+ * Description      Wrapper to send LE HCI Context information to LPM Native interface
+ *
+ * Parameters       addr - Address of remote device
+ *                  LeHciContext - Context info to be sent to LPM Native
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_interface_send_le_hci_context_info(
+    std::string addr, HciLeContextType LeHciContext);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_interface_send_le_gatt_context_info
+ *
+ * Description      Wrapper to send LE Gatt Context information to LPM Native interface
+ *
+ * Parameters       addr - Address of remote device
+ *                  gattContext - Context info to be sent to LPM Native
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_interface_send_le_gatt_context_info(
+    std::string remoteAddr, GattContextType gattContext);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_interface_send_le_gatt_handle_range_info
+ *
+ * Description      Wrapper to send LE Gatt Handle Range to LPM Native interface
+ *
+ * Parameters       addr - Address of remote device
+ *                  serviceInfo - Gatt Service Info to be sent to LPM Native
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_interface_send_le_gatt_handle_range_info(
+    std::string remoteAddr, std::vector<GattServiceInfo> serviceInfo);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_set_local_device_name
+ *
+ * Description      Wrapper to set local device name to LPM Native interface
+ *
+ * Parameters       name - local name to be set
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_set_local_device_name(std::string name);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_set_local_device_address
+ *
+ * Description      Wrapper to set local device address to LPM Native interface
+ *
+ * Parameters       addr - local device addr to be set
+ *                  privacy - to know the address type
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_set_local_device_address(std::string addr, bool privacy);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_set_le_context_info
+ *
+ * Description      Wrapper to set LE Context Information to LPM Native interface
+ *
+ * Parameters       ble_conn - BLE Connection structure
+ *                  dev_addr - local device address
+ *
+ * Returns          Success or Failure of the API
+ *
+ ******************************************************************************/
+bool btif_lpm_native_set_le_context_info(btif_lpm_ble_conn_t& ble_conn, std::string dev_addr);
 
 }  // namespace V1_0
 }  // namespace bluetooth_offload
