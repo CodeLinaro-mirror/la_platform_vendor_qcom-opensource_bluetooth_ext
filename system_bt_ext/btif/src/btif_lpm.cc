@@ -58,7 +58,7 @@
 /*******************************************************************************
  *  Structures and Macros
  ******************************************************************************/
-
+#define BT_STATUS_OK 0x01
 
 /*******************************************************************************
  *  Static variables
@@ -66,6 +66,178 @@
 static btif_lpm_cb_t btif_lpm_cb;
 
 void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data);
+/*******************************************************************************
+* BTIF LPM Interface Functions
+******************************************************************************/
+/*******************************************************************************
+*
+* Function         send_prepare_offload_cmd_complete
+*
+* Description      Function to send prepare offload Command complete event to LPM SM
+*
+* Parameters       p_data - VSC command complete event structure
+*
+* Returns          None
+*
+******************************************************************************/
+static void send_prepare_offload_cmd_complete(tBTM_VSC_CMPL* p_data) {
+ LOG_INFO(LOG_TAG,"In send_prepare_offload_cmd_complete");
+ uint8_t         *stream,  status;
+ uint16_t        opcode, length;
+
+ if (p_data && (stream = (uint8_t*)p_data->p_param_buf))
+ {
+   opcode = p_data->opcode;
+   length = p_data->param_len;
+   STREAM_TO_UINT8(status, stream);
+   BTIF_TRACE_DEBUG("%s opcode = 0x%04X, length = %d, status = %d",
+           __FUNCTION__, opcode, length, status);
+   if (status == HCI_SUCCESS)
+   {
+     BTIF_TRACE_DEBUG("prepare offload cmd status success");
+   }
+   /* to be received from HIDL */
+   btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_ACK_EVT,
+           (void *)&status, DEFAULT_PARAM_LENGTH);
+ }
+
+/*******************************************************************************
+ *
+ * Function         send_enter_lpm_cmd_complete
+ *
+ * Description      Function to send enter lpm Command complete event to LPM SM
+ *
+ * Parameters       p_data - VSC command complete event structure
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+static void send_enter_lpm_cmd_complete(tBTM_VSC_CMPL* p_data) {
+  LOG_INFO(LOG_TAG,"In send_enter_lpm_cmd_complete");
+  uint8_t         *stream,  status, subcmd;
+  uint16_t        opcode, length;
+
+  if (p_data && (stream = (uint8_t*)p_data->p_param_buf))
+  {
+    opcode = p_data->opcode;
+    length = p_data->param_len;
+    STREAM_TO_UINT8(status, stream);
+    STREAM_TO_UINT8(subcmd, stream);
+    BTIF_TRACE_DEBUG("%s opcode = 0x%04X, length = %d, status = %d, subcmd = %d",
+            __FUNCTION__, opcode, length, status, subcmd);
+    if (status == HCI_SUCCESS)
+    {
+      BTIF_TRACE_DEBUG("enter lpm cmd status success");
+      status = BT_STATUS_OK;
+    }
+    btif_dispatch_lpm_event(BTIF_LPM_SM_LPM_ENTER_ACK_EVT,
+                (void *)&status, DEFAULT_PARAM_LENGTH);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         send_exit_lpm_cmd_complete
+ *
+ * Description      Function to send exit lpm Command complete event to LPM SM
+ *
+ * Parameters       p_data - VSC command complete event structure
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+static void send_exit_lpm_cmd_complete(tBTM_VSC_CMPL* p_data) {
+  LOG_INFO(LOG_TAG,"In send_exit_lpm_cmd_complete");
+  uint8_t         *stream,  status, subcmd;
+  uint16_t        opcode, length;
+
+  if (p_data && (stream = (uint8_t*)p_data->p_param_buf))
+  {
+    opcode = p_data->opcode;
+    length = p_data->param_len;
+    STREAM_TO_UINT8(status, stream);
+    STREAM_TO_UINT8(subcmd, stream);
+    BTIF_TRACE_DEBUG("%s opcode = 0x%04X, length = %d, status = %d, subcmd = %d",
+            __FUNCTION__, opcode, length, status, subcmd);
+    if (status == HCI_SUCCESS)
+    {
+      BTIF_TRACE_DEBUG("exit lpm cmd status success");
+      status = BT_STATUS_OK;
+    }
+    /* take the backup of context info ?? */
+    /* Send context info to stack */
+    btif_dispatch_lpm_event(BTIF_LPM_SM_LPM_EXIT_EVT,
+            (void *)&status, DEFAULT_PARAM_LENGTH);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         send_flow_on_cmd_complete
+ *
+ * Description      Function to send Flow On Command complete event to LPM SM
+ *
+ * Parameters       p_data - VSC command complete event structure
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+static void send_flow_on_cmd_complete(tBTM_VSC_CMPL* p_data) {
+  LOG_INFO(LOG_TAG,"In send_flow_on_cmd_complete");
+  uint8_t         *stream,  status, subcmd;
+  uint16_t        opcode, length;
+
+  if (p_data && (stream = (uint8_t*)p_data->p_param_buf))
+  {
+    opcode = p_data->opcode;
+    length = p_data->param_len;
+    STREAM_TO_UINT8(status, stream);
+    STREAM_TO_UINT8(subcmd, stream);
+    BTIF_TRACE_DEBUG("%s opcode = 0x%04X, length = %d, status = %d, subcmd = %d",
+            __FUNCTION__, opcode, length, status, subcmd);
+    if (status == HCI_SUCCESS)
+    {
+      BTIF_TRACE_DEBUG("flow on cmd status success");
+      status = BT_STATUS_OK;
+    }
+    btif_dispatch_lpm_event(BTIF_LPM_SM_FLOW_ON_EVT,
+                (void *)&status, DEFAULT_PARAM_LENGTH);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         send_flow_off_cmd_complete
+ *
+ * Description      Function to send Flow Off Command complete event to LPM SM
+ *
+ * Parameters       p_data - VSC command complete event structure
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+static void send_flow_off_cmd_complete(tBTM_VSC_CMPL* p_data) {
+  LOG_INFO(LOG_TAG,"In send_flow_off_cmd_complete");
+  uint8_t         *stream,  status, subcmd;
+  uint16_t        opcode, length;
+
+  if (p_data && (stream = (uint8_t*)p_data->p_param_buf))
+  {
+    opcode = p_data->opcode;
+    length = p_data->param_len;
+    STREAM_TO_UINT8(status, stream);
+    STREAM_TO_UINT8(subcmd, stream);
+    BTIF_TRACE_DEBUG("%s opcode = 0x%04X, length = %d, status = %d, subcmd = %d",
+            __FUNCTION__, opcode, length, status, subcmd);
+    if (status == HCI_SUCCESS)
+    {
+      BTIF_TRACE_DEBUG("flow off cmd status success");
+      status = BT_STATUS_OK;
+    }
+    btif_dispatch_lpm_event(BTIF_LPM_SM_FLOW_OFF_EVT,
+                (void *)&status, DEFAULT_PARAM_LENGTH);
+  }
+}
 
 /*******************************************************************************
  *
@@ -81,7 +253,8 @@ void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data);
 void btif_lpm_init() {
   BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
 
-  /* Post LPM init to the state machine */
+  /* Initialize LPM State Machine */
+  /* Send LPM Init to LPM State Machine */
 
   BTA_EnableLPM(btif_lpm_evt);
 }
@@ -142,8 +315,132 @@ void btif_lpm_init_done() {
     strlcpy(btif_lpm_cb.device_name, (char*) bdname.name, BD_NAME_LEN + 1);
   /* Call LPM Native interface function */
   }
-
 }
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_send_prepare_offload_cmd
+ *
+ * Description      Function to send Prepare Offload Command to stack
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_send_prepare_offload_cmd(void) {
+  BTIF_TRACE_EVENT("%s", __FUNCTION__);
+  BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, 0, NULL,
+      send_prepare_offload_cmd_complete);
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_send_enter_lpm_cmd
+ *
+ * Description      Function to send Enter LPM Command to stack
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_send_enter_lpm_cmd(void) {
+  BTIF_TRACE_EVENT("%s", __FUNCTION__);
+  uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
+  uint8_t *pp = (uint8_t *)msg;
+  *pp++ = HCI_BLE_LPM_ENTER_SUB_OPCODE;
+  BTM_VendorSpecificCommand(HCI_BLE_LPM_VSC_OPCODE, DEFAULT_PARAM_LENGTH, msg,
+    send_enter_lpm_cmd_complete);
+  osi_free(msg);
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_send_exit_lpm_cmd
+ *
+ * Description      Function to send Exit LPM Command to stack
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_send_exit_lpm_cmd(void) {
+  BTIF_TRACE_EVENT("%s", __FUNCTION__);
+  uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
+  uint8_t *pp = (uint8_t *)msg;
+  *pp++ = HCI_BLE_LPM_EXIT_SUB_OPCODE;
+  BTM_VendorSpecificCommand(HCI_BLE_LPM_VSC_OPCODE, DEFAULT_PARAM_LENGTH, msg,
+    send_exit_lpm_cmd_complete);
+  osi_free(msg);
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_send_flow_on_cmd
+ *
+ * Description      Function to send Flow On Command to stack
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_send_flow_on_cmd(void) {
+  BTIF_TRACE_EVENT("%s", __FUNCTION__);
+  uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
+  uint8_t *pp = (uint8_t *)msg;
+  *pp++ = HCI_BLE_FLOW_ON_SUB_OPCODE;
+  BTM_VendorSpecificCommand(HCI_BLE_LPM_VSC_OPCODE, DEFAULT_PARAM_LENGTH, msg,
+    send_flow_on_cmd_complete);
+  osi_free(msg);
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_send_flow_off_cmd
+ *
+ * Description      Function to send Flow Off Command to stack
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_send_flow_off_cmd(void) {
+  BTIF_TRACE_EVENT("%s", __FUNCTION__);
+  uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
+  uint8_t *pp = (uint8_t *)msg;
+  *pp++ = HCI_BLE_FLOW_OFF_SUB_OPCODE;
+  BTM_VendorSpecificCommand(HCI_BLE_LPM_VSC_OPCODE, DEFAULT_PARAM_LENGTH, msg,
+    send_flow_off_cmd_complete);
+  osi_free(msg);
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_check_timer_activity
+ *
+ * Description      Function to check timer actiivty status and send events to
+ *                  LPM SM accordingly
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_check_timer_activity(void) {
+  bool is_timer_active = false;
+
+  // Send Timer Active or Timer Inactive Event to SM
+  if(is_timer_active) {
+      btif_dispatch_lpm_event(BTIF_LPM_SM_TIMER_ACTIVE_EVT,
+                  NULL, 0);
+  } else {
+      btif_dispatch_lpm_event(BTIF_LPM_SM_TIMER_INACTIVE_EVT,
+                  NULL, 0);
+  }
 
 /*******************************************************************************
  *

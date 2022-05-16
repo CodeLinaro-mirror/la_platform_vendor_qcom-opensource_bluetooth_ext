@@ -50,7 +50,6 @@
 #include "hardware/vendor.h"
 #include <hardware/bluetooth.h>
 
-#include "btif_lpm_sm.h"
 #include "bta_lpm_api.h"
 
 #include "bt_common.h"
@@ -120,5 +119,84 @@ void btif_lpm_init_done(void);
  *
  ******************************************************************************/
 void btif_lpm_deinit(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_send_prepare_offload_cmd
+ *
+ * Description      Function to send Prepare Offload Command to stack
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_send_prepare_offload_cmd(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_send_enter_lpm_cmd
+ *
+ * Description      Function to send Enter LPM Command to stack
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_send_enter_lpm_cmd(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_send_exit_lpm_cmd
+ *
+ * Description      Function to send Exit LPM Command to stack
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_send_exit_lpm_cmd(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_send_flow_on_cmd
+ *
+ * Description      Function to send Flow On Command to stack
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_send_flow_on_cmd(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_send_flow_off_cmd
+ *
+ * Description      Function to send Flow Off Command to stack
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_send_flow_off_cmd(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_check_timer_activity
+ *
+ * Description      Function to check timer actiivty status and send events to
+ *                  LPM SM accordingly
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_check_timer_activity(void);
 
 #endif /* BTIF_LPM_H */

@@ -64,6 +64,10 @@ using namespace android;
 using namespace android::hardware;
 using namespace ::vendor::qti::hardware::bluetooth_offload::V1_0;
 
+/*****************************************************************************
+ *  BTIF LPM Native Function Declarations
+ ****************************************************************************/
+
 /*******************************************************************************
  *
  * Function         btif_lpm_native_interface_init

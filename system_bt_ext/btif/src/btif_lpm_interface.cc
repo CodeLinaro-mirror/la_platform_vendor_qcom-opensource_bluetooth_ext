@@ -122,6 +122,17 @@ class BluetoothOffloadCallbacks:
   }
 };
 
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_interface_init
+ *
+ * Description      lpm native interface to initialize lpm native
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
 bool btif_lpm_native_interface_init(void) {
   LOG_INFO(LOG_TAG,"btif_lpm_native_interface_init");
   btLpmNative = IBluetoothOffload::getService("bluetoothoffload", false);
@@ -142,6 +153,17 @@ bool btif_lpm_native_interface_init(void) {
   return false;
 }
 
+/*******************************************************************************
+ *
+ * Function         btif_lpm_native_interface_deinit
+ *
+ * Description      lpm native interface to de initialize lpm native
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
 void btif_lpm_native_interface_deinit(void) {
   LOG_INFO(LOG_TAG,"btif_lpm_native_interface_deinit");
   if (btLpmNative != nullptr)
