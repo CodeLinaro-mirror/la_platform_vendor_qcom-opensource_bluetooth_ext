@@ -1,0 +1,219 @@
+/******************************************************************************
+ *
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ ******************************************************************************/
+
+/******************************************************************************
+ *
+ *  This is the implementation file of BTA LPM
+ *
+ ******************************************************************************/
+
+#include "bta_lpm_api.h"
+#include "bta_lpm_int.h"
+
+#include <base/bind_helpers.h>
+#include "string.h"
+
+/*****************************************************************************
+ *  Static and Constants
+ ****************************************************************************/
+tBTA_LPM_CB bta_lpm_cb;
+
+static const tBTA_SYS_REG bta_lpm_reg = {bta_lpm_hdl_msg, BTA_DisableLPM};
+
+void bta_lpm_enable(tBTA_LPM_CBACK* p_cback);
+
+static tLPM_CBACK bta_lpm_cback = {
+                                  };
+
+#ifndef CASE_RETURN_STR
+#define CASE_RETURN_STR(const) \
+  case const:                  \
+    return #const;
+#endif
+
+const char* dump_lpm_event(uint16_t event) {
+  switch (event) {
+    CASE_RETURN_STR(BTA_MODE_SWITCH_REQ)
+    default:
+      return "UNKNOWN_EVENT";
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         BTA_LPMDisable
+ *
+ * Description      This function is called to disable LPM module
+ *
+ * Parameters       None.
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void BTA_DisableLPM(void) {
+  if (bta_lpm_cb.is_bta_lpm_active || !bta_sys_is_register(BTA_ID_LPM)) {
+      return;
+  }
+
+  bta_sys_deregister(BTA_ID_LPM);
+}
+
+/*******************************************************************************
+ *
+ * Function         BTA_EnableLPM
+ *
+ * Description      Registers LPM Profile with BTA sys interface.
+ *
+ * Parameters       p_cback - Callback to btif
+ *
+ * Returns          tBTA_STATUS
+ *
+ ******************************************************************************/
+tBTA_STATUS BTA_EnableLPM(tBTA_LPM_CBACK* p_cback) {
+  if (p_cback == NULL || bta_lpm_cb.is_bta_lpm_active) {
+    return BTA_FAILURE;
+  }
+
+  /* register with BTA system manager */
+  bta_sys_register(BTA_ID_LPM, &bta_lpm_reg);
+
+  do_in_bta_thread(FROM_HERE, base::Bind(&bta_lpm_enable, p_cback));
+  return BTA_SUCCESS;
+}
+
+/*******************************************************************************
+ *
+ * Function         BTA_ModeSwitchReq
+ *
+ * Description      API to switch mode of LPM profile.
+ *
+ * Parameters       mode - Next mode of platform
+ *
+ * Returns          tBTA_STATUS
+ *
+ ******************************************************************************/
+tBTA_STATUS BTA_LPM_ModeSwitchReq(tLPM_mode mode) {
+  if (bta_lpm_cb.is_bta_lpm_active) {
+    return BTA_FAILURE;
+  }
+
+  tBTA_LPM_MODE_SWITCH* p_buf =
+    (tBTA_LPM_MODE_SWITCH*)osi_malloc(sizeof(tBTA_LPM_MODE_SWITCH));
+  p_buf->hdr.event = BTA_MODE_SWITCH_REQ;
+  p_buf->mode = mode;
+  bta_sys_sendmsg(p_buf);
+
+  return BTA_SUCCESS;
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_lpm_enable
+ *
+ * Description      Registers btif callback for BTA LPM
+ *                  Enables LPM Profile in stack
+ *
+ * Parameters       p_cback - Callback to btif
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_lpm_enable(tBTA_LPM_CBACK* p_cback) {
+  bta_lpm_cb.p_lpm_cback = p_cback;
+  LPM_Enable(&bta_lpm_cback);
+  bta_lpm_cb.is_bta_lpm_active = true;
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_lpm_mode_switch
+ *
+ * Description      Sends mode switch mode to stack
+ *
+ * Parameters       p_data - Data from higher layer
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_lpm_mode_switch(tBTA_LPM_MSG* p_data) {
+  LPM_ModeSwitchReq(p_data->mode_switch.mode);
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_lpm_hdl_msg
+ *
+ * Description      LPM main event handling function.
+ *
+ * Parameters       p_msg - Data related to event
+ *
+ * Returns          bool
+ *
+ ******************************************************************************/
+bool bta_lpm_hdl_msg(BT_HDR* p_msg) {
+  APPL_TRACE_DEBUG(" %s event = %s", __func__, dump_lpm_event(p_msg->event));
+  bool ret = true;
+  switch(p_msg->event) {
+  case BTA_MODE_SWITCH_REQ:
+    bta_lpm_mode_switch((tBTA_LPM_MSG*)p_msg);
+    break;
+  default:
+       break;
+  }
+  return ret;
+}
+
+/*******************************************************************************
+ *
+ * Function         lpm_profile_update_evt
+ *
+ * Description      Informs btif state machine regarding profile update
+ *
+ * Parameters       profile - BTA sys profile id
+ *                  event - state of profile
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void lpm_profile_update_evt(uint8_t profile, tBTA_LPM_PROFILE_UPDATE_EVT event) {
+  APPL_TRACE_DEBUG(" %s profile: %d event: %d", __func__, profile, event);
+  if(bta_lpm_cb.p_lpm_cback != NULL) {
+    tBTA_LPM profile_update_evt;
+    profile_update_evt.profile_update.profile_id = profile;
+    profile_update_evt.profile_update.profile_evt= event;
+    bta_lpm_cb.p_lpm_cback(LPM_PROFILE_UPDATE_EVT, (tBTA_LPM*)&profile_update_evt);
+  }
+}
