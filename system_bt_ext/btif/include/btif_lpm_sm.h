@@ -47,10 +47,6 @@
 
 #include <hardware/bt_rc.h>
 
-#define BT_STATUS_INACTIVE 0x00
-#define BT_STATUS_ACTIVE 0x01
-#define BT_SCO_ACTIVE  0x02
-
 /*******************************************************************************
  * BTIF LPM STATE MACHINE Enums
  ******************************************************************************/
@@ -80,7 +76,6 @@ typedef enum {
   BTIF_LPM_SM_FLOW_OFF_EVT,
   BTIF_LPM_SM_TIMER_ACTIVE_EVT,
   BTIF_LPM_SM_TIMER_INACTIVE_EVT,
-  BTIF_LPM_SM_BT_INACTIVITY_EVT,
   BTIF_LPM_SM_PROFILE_UPDATE_EVT,
   BTIF_LPM_SM_NOTIFY_NACK_MSG,
 } btif_lpm_sm_event_t;

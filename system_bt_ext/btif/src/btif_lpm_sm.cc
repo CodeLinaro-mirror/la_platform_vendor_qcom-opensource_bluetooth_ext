@@ -47,7 +47,8 @@ btif_sm_handle_t lpm_sm_handle;
  ******************************************************************************/
 /* Flag to indicate flow on/off status */
 static bool btif_lpm_flow_off_flag = false;
-static int btif_lpm_is_bt_active_flag = 0;
+static bool btif_lpm_is_bt_active_flag = false;
+static bool btif_lpm_is_bt_sco_active_flag = false;
 
 /*******************************************************************************
  * BTIF LPM SM Function declarations
@@ -98,13 +99,46 @@ const char* dump_btif_lpm_sm_event_name(btif_lpm_sm_event_t event) {
     CASE_RETURN_STR(BTIF_LPM_SM_FLOW_OFF_EVT)
     CASE_RETURN_STR(BTIF_LPM_SM_TIMER_ACTIVE_EVT)
     CASE_RETURN_STR(BTIF_LPM_SM_TIMER_INACTIVE_EVT)
-    CASE_RETURN_STR(BTIF_LPM_SM_BT_INACTIVITY_EVT)
     CASE_RETURN_STR(BTIF_LPM_SM_PROFILE_UPDATE_EVT)
     CASE_RETURN_STR(BTIF_LPM_SM_NOTIFY_NACK_MSG)
     CASE_RETURN_STR(BTIF_SM_ENTER_EVT)
     CASE_RETURN_STR(BTIF_SM_EXIT_EVT)
     default:
       return "UNKNOWN_EVENT";
+  }
+}
+
+/*******************************************************************************
+  *
+  * Function         btif_lpm_sm_update_profile_active_status
+  *
+  * Description      Sets btif_lpm_is_bt_active_flag and btif_lpm_is_bt_sco_active_flag
+  *                  according to the event
+  *
+  * Parameters       lpm_event - lpm event received in profile update event
+  *
+  * Returns          None
+  *
+******************************************************************************/
+void btif_lpm_sm_update_profile_active_status(tBTA_LPM_PROFILE_UPDATE_EVT lpm_event) {
+  BTIF_TRACE_WARNING("%s: event = %d",__FUNCTION__, lpm_event);
+  switch(lpm_event) {
+    case BTA_LPM_CONN_DONE:
+    case BTA_LPM_DISC_DONE:
+      btif_lpm_is_bt_active_flag = false;
+      break;
+    case BT_LPM_SCO_ACTIVE:
+      btif_lpm_is_bt_sco_active_flag = true;
+      break;
+    case BTA_LPM_CONN_PROGRESS:
+    case BTA_LPM_DISC_PROGRESS:
+      btif_lpm_is_bt_active_flag = true;
+      break;
+    case BT_LPM_SCO_INACTIVE:
+      btif_lpm_is_bt_sco_active_flag = false;
+      break;
+    default:
+      BTIF_TRACE_WARNING("%s: Invalid event",__FUNCTION__);
   }
 }
 
@@ -178,6 +212,7 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       dump_btif_lpm_sm_event_name((btif_lpm_sm_event_t)event));
   uint8_t status;
   int32_t mode;
+  tBTA_LPM_PROFILE_UPDATE_EVT lpm_event;
 
   switch(event)
   {
@@ -196,14 +231,13 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
     case BTIF_LPM_SM_TIMER_ACTIVE_EVT:
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
       break;
-    case BTIF_LPM_SM_BT_INACTIVITY_EVT:
-      status = *(uint8_t*)data;
-      btif_lpm_is_bt_active_flag = status;
-      break;
     case BTIF_LPM_SM_PROFILE_UPDATE_EVT:
-      status = *(uint8_t*)data;
-      btif_lpm_is_bt_active_flag = status;
-      btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
+      lpm_event = *(tBTA_LPM_PROFILE_UPDATE_EVT*)data;
+      BTIF_TRACE_EVENT("%s, event-%d", __FUNCTION__, lpm_event);
+      btif_lpm_sm_update_profile_active_status(lpm_event);
+      if(btif_lpm_is_bt_active_flag){
+        btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
+      }
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
       /* mode from lpm native */
@@ -212,7 +246,7 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       /* tracker mode - set flow off flag, check inactivity timer (VSC)*/
       //if(mode == PwrMode::PWR_MODE_TRK) {
           //btif_lpm_check_timer_activity();
-          if(btif_lpm_is_bt_active_flag) {
+          if(btif_lpm_is_bt_sco_active_flag) {
             /* Sends LPM success, offload failed to LPM Native */
             btif_lpm_native_interface_prepare_offload_done(LPM_SUCCESS,
                           OFFLOAD_FAILED);
@@ -226,6 +260,9 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       /* Send flow off status to stack ?? */
       /* twm mode - disconnects all the links except offloaded */
       /* PwrMode::PWR_MODE_ACTIVE */
+      break;
+    case BTIF_LPM_SM_TIMER_INACTIVE_EVT:
+      BTIF_TRACE_EVENT("%s, in BTIF_LPM_SM_TIMER_INACTIVE_EVT", __FUNCTION__);
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_ACK_EVT:
       /* extract status */
@@ -272,7 +309,7 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
                   __PRETTY_FUNCTION__,
                   dump_btif_lpm_sm_event_name((btif_lpm_sm_event_t)event));
 
-  uint8_t status;
+  tBTA_LPM_PROFILE_UPDATE_EVT lpm_event;
 
   switch (event) {
     case BTIF_SM_ENTER_EVT:
@@ -290,9 +327,11 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
       btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
       break;
     case BTIF_LPM_SM_PROFILE_UPDATE_EVT:
-      status = *(uint8_t*)data;
-      btif_lpm_is_bt_active_flag = status;
-      btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
+      lpm_event = *(tBTA_LPM_PROFILE_UPDATE_EVT*)data;
+      btif_lpm_sm_update_profile_active_status(lpm_event);
+      if((!btif_lpm_is_bt_active_flag) && (!btif_lpm_is_bt_sco_active_flag)){
+        btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
+      }
       break;
     case BTIF_LPM_SM_TIMER_ACTIVE_EVT:
       /* Sends LPM success, offload failed to LPM Native */
