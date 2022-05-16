@@ -50,6 +50,7 @@
 #include "hardware/vendor.h"
 #include <hardware/bluetooth.h>
 
+#include "btif_lpm_sm.h"
 #include "bta_lpm_api.h"
 
 #include "bt_common.h"
