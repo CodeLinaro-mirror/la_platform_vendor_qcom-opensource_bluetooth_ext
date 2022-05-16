@@ -63,7 +63,11 @@ typedef uint8_t tBTA_LPM_EVT;
 /* LPM Profile Data structures for events from BTA to BTIF */
 typedef enum {
     BTA_LPM_CONN_PROGRESS,
-    BTA_LPM_CONN_DONE
+    BTA_LPM_CONN_DONE,
+    BT_LPM_SCO_ACTIVE,
+    BT_LPM_SCO_INACTIVE,
+    BTA_LPM_DISC_PROGRESS,
+    BTA_LPM_DISC_DONE
 } tBTA_LPM_PROFILE_UPDATE_EVT;
 
 typedef struct {
