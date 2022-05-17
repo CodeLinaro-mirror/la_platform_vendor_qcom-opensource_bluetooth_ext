@@ -48,6 +48,8 @@
 #include <base/location.h>
 #include <base/logging.h>
 #include <vector>
+#include <cstring>
+#include <iostream>
 
 #include "btif_lpm.h"
 #include "btif_lpm_interface.h"
@@ -150,7 +152,7 @@ class BluetoothOffloadCallbacks:
  ******************************************************************************/
 bool btif_lpm_native_interface_init(void) {
   LOG_INFO(LOG_TAG,"btif_lpm_native_interface_init");
-  btLpmNative = IBluetoothOffload::getService("bluetoothoffload", false);
+  btLpmNative = IBluetoothOffload::getService();
   if (btLpmNative != nullptr)
   {
     btLpmNative->linkToDeath(lpmNativeDeathRecipient, 0);
@@ -293,7 +295,7 @@ bool btif_lpm_native_set_le_context_info(btif_lpm_ble_conn_t& ble_conn, std::str
      for (auto& gattServiceInfo : ble_conn.gatt_srvc) {
         if(gattServiceInfo.is_notify_reg){
             GattServiceInfo serviceInfo;
-            serviceInfo.uuid  = gattServiceInfo.uuid.As16Bit();
+            serviceInfo.service_uuid = gattServiceInfo.uuid.ToString();
             serviceInfo.start = gattServiceInfo.s_handle;
             serviceInfo.end   = gattServiceInfo.e_handle;
             gattServiceInfoVec.push_back(serviceInfo);
@@ -376,7 +378,6 @@ bool btif_lpm_native_interface_set_hci_context_info(std::string addr,btif_hci_co
   return true;
 }
 
-
 bool btif_lpm_native_interface_set_Hci_Acl_Credits(BtType btType, uint16_t credits) {
   LOG_INFO(LOG_TAG,"btif_lpm_native_interface_set_Hci_Acl_Credits");
 
@@ -388,7 +389,6 @@ bool btif_lpm_native_interface_set_Hci_Acl_Credits(BtType btType, uint16_t credi
   return true;
 
 }
-
 
 }  // namespace V1_0
 }  // namespace bluetooth_offload

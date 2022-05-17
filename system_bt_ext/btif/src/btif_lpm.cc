@@ -350,20 +350,20 @@ void btif_lpm_init_done() {
   *
 ******************************************************************************/
 void btif_lpm_fetch_ble_context_info_req(void) {
-  bool offloaded_device;
+  //bool offloaded_device;
 
   for (auto it = btif_lpm_cb.ble_conns.begin(); it!=btif_lpm_cb.ble_conns.end(); it++) {
-    offloaded_device = false;
+    /*offloaded_device = false;
     for (auto device : offloaded_remote_list) {
       if (device == it->remote_addr) {
         offloaded_device = true;
         break;
       }
     }
-    if (offloaded_device) {
+    if (offloaded_device) {*/
       if(!btif_lpm_native_set_le_context_info(*it, btif_lpm_cb.device_addr))
         BTIF_TRACE_ERROR("Context not set for %s", (it->remote_addr).ToString().c_str());
-    }
+    //}
   }
 }
 
@@ -883,6 +883,11 @@ void btif_lpm_alarm_start(char* alarm_name) {
   BTIF_TRACE_DEBUG("alarm_type %s",alarm_name);
   if (btif_flow_off_flag && !strcmp(alarm_name,"hci.command_response_timer"))
     return;
+  if(!strcmp(alarm_name, "btif.config")) {
+    /*do nothing*/
+    BTIF_TRACE_DEBUG("btif.config");
+    return;
+  }
   std::vector<alarm_info_t>::iterator it;
   for(it = active_alarm.begin(); it != active_alarm.end(); it++) {
     if(!strcmp(alarm_name, it->alarm_name)) {
@@ -892,7 +897,7 @@ void btif_lpm_alarm_start(char* alarm_name) {
   }
 
   /* If alarm is not present add to list */
-  if(it == active_alarm.end()) {
+  if((it == active_alarm.end()) && (strcmp(alarm_name, "btif.config"))) {
     alarm_info_t tmp;
     strlcpy(tmp.alarm_name, alarm_name, strlen(alarm_name));
     tmp.count = 1;
