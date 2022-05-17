@@ -80,6 +80,13 @@ typedef enum {
   BTIF_LPM_SM_NOTIFY_NACK_MSG,
 } btif_lpm_sm_event_t;
 
+typedef enum {
+    BTIF_SM_SEND_FLOW_OFF_CMD = 0,
+    BTIF_SM_SEND_FLOW_ON_CMD,
+    BTIF_SM_SEND_LPM_ENTER_CMD,
+    BTIF_SM_SEND_LPM_EXIT_CMD,
+} btif_lpm_event_t;
+
 /* Btif LPM Native Status */
 enum LPMNativeStatus : int32_t {
   LPM_SUCCESS,

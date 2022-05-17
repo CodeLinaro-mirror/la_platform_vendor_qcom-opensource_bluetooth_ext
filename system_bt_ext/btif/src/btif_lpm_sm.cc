@@ -36,6 +36,7 @@
 
 #include "btif_lpm.h"
 #include "btif_lpm_interface.h"
+#include "btif_common.h"
 
 using namespace vendor::qti::hardware::bluetooth_offload::V1_0;
 /*******************************************************************************
@@ -195,6 +196,36 @@ void deinitialize_lpm_sm(void) {
 
 /*******************************************************************************
  *
+ * Function         lpm_sm_cmd_handler
+ *
+ * Description      Handler for LPM SM Commands
+ *
+ * Parameters       Message
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+static void lpm_sm_cmd_handler(uint16_t event, char* p_param) {
+    BTIF_TRACE_EVENT("%s  event = %d", __FUNCTION__, event);
+    //ToDO(in future): Need to check if add prepare offload command to the handler
+    switch(event) {
+        case BTIF_SM_SEND_FLOW_OFF_CMD:
+            btif_lpm_send_flow_off_cmd();
+            break;
+        case BTIF_SM_SEND_LPM_EXIT_CMD:
+            btif_lpm_send_exit_lpm_cmd();
+            break;
+        case BTIF_SM_SEND_FLOW_ON_CMD:
+            btif_lpm_send_flow_on_cmd();
+            break;
+        case BTIF_SM_SEND_LPM_ENTER_CMD:
+            btif_lpm_send_enter_lpm_cmd();
+            break;
+    }
+}
+
+/*******************************************************************************
+ *
  * Function         btif_lpm_state_stack_idle_handler
  *
  * Description      LPM SM Stack Idle handler function
@@ -225,7 +256,7 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       break;
     case BTIF_LPM_SM_SEND_FLOW_OFF_CMD:
       /* Send flow off command - VSC */
-      btif_lpm_send_flow_off_cmd();
+      btif_transfer_context(lpm_sm_cmd_handler, BTIF_SM_SEND_FLOW_OFF_CMD, NULL, 0, NULL);
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_OFFLOAD_PENDING);
       break;
     case BTIF_LPM_SM_TIMER_ACTIVE_EVT:
@@ -438,11 +469,11 @@ static bool btif_lpm_state_stack_offload_pending_handler(btif_sm_event_t event,
       break;
     case BTIF_LPM_SM_SEND_LPM_ENTER_CMD:
       /* Send LPM Enter cmd to stack VSC */
-      btif_lpm_send_enter_lpm_cmd();
+      btif_transfer_context(lpm_sm_cmd_handler, BTIF_SM_SEND_LPM_ENTER_CMD, NULL, 0, NULL);
       break;
     case BTIF_LPM_SM_SEND_FLOW_ON_CMD:
       /* Send Flow on to stack VSC */
-      btif_lpm_send_flow_on_cmd();
+      btif_transfer_context(lpm_sm_cmd_handler, BTIF_SM_SEND_FLOW_ON_CMD, NULL, 0, NULL);
       break;
     case BTIF_LPM_SM_FLOW_ON_EVT:
       /* extract status */
@@ -456,7 +487,7 @@ static bool btif_lpm_state_stack_offload_pending_handler(btif_sm_event_t event,
       break;
     case BTIF_LPM_SM_SEND_FLOW_OFF_CMD:
       /* make flow off cmd and send (VSC) */
-      btif_lpm_send_flow_off_cmd();
+      btif_transfer_context(lpm_sm_cmd_handler, BTIF_SM_SEND_FLOW_OFF_CMD, NULL, 0, NULL);
       break;
     case BTIF_LPM_SM_NOTIFY_NACK_MSG:
       /* Release wakelock if any packet is received */
@@ -501,7 +532,7 @@ static bool btif_lpm_state_stack_offloaded_handler(btif_sm_event_t event,
       break;
     case BTIF_LPM_SM_SEND_LPM_EXIT_CMD:
       /* Send LPM Exit command VSC */
-      btif_lpm_send_exit_lpm_cmd();
+      btif_transfer_context(lpm_sm_cmd_handler, BTIF_SM_SEND_LPM_EXIT_CMD, NULL, 0, NULL);
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE_PENDING);
       break;
     default:
