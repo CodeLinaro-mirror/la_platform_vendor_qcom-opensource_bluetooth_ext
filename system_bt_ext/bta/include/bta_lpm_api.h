@@ -61,6 +61,7 @@
 #define LPM_RFCOMM_EVT 7
 #define LPM_HCI_INFO_EVT 8
 #define LPM_L2CAP_EVT 9
+#define LPM_GATT_REMOTE_SRVC_DB_EVT 10
 
 typedef uint8_t tBTA_LPM_EVT;
 
@@ -96,6 +97,12 @@ typedef struct {
   uint8_t num_attr;
   tLPM_GATTS_SRVC_ATTR* srvc_attr;
 } tBTA_LPM_GATTS_EVT;
+
+typedef struct {
+  uint16_t hci_handle;
+  uint8_t num_attr;
+  btgatt_db_element_t* db_element;
+} tBTA_LPM_GATT_REMOTE_SRVC_DB_EVT;
 
 enum {
  ALARM_START,
@@ -136,6 +143,7 @@ typedef union {
   tBTA_LPM_RFCOMM_EVT rfcomm_evt;
   tBTA_LPM_HCI_EVT hci_evt;
   tBTA_LPM_L2CAP_EVT l2cap_evt;
+  tBTA_LPM_GATT_REMOTE_SRVC_DB_EVT rmt_srvc_db_evt;
 } tBTA_LPM;
 
 /*  LPM Profile Callback from BTA to BTIF */

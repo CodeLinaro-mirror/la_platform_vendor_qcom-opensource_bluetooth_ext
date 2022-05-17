@@ -103,6 +103,8 @@ typedef void (tLPM_HCI_INFO_CBACK) (tLPM_HCI_INFO *hci_info,const RawAddress& rm
 
 typedef void (tLPM_L2CAP_INFO_CBACK) (tL2CAP_credits credit_info);
 
+typedef void (tLPM_GATTS_RMT_SRVC_DB_CBACK) (uint16_t hci_handle, btgatt_db_element_t* db_element, uint8_t count);
+
 typedef struct {
   tLPM_BLE_CONN_CBACK* p_ble_conn_cb;
   tLPM_GATTS_DB_ELEM_CBACK* p_gatts_service_cb;
@@ -110,6 +112,7 @@ typedef struct {
   tLPM_RFCOMM_PORT_INFO_CBACK* p_rfcomm_port_info_cb;
   tLPM_HCI_INFO_CBACK* p_hci_info_cb;
   tLPM_L2CAP_INFO_CBACK* P_l2cap_credit_info_cb;
+  tLPM_GATTS_RMT_SRVC_DB_CBACK* p_gatts_rmt_srvc_db_cb;
 } tLPM_CBACK;
 
 

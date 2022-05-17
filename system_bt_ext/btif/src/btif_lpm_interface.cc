@@ -301,13 +301,13 @@ bool btif_lpm_native_set_le_context_info(btif_lpm_ble_conn_t& ble_conn, std::str
     gattContext.mtu = ble_conn.mtu;
     LOG_INFO(LOG_TAG, "gatt mtu:%d", ble_conn.mtu);
      for (auto& gattServiceInfo : ble_conn.gatt_srvc) {
-        if(gattServiceInfo.is_notify_reg){
+        //if(gattServiceInfo.is_notify_reg){
             GattServiceInfo serviceInfo;
             serviceInfo.service_uuid = gattServiceInfo.uuid.ToString();
             serviceInfo.start = gattServiceInfo.s_handle;
             serviceInfo.end   = gattServiceInfo.e_handle;
             gattServiceInfoVec.push_back(serviceInfo);
-        }
+        //}
     }
 
     btif_lpm_native_interface_send_le_hci_context_info((ble_conn.remote_addr).ToString(), leHciContext, ble_conn.addrtype);

@@ -121,6 +121,7 @@ static void send_prepare_offload_cmd_complete(tBTM_VSC_CMPL* p_data) {
    btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_ACK_EVT,
            (void *)&status, DEFAULT_PARAM_LENGTH);
  }
+}
 
 /*******************************************************************************
  *
@@ -274,8 +275,10 @@ static void send_flow_off_cmd_complete(tBTM_VSC_CMPL* p_data) {
 void btif_lpm_init() {
   BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
 
-  /* Initialize LPM State Machine */
-  /* Send LPM Init to LPM State Machine */
+  BTIF_TRACE_DEBUG("btif_lpm_init now going to initialize state machine");
+  initialize_lpm_sm();
+
+  btif_dispatch_lpm_event(BTIF_LPM_SM_INIT_LPM_PROFILE,NULL,0);
 
   BTA_EnableLPM(btif_lpm_evt);
 }
@@ -294,8 +297,7 @@ void btif_lpm_init() {
 void btif_lpm_deinit() {
   BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
 
-  /* Deinitialize LPM state machine */
-
+  deinitialize_lpm_sm();
   BTA_DisableLPM();
 }
 
@@ -407,20 +409,20 @@ void btif_lpm_send_prepare_offload_cmd(bool flow_off_flag) {
    std::unique_lock<std::mutex> lock(bt_flow_lock);
    btif_flow_off_flag = flow_off_flag;
   }
-   if (!flow_off_flag) {
-     std::unique_lock<std::mutex> lock(bt_activity_lock);
-     bt_activity_after_flow_off = false;
-     {
-       std::unique_lock<std::mutex> lock(wl_lock);
-       if (wakelock_flag) {
-         wakelock_flag = false;
-         wakelock_release();
-       }
-     }
-   }
-   BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, DEFAULT_PARAM_LENGTH,
-           msg, send_prepare_offload_cmd_complete);
-   osi_free(msg);
+  if (!flow_off_flag) {
+    std::unique_lock<std::mutex> lock(bt_activity_lock);
+    bt_activity_after_flow_off = false;
+    {
+      std::unique_lock<std::mutex> lock(wl_lock);
+      if (wakelock_flag) {
+        wakelock_flag = false;
+        wakelock_release();
+      }
+    }
+  }
+  BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, DEFAULT_PARAM_LENGTH,
+          msg, send_prepare_offload_cmd_complete);
+  osi_free(msg);
 }
 
 /*******************************************************************************
@@ -563,6 +565,7 @@ void btif_lpm_check_timer_activity(void) {
       btif_dispatch_lpm_event(BTIF_LPM_SM_TIMER_INACTIVE_EVT,
                   NULL, 0);
   }
+}
 
 /*******************************************************************************
  *
@@ -1047,6 +1050,11 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
       LOG(ERROR) << "LPM_HCI_INFO_EVT";
       BTIF_TRACE_DEBUG("%s p_data.hci_evt.hci_info.bd_addr: %s",__FUNCTION__,p_data->hci_evt.bd_addr.ToString().c_str());
       btif_lpm_update_hci_info(p_data);
+      break;
+    case LPM_GATT_REMOTE_SRVC_DB_EVT:
+      LOG(ERROR) << "LPM_GATT_REMOTE_SRVC_DB_EVT";
+      BTIF_TRACE_DEBUG("%s p_data.rmt_srvc_db_evt.hci_handle: %d",__FUNCTION__,p_data->rmt_srvc_db_evt.hci_handle);
+      btif_lpm_ble_conn_srvc_db(p_data->rmt_srvc_db_evt.hci_handle, p_data->rmt_srvc_db_evt.db_element, p_data->rmt_srvc_db_evt.num_attr);
       break;
     default:
       break;

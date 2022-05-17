@@ -100,4 +100,16 @@ extern void lpm_gatts_serv_db_element(tGATT_SRV_LIST_ELEM& db_el);
  *
  ******************************************************************************/
 extern void btu_inform_lpm_profile();
+/*******************************************************************************
+ *
+ * Function         bta_rmt_srvc_disc_done
+ *
+ * Description      Informs LPM that remote service discovery is done
+ *
+ * Parameter        hci handle, service list
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+extern void bta_rmt_srvc_disc_done(uint16_t hci_handle, btgatt_db_element_t* db, uint8_t count);
 #endif /* LPM_INT_H */

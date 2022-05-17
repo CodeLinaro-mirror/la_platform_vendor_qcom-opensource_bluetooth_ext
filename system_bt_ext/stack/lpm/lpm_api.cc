@@ -141,6 +141,22 @@ void btu_inform_lpm_profile(void) {
 
 /*******************************************************************************
  *
+ * Function         bta_rmt_srvc_disc_done
+ *
+ * Description      Informs LPM that remote service discovery is done
+ *
+ * Parameter        hci handle, service list
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void bta_rmt_srvc_disc_done(uint16_t hci_handle, btgatt_db_element_t* db, uint8_t count) {
+  LOG_DEBUG(LOG_TAG, "%s:", __func__);
+  lpm_cb.lpm_cback.p_gatts_rmt_srvc_db_cb(hci_handle, db, count);
+}
+
+/*******************************************************************************
+ *
  * Function         lpm_send_conn_cback
  *
  * Description      Informs about ACL connection to LPM higher layers
