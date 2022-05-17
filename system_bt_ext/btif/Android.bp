@@ -40,6 +40,7 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/device/include/",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/btif/include/",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/bta/include/",
+        "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/stack/include/",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include/",
         "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
     ],
@@ -56,6 +57,9 @@ cc_library_static {
         "src/btif_twsp_hf.cc",
         "src/btif_iot_config.cc",
         "src/btif_vendor_hf.cc",
+        "src/btif_lpm.cc",
+        "src/btif_lpm_interface.cc",
+        "src/btif_lpm_sm.cc",
     ],
     shared_libs: [
         "libcutils",
@@ -63,6 +67,8 @@ cc_library_static {
         "libbase",
         "libutils",
         "libhardware",
+        "vendor.qti.hardware.bluetooth_offload@1.0",
+    //    "android.hidl.base@1.0",
     ],
     static_libs: [
         "libosi_qti",
