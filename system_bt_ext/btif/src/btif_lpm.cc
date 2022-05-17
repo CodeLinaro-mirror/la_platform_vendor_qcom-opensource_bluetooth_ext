@@ -62,6 +62,8 @@
 #define BT_STATUS_OK 0x01
 #define MAX_OFFLOADBLE_DEVICES 7
 #define OFFLOADBLE_APP_MTU_SIZE GATT_DEF_BLE_MTU_SIZE
+#define BTIF_LPM_REINIT_START_VAL  10
+
 //Structure to store alarm details
 typedef struct {
   char alarm_name[50];
@@ -295,6 +297,24 @@ void btif_lpm_deinit() {
   /* Deinitialize LPM state machine */
 
   BTA_DisableLPM();
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_reinit
+ *
+ * Description      Re-initializes LPM Profile
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_reinit() {
+  BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
+
+  usleep(BTIF_LPM_REINIT_START_VAL*1000);
+  btif_dispatch_lpm_event(BTIF_LPM_SM_REINIT_LPM_NATIVE, NULL, 0);
 }
 
 /*******************************************************************************

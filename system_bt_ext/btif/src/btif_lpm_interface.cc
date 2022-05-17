@@ -76,6 +76,7 @@ public:
          const android::wp<::android::hidl::base::V1_0::IBase>& /*who*/) {
     LOG_ERROR(LOG_TAG, "LPM Native HAL service died!");
     /* Post REINIT_NATIVE_HAL to state machine after a delay */
+    btif_lpm_reinit();
    }
 };
 
@@ -109,7 +110,14 @@ class BluetoothOffloadCallbacks:
   }
 
   Return<BtOffloadStatus> checkBtMsgActivity() {
-    return is_bt_active_during_offload()? (BtOffloadStatus::BT_FAIL): (BtOffloadStatus::BT_OK);
+    BtOffloadStatus status = is_bt_active_during_offload()?
+        (BtOffloadStatus::BT_FAIL): (BtOffloadStatus::BT_OK);
+    if(status == BtOffloadStatus::BT_FAIL) {
+      btLpmNative->BtMsgActivityStatus(BtActivityStatus::BT_ACTIVE);
+    } else if(status == BtOffloadStatus::BT_OK) {
+      btLpmNative->BtMsgActivityStatus(BtActivityStatus::BT_INACTIVE);
+    }
+    return status;
   }
 
   Return<BtOffloadStatus> flowOff() {

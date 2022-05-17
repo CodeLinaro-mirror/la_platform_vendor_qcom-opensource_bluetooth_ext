@@ -167,6 +167,19 @@ void btif_lpm_deinit(void);
 
 /*******************************************************************************
  *
+ * Function         btif_lpm_reinit
+ *
+ * Description      Re-initializes LPM Profile
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_reinit(void);
+
+/*******************************************************************************
+ *
  * Function         btif_lpm_send_prepare_offload_cmd
  *
  * Description      Function to send Prepare Offload Command to stack
