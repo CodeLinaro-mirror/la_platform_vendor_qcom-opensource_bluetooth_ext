@@ -864,26 +864,7 @@ void btif_lpm_prepare_offload_info(tLPM_mode mode,
   /* Store the new list of remote devices - used for fetching context info*/
   offloaded_remote_list.assign(remote_devices.begin(), remote_devices.end());
 }
-/*******************************************************************************
- *
- * Function         btif_lpm_prepare_offload_info
- *
- * Description      LPM native offload information
- *
- * Parameters       mode - LPM Mode requested
- *                  remote_devices - List of offloadable devices
- *
- * Returns          None
- *
- ******************************************************************************/
-void btif_lpm_prepare_offload_info(tLPM_mode mode,
-                                      std::vector<RawAddress> remote_devices) {
-  /* Inform BTA layer regarding offloadable connections */
-  BTA_DmSetLPMInfo(mode, remote_devices);
 
-  /* Store the new list of remote devices - used for fetching context info*/
-  offloaded_remote_list.assign(remote_devices.begin(), remote_devices.end());
-}
 /*******************************************************************************
  *
 
@@ -1037,12 +1018,11 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
       BTIF_TRACE_DEBUG("%s p_data.rfcomm_evt.port_info.dlci: %d",__FUNCTION__,p_data->rfcomm_evt.port_info.dlci);
       btif_lpm_update_rfcomm_context(p_data);
       break;
-
     case LPM_HCI_INFO_EVT:
       LOG(ERROR) << "LPM_HCI_INFO_EVT";
       BTIF_TRACE_DEBUG("%s p_data.hci_evt.hci_info.bd_addr: %s",__FUNCTION__,p_data->hci_evt.bd_addr.ToString().c_str());
       btif_lpm_update_hci_info(p_data);
-
+      break;
     default:
       break;
   }
