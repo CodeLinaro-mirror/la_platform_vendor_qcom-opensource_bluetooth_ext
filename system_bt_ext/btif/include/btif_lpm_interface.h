@@ -185,12 +185,13 @@ StackStatus btif_lpm_native_bt_activity_status_interface(void);
  *
  * Parameters       addr - Address of remote device
  *                  LeHciContext - Context info to be sent to LPM Native
+                    rmtAddrType - Address type of remote device
  *
  * Returns          Success or Failure of the API
  *
  ******************************************************************************/
 bool btif_lpm_native_interface_send_le_hci_context_info(
-    std::string addr, HciLeContextType LeHciContext);
+    std::string addr, HciLeContextType LeHciContext, bool remoteAddrType);
 
 /*******************************************************************************
  *

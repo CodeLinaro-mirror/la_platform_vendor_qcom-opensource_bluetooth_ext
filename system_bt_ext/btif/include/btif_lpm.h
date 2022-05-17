@@ -86,6 +86,7 @@ typedef struct {
   uint16_t conn_flags;
   uint8_t mtu;
   bool srvc_bit_set;
+  bool addrtype;
   uint16_t remote_gatt_srvc_handle;
   std::vector<btif_lpm_gatt_t> gatt_srvc;
   std::vector<uint16_t> conn_id_list;

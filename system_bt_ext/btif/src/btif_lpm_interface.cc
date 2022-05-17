@@ -254,9 +254,11 @@ bool btif_lpm_native_interface_commit_offload_done(
 }
 bool btif_lpm_native_set_local_device_address(std::string addr, bool privacy) {
     LOG_INFO(LOG_TAG,"btif_lpm_native_set_local_device_address");
-    auto ret = btLpmNative->setLocalDeviceAddress(addr, (privacy ?
+    //ToDo : After L0, check why addr type is not getting updated
+    /*auto ret = btLpmNative->setLocalDeviceAddress(addr, (privacy ?
                AddrType::ADDR_RANDOM :
-               AddrType::ADDR_PUBLIC));
+               AddrType::ADDR_PUBLIC));*/
+    auto ret = btLpmNative->setLocalDeviceAddress(addr, AddrType::ADDR_RANDOM);
     if (!ret.isOk())
       return false;
   return true;
@@ -298,15 +300,18 @@ bool btif_lpm_native_set_le_context_info(btif_lpm_ble_conn_t& ble_conn, std::str
         }
     }
 
-    btif_lpm_native_interface_send_le_hci_context_info((ble_conn.remote_addr).ToString(), leHciContext);
+    btif_lpm_native_interface_send_le_hci_context_info((ble_conn.remote_addr).ToString(), leHciContext, ble_conn.addrtype);
     btif_lpm_native_interface_send_le_gatt_context_info((ble_conn.remote_addr).ToString(), gattContext);
     btif_lpm_native_interface_send_le_gatt_handle_range_info((ble_conn.remote_addr).ToString(), gattServiceInfoVec);
     return true;
 }
 bool btif_lpm_native_interface_send_le_hci_context_info(
-        std::string addr, HciLeContextType LeHciContext) {
+        std::string addr, HciLeContextType LeHciContext, bool remoteAddrType) {
     LOG_INFO(LOG_TAG,"btif_lpm_native_interface_send_le_hci_context_info");
-    auto ret = btLpmNative->setLeHciContext(addr, LeHciContext);
+    //ToDo : After L0, check why addr type is not getting updated
+    auto ret = btLpmNative->setLeHciContext(addr, LeHciContext, /*(remoteAddrType ?
+               AddrType::ADDR_RANDOM :
+               AddrType::ADDR_PUBLIC)*/ AddrType::ADDR_RANDOM);
     if (!ret.isOk())
       return false;
   return true;

@@ -700,6 +700,7 @@ void btif_lpm_update_ble_conn_evt(RawAddress& rmt_addr, bool rmt_addr_type,
     conn.hci_handle = hci_handle;
     /* set mtu size to default */
     conn.mtu = OFFLOADBLE_APP_MTU_SIZE;
+    conn.addrtype = rmt_addr_type;
   } else {
     auto it = btif_lpm_cb.ble_conns.begin();
     for (; it!=btif_lpm_cb.ble_conns.end(); it++) {
