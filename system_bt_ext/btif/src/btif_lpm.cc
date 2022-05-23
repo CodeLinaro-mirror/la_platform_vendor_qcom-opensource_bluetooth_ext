@@ -461,6 +461,7 @@ void btif_lpm_send_prepare_offload_cmd(bool flow_off_flag) {
       std::unique_lock<std::mutex> lock(wl_lock);
       if (wakelock_flag) {
         wakelock_flag = false;
+        BTIF_TRACE_DEBUG("%s wakelock released",__FUNCTION__);
         wakelock_release();
       }
     }
@@ -521,6 +522,7 @@ void btif_lpm_send_exit_lpm_cmd(void) {
     std::unique_lock<std::mutex> lock(wl_lock);
     if (wakelock_flag) {
       wakelock_flag = false;
+      BTIF_TRACE_DEBUG("%s wakelock released",__FUNCTION__);
       wakelock_release();
     }
   }
@@ -557,6 +559,7 @@ void btif_lpm_send_flow_on_cmd(void) {
     std::unique_lock<std::mutex> lock(wl_lock);
     if (wakelock_flag) {
       wakelock_flag = false;
+      BTIF_TRACE_DEBUG("%s wakelock released",__FUNCTION__);
       wakelock_release();
     }
   }
@@ -1262,10 +1265,14 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
         bt_activity_after_flow_off = true;
       }
       {
-        std::unique_lock<std::mutex> lock(wl_lock);
-        if (!wakelock_flag) {
-          wakelock_flag = true;
-          wakelock_acquire();
+        BTIF_TRACE_DEBUG("%s SM_STATE: %d",__FUNCTION__, btif_lpm_sm_get_state());
+        if (btif_lpm_sm_get_state() == BTIF_LPM_STATE_STACK_OFFLOAD_PENDING) {
+            std::unique_lock<std::mutex> lock(wl_lock);
+            if (!wakelock_flag) {
+                wakelock_flag = true;
+                BTIF_TRACE_DEBUG("%s wakelock acquired",__FUNCTION__);
+                wakelock_acquire();
+            }
         }
       }
       break;

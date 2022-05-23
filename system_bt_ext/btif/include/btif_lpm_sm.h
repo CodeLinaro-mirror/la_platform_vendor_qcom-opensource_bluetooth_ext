@@ -152,4 +152,17 @@ void initialize_lpm_sm(void);
  ******************************************************************************/
 void deinitialize_lpm_sm(void);
 
+/*******************************************************************************
+ *
+ * Function         btif_lpm_sm_get_state
+ *
+ * Description      To get current state of LPM SM
+ *
+ * Parameters       None
+ *
+ * Returns          btif_sm_state_t
+ *
+ ******************************************************************************/
+btif_lpm_state_t btif_lpm_sm_get_state(void);
+
 #endif /* BTIF_LPM_SM_H */ 
