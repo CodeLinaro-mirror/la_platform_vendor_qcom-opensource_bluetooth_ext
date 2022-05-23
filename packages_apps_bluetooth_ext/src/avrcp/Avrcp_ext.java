@@ -219,16 +219,17 @@ public final class Avrcp_ext {
     private static final int MSG_ABS_VOL_TIMEOUT = 17;
     private static final int MSG_SET_A2DP_AUDIO_STATE = 18;
     private static final int MSG_NOW_PLAYING_CHANGED_RSP = 19;
-    private static final int MESSAGE_DEVICE_RC_CLEANUP = 21;
+    private static final int MSG_DEVICE_RC_CLEANUP = 21;
     private static final int MSG_PLAY_INTERVAL_TIMEOUT_2 = 22;
-    private final static int MESSAGE_PLAYERSETTINGS_TIMEOUT = 23;
-    private final static int MESSAGE_SET_MEDIA_SESSION = 24;
-    private final static int MSG_SET_AVRCP_CONNECTED_DEVICE = 25;
-    private final static int MESSAGE_UPDATE_ABS_VOLUME_STATUS = 31;
+    private static final int MSG_PLAYERSETTINGS_TIMEOUT = 23;
+    private static final int MSG_SET_MEDIA_SESSION = 24;
+    private static final int MSG_SET_AVRCP_CONNECTED_DEVICE = 25;
+    private static final int MSG_UPDATE_ABS_VOLUME_STATUS = 31;
     private static final int MSG_PLAY_STATUS_CMD_TIMEOUT = 33;
-    private final static int MESSAGE_START_SHO = 34;
+    private static final int MSG_START_SHO = 34;
     private static final int MSG_SET_ACTIVE_DEVICE = 35;
     private static final int MSG_LONG_PRESS_PT_CMD_TIMEOUT = 36;
+    private static final int MSG_INIT_MEDIA_PLAYER_LIST = 37;
 
     private static final int LONG_PRESS_PT_CMD_TIMEOUT_DELAY = 600;
     private static final int CMD_TIMEOUT_DELAY = 2000;
@@ -524,14 +525,7 @@ public final class Avrcp_ext {
         /* initialize BrowseMananger which manages Browse commands and response */
         mAvrcpBrowseManager = new AvrcpBrowseManager(mContext, mAvrcpMediaRsp);
 
-        initMediaPlayersList();
-
-        UserManager manager = UserManager.get(mContext);
-        if (manager == null || manager.isUserUnlocked()) {
-            if (DEBUG) Log.d(TAG, "User already unlocked, initializing player lists");
-            // initialize browsable player list and build media player list
-            buildBrowsablePlayerList();
-        }
+        mHandler.sendEmptyMessage(MSG_INIT_MEDIA_PLAYER_LIST);
 
         mAudioManager.registerAudioPlaybackCallback(
                 mAudioManagerPlaybackCb, mAudioManagerPlaybackHandler);
@@ -570,7 +564,7 @@ public final class Avrcp_ext {
             mAudioManager.unregisterAudioPlaybackCallback(mAudioManagerPlaybackCb);
 
         if (mMediaController != null) mMediaController.unregisterCallback(mMediaControllerCb);
-        Message msg = mHandler.obtainMessage(MESSAGE_DEVICE_RC_CLEANUP, 0,
+        Message msg = mHandler.obtainMessage(MSG_DEVICE_RC_CLEANUP, 0,
                0, null);
         mHandler.sendMessage(msg);
         if (mMediaSessionManager != null) {
@@ -799,9 +793,22 @@ public final class Avrcp_ext {
             if (DEBUG) Log.v(TAG, "AvrcpMessageHandler: received message=" + msg.what);
 
             switch (msg.what) {
-            case MESSAGE_PLAYERSETTINGS_TIMEOUT:
+            case MSG_INIT_MEDIA_PLAYER_LIST:
+                Log.w(TAG, "Initialize Media Player list");
+                initMediaPlayersList();
+
+                UserManager manager = UserManager.get(mContext);
+                if (manager == null || manager.isUserUnlocked()) {
+                    Log.w(TAG, "User already unlocked, initializing player lists");
+                    // initialize browsable player list and build media player list
+                    buildBrowsablePlayerList();
+                }
+                Log.w(TAG, "Media Player initialzation complete");
+                break;
+
+            case MSG_PLAYERSETTINGS_TIMEOUT:
             {
-                Log.e(TAG, "**MESSAGE_PLAYSTATUS_TIMEOUT: Addr: " +
+                Log.e(TAG, "**MSG_PLAYSTATUS_TIMEOUT: Addr: " +
                             (String)msg.obj + " Msg: " + msg.arg1);
                 BluetoothDevice currdevice;
                 currdevice = mAdapter.getRemoteDevice((String) msg.obj);
@@ -815,7 +822,7 @@ public final class Avrcp_ext {
                 mAvrcpPlayerAppSettings.handlerMsgTimeout(msg.arg1, currdevice);
                 break;
             }
-            case MESSAGE_UPDATE_ABS_VOLUME_STATUS:
+            case MSG_UPDATE_ABS_VOLUME_STATUS:
             {
                 deviceIndex = msg.arg1;
                 int vol = msg.arg2;
@@ -1444,8 +1451,8 @@ public final class Avrcp_ext {
                             Log.e(TAG, "1: SHO complete");
                         }
 
-                        if(mHandler.hasMessages(MESSAGE_START_SHO) && (!SHOQueue.isRetry)) {
-                            mHandler.removeMessages(MESSAGE_START_SHO);
+                        if(mHandler.hasMessages(MSG_START_SHO) && (!SHOQueue.isRetry)) {
+                            mHandler.removeMessages(MSG_START_SHO);
                             triggerSHO(SHOQueue.device, SHOQueue.PlayReq, false);
                         }
                     }
@@ -1470,9 +1477,9 @@ public final class Avrcp_ext {
               }
               break;
 
-            case MESSAGE_DEVICE_RC_CLEANUP:
+            case MSG_DEVICE_RC_CLEANUP:
                 if (DEBUG)
-                    Log.v(TAG, "MESSAGE_DEVICE_RC_CLEANUP");
+                    Log.v(TAG, "MSG_DEVICE_RC_CLEANUP");
                     clearDeviceDependentFeature();
                     for (int i = 0; i < maxAvrcpConnections; i++) {
                        cleanupDeviceFeaturesIndex(i);
@@ -1626,9 +1633,9 @@ public final class Avrcp_ext {
                 deviceFeatures[deviceIndex].isPlayStatusTimeOut = true;
                 break;
 
-            case MESSAGE_START_SHO:
+            case MSG_START_SHO:
                 synchronized (Avrcp_ext.this) {
-                    if(mHandler.hasMessages(MESSAGE_START_SHO)) {
+                    if(mHandler.hasMessages(MSG_START_SHO)) {
                         Log.e(TAG, "Queue already has another SHO pending");
                         break;
                     }
@@ -1661,8 +1668,8 @@ public final class Avrcp_ext {
                     synchronized (Avrcp_ext.this) {
                         isShoActive = false;
                         Log.d(TAG, "3: SHO complete");
-                        if (mHandler.hasMessages(MESSAGE_START_SHO) && (!SHOQueue.isRetry)) {
-                            mHandler.removeMessages(MESSAGE_START_SHO);
+                        if (mHandler.hasMessages(MSG_START_SHO) && (!SHOQueue.isRetry)) {
+                            mHandler.removeMessages(MSG_START_SHO);
                             triggerSHO(SHOQueue.device, SHOQueue.PlayReq, false);
                         }
                     }
@@ -3220,7 +3227,7 @@ public final class Avrcp_ext {
     private void SendPlayerSettingMsg(Integer cmd, byte[] address) {
         long delay_interval = mAvrcpPlayerAppSettings.getPlayerAppSettingsCmdDelay();
         Message msg = mHandler.obtainMessage();
-        msg.what = MESSAGE_PLAYERSETTINGS_TIMEOUT;
+        msg.what = MSG_PLAYERSETTINGS_TIMEOUT;
         msg.arg1 = cmd;
         msg.arg2 = 0;
         msg.obj = Utils.getAddressStringFromByte(address);
@@ -4868,7 +4875,7 @@ public final class Avrcp_ext {
 
         public BluetoothDevice GetPlayerSettingCmdPendingDevice(Integer reponse) {
             BluetoothDevice device = null;
-            mHandler.removeMessages(MESSAGE_PLAYERSETTINGS_TIMEOUT);
+            mHandler.removeMessages(MSG_PLAYERSETTINGS_TIMEOUT);
             for (int i = 0; i < maxAvrcpConnections; i++) {
                 if ((deviceFeatures[i].mMusicAppCmdResponsePending
                         .containsKey(reponse))) {
@@ -5220,8 +5227,8 @@ public final class Avrcp_ext {
         Log.d(TAG, "0: SHO Init: isInCall = " + isInCall + " isFMActive = " + isFMActive);
         synchronized (Avrcp_ext.this) {
             if (isShoActive) {
-                mHandler.removeMessages (MESSAGE_START_SHO);
-                Message msg = mHandler.obtainMessage(MESSAGE_START_SHO, PlayReq?1:0, 0, device);
+                mHandler.removeMessages (MSG_START_SHO);
+                Message msg = mHandler.obtainMessage(MSG_START_SHO, PlayReq?1:0, 0, device);
                 SHOQueue.device = device;
                 SHOQueue.PlayReq = PlayReq;
                 SHOQueue.isRetry = false;
@@ -5251,7 +5258,7 @@ public final class Avrcp_ext {
                     return ret;
                 }
             }
-            mHandler.removeMessages(MESSAGE_START_SHO);
+            mHandler.removeMessages(MSG_START_SHO);
             triggerSHO(device, PlayReq, true);
             return ret;
         }
@@ -5261,8 +5268,8 @@ public final class Avrcp_ext {
                 Log.d(TAG, "6: SHO complete");
                 if (resetShoFlag)
                     resetShoFlag = false;
-                if (mHandler.hasMessages(MESSAGE_START_SHO)) {
-                    mHandler.removeMessages(MESSAGE_START_SHO);
+                if (mHandler.hasMessages(MSG_START_SHO)) {
+                    mHandler.removeMessages(MSG_START_SHO);
                     triggerSHO(SHOQueue.device, SHOQueue.PlayReq, false);
                 }
             }
@@ -5272,7 +5279,7 @@ public final class Avrcp_ext {
     }
 
     private void triggerSHO(BluetoothDevice device, boolean PlayReq, boolean isRetry) {
-        Message msg = mHandler.obtainMessage(MESSAGE_START_SHO, PlayReq?1:0, isRetry?1:0, device);
+        Message msg = mHandler.obtainMessage(MSG_START_SHO, PlayReq?1:0, isRetry?1:0, device);
         if(isRetry) {
             SHOQueue.device = device;
             SHOQueue.PlayReq = PlayReq;
@@ -5425,7 +5432,7 @@ public final class Avrcp_ext {
             return;
         }
         Message msg = mHandler.obtainMessage();
-        msg.what = MESSAGE_UPDATE_ABS_VOLUME_STATUS;
+        msg.what = MSG_UPDATE_ABS_VOLUME_STATUS;
         msg.arg1 = deviceIndex;
         msg.arg2 = volume;
         mHandler.sendMessage(msg);
