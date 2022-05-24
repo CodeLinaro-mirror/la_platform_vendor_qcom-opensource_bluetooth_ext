@@ -84,6 +84,7 @@ static std::mutex wl_lock;
 
 std::vector<alarm_info_t> active_alarm;
 std::vector<RawAddress> offloaded_remote_list;
+tLPM_mode lpm_mode = LPM_ACTIVE;
 
 bool is_a2dp_stream_active;
 int hf_connected_clients_count = 0;
@@ -469,6 +470,55 @@ void btif_lpm_send_prepare_offload_cmd(bool flow_off_flag) {
   BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, DEFAULT_PARAM_LENGTH,
           msg, send_prepare_offload_cmd_complete);
   osi_free(msg);
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lmp_dm_link_down_event
+ *
+ * Description      Function will get link down event
+ *
+ * Parameters       num_active_br_edr_links: Numver of active br edr links
+ *                  num_active_le_links : Number of active le links
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lmp_dm_link_down_event(uint16_t num_active_br_edr_links, uint16_t num_active_le_links) {
+    uint16_t num_active_links = num_active_br_edr_links + num_active_le_links;
+
+    BTIF_TRACE_DEBUG(" %s: offloaded_remote_list size %d num_active_links %d", __FUNCTION__,
+                        offloaded_remote_list.size(),
+                        num_active_links);
+
+    if ((offloaded_remote_list.size() == num_active_links) && lpm_mode == LPM_TWM) {
+        BTIF_TRACE_DEBUG(" %s: All acl links are disconnected", __FUNCTION__);
+        btif_dispatch_lpm_event(BTIF_LPM_SM_TWM_OFFLOAD_CONT_EVT, NULL, 0);
+    }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_check_offloadable_links
+ *
+ * Description      Function will check if there are any offloadable links or not
+ *
+ * Parameters       num_active_br_edr_links: Numver of active br edr links
+ *                  num_active_le_links : Number of active le links
+ *
+ * Returns          true if there are only offloadable links,
+                    false if there are non offloadable links also.
+ *
+ ******************************************************************************/
+bool btif_lpm_check_offloadable_links(void) {
+    BTIF_TRACE_DEBUG(" %s:", __FUNCTION__);
+    bool offloadable_links = false;
+    uint16_t num_active_links = btif_get_num_active_links();
+    if (offloaded_remote_list.size() == num_active_links) {
+        BTIF_TRACE_DEBUG(" %s: All the links are offlodable", __FUNCTION__);
+        offloadable_links = true;
+    }
+    return offloadable_links;
 }
 
 /*******************************************************************************
@@ -1091,6 +1141,8 @@ int btif_lpm_prepare_offload_info(tLPM_mode mode, std::vector<RawAddress> remote
     }
     /* Inform BTA layer regarding offloadable connections */
     BTA_DmSetLPMInfo(mode, remote_devices);
+
+    lpm_mode = mode;
 
     /* Store the new list of remote devices - used for fetching context info*/
     offloaded_remote_list.assign(remote_devices.begin(), remote_devices.end());

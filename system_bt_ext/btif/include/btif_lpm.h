@@ -46,6 +46,7 @@
 #define BTIF_LPM_H
 
 #include "btif_sm.h"
+#include "btif_dm.h"
 #include "bta_gatt_api.h"
 #include "hardware/vendor.h"
 #include <hardware/bluetooth.h>
@@ -244,6 +245,35 @@ void btif_lpm_reinit(void);
  *
  ******************************************************************************/
 void btif_lpm_send_prepare_offload_cmd(bool flow_off);
+
+/*******************************************************************************
+ *
+ * Function         btif_lmp_dm_link_down_event
+ *
+ * Description      Function will get link down event
+ *
+ * Parameters       num_active_br_edr_links: Number of active br edr links
+ *                  num_active_le_links : Number of active le links
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lmp_dm_link_down_event(uint16_t num_active_br_edr_links, uint16_t num_active_le_links);
+
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_check_offloadable_links
+ *
+ * Description      Function will check if there are any offloadable links or not
+ *
+ * Parameters       None
+ *
+ * Returns          true if there are only offloadable links,
+                    false if there are non offloadable links also.
+ *
+ ******************************************************************************/
+bool btif_lpm_check_offloadable_links(void);
 
 /*******************************************************************************
  *
