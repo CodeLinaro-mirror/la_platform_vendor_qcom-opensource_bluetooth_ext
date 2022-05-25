@@ -242,8 +242,13 @@ public class NativeStateMachine {
                 boolean retValue = HANDLED;
                 switch (message.what) {
                     case MSG_LN_SM_SEND_PREPARE_OFFLOAD:
-                        mNativeInterface.SendPrepareOffload();
-                        transitionTo(mStackOffloadPending);
+                        int ret = mNativeInterface.SendPrepareOffload();
+                        if (ret != AON_BT_SUCCESS) {
+                            mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_NACK);
+                            transitionTo(mStackActive);
+                        } else {
+                            transitionTo(mStackOffloadPending);
+                        }
                         break;
                     case MSG_LN_SM_APP_SPECIFIC_INFO:
                         transitionTo(mStackActive);

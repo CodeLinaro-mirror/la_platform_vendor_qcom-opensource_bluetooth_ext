@@ -85,6 +85,10 @@ static std::mutex wl_lock;
 std::vector<alarm_info_t> active_alarm;
 std::vector<RawAddress> offloaded_remote_list;
 
+bool is_a2dp_stream_active;
+int hf_connected_clients_count = 0;
+bool is_hf_audio_active;
+
 void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data);
 
 using namespace ::vendor::qti::hardware::bluetooth_offload::V1_0;
@@ -1010,40 +1014,44 @@ void btif_lpm_update_rfcomm_credits(tBTA_LPM *rfcomm_credits) {
  * Parameters       mode - LPM Mode requested
  *                  remote_devices - List of offloadable devices
  *
- * Returns          None
+ * Returns          status - success or fail
  *
  ******************************************************************************/
-void btif_lpm_prepare_offload_info(tLPM_mode mode,
-                                      std::vector<RawAddress> remote_devices) {
-  BTIF_TRACE_DEBUG("%s", __FUNCTION__);
-  /* Inform BTA layer regarding offloadable connections */
-  BTA_DmSetLPMInfo(mode, remote_devices);
-
-  /* Store the new list of remote devices - used for fetching context info*/
-  offloaded_remote_list.assign(remote_devices.begin(), remote_devices.end());
-  BTIF_TRACE_DEBUG(" the mode is = %d",mode);
-  for(auto it =  remote_devices.begin();it != remote_devices.end();++it) {
-    BTIF_TRACE_DEBUG("%s, remote_devices address %s", __FUNCTION__, it->ToString().c_str());
-    if ( mode == LPM_TWM ) {
-        tBTA_LE_KEY_VALUE_local key;
-        memset(&key, 0, sizeof(key));
-        size_t length = sizeof(tBTM_LE_PENC_KEYS);
-        BTIF_TRACE_DEBUG("calling set smp");
-        btif_config_get_bin(it->ToString().c_str(),"LE_KEY_PENC",
-                                 (uint8_t*)&key, &length);
-        BTIF_TRACE_DEBUG("after set smp");
-        btif_lpm_native_smp_keys(key.ltk,32,key.rand,16,key.ediv,it->ToString().c_str());
-        btif_dm_local_key_id_t_local adap_key;
-        memset(&adap_key, 0, sizeof(btif_dm_local_key_id_t_local));
-        length = sizeof(adap_key.ir);
-        BTIF_TRACE_DEBUG("calling set ir");
-        btif_config_get_bin("Adapter", "LE_LOCAL_KEY_IR", (uint8_t*)&adap_key.ir, &length);
-        BTIF_TRACE_DEBUG("calling set after_ir");
-        length = sizeof(adap_key.er);
-        btif_config_get_bin("Adapter", "LE_LOCAL_KEY_ER", (uint8_t*)&adap_key.er, &length);
-        btif_lpm_native_smp_keys_ir_er(adap_key.ir,adap_key.er,it->ToString().c_str());
+int btif_lpm_prepare_offload_info(tLPM_mode mode, std::vector<RawAddress> remote_devices) {
+    BTIF_TRACE_DEBUG("%s", __FUNCTION__);
+    if (is_hf_audio_active || is_a2dp_stream_active) {
+        BTIF_TRACE_DEBUG("%s: HFP or A2DP are active so sending fail", __FUNCTION__);
+        return 0; //BtOffloadStatus::BT_FAIL
     }
-}
+    /* Inform BTA layer regarding offloadable connections */
+    BTA_DmSetLPMInfo(mode, remote_devices);
+
+    /* Store the new list of remote devices - used for fetching context info*/
+    offloaded_remote_list.assign(remote_devices.begin(), remote_devices.end());
+    BTIF_TRACE_DEBUG(" the mode is = %d",mode);
+    for(auto it =  remote_devices.begin();it != remote_devices.end();++it) {
+        BTIF_TRACE_DEBUG("%s, remote_devices address %s", __FUNCTION__, it->ToString().c_str());
+        if ( mode == LPM_TWM ) {
+            tBTA_LE_KEY_VALUE_local key;
+            memset(&key, 0, sizeof(key));
+            size_t length = sizeof(tBTM_LE_PENC_KEYS);
+            BTIF_TRACE_DEBUG("calling set smp");
+            btif_config_get_bin(it->ToString().c_str(),"LE_KEY_PENC",
+                    (uint8_t*)&key, &length);
+            BTIF_TRACE_DEBUG("after set smp");
+            btif_lpm_native_smp_keys(key.ltk,32,key.rand,16,key.ediv,it->ToString().c_str());
+            btif_dm_local_key_id_t_local adap_key;
+            memset(&adap_key, 0, sizeof(btif_dm_local_key_id_t_local));
+            length = sizeof(adap_key.ir);
+            BTIF_TRACE_DEBUG("calling set ir");
+            btif_config_get_bin("Adapter", "LE_LOCAL_KEY_IR", (uint8_t*)&adap_key.ir, &length);
+            BTIF_TRACE_DEBUG("calling set after_ir");
+            length = sizeof(adap_key.er);
+            btif_config_get_bin("Adapter", "LE_LOCAL_KEY_ER", (uint8_t*)&adap_key.er, &length);
+            btif_lpm_native_smp_keys_ir_er(adap_key.ir,adap_key.er,it->ToString().c_str());
+        }
+    }
+    return 1;//BtOffloadStatus::BT_OK
 }
 
 /*******************************************************************************
@@ -1345,4 +1353,27 @@ void  btif_lpm_fetch_l2cap_context_info_req(){
         BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
     }
   }
+}
+
+void btif_lpm_a2dp_on_stream_update(btav_lpm_audio_state_t state) {
+    BTIF_TRACE_DEBUG("%s: state %d", __FUNCTION__, state);
+    if(state == BTAV_LPM_AUDIO_STATE_STARTED)
+        is_a2dp_stream_active = true;
+    else
+        is_a2dp_stream_active = false;
+
+    return;
+}
+
+void btif_lpm_hf_audio_update(bthf_audio_state_t state) {
+    BTIF_TRACE_DEBUG("%s: state %d", __FUNCTION__, state);
+    if(state == BTHF_LPM_AUDIO_STATE_CONNECTED) {
+        hf_connected_clients_count++;
+        is_hf_audio_active = true;
+    }
+    else if(state == BTHF_LPM_AUDIO_STATE_DISCONNECTED){
+        hf_connected_clients_count--;
+        if(hf_connected_clients_count == 0)
+            is_hf_audio_active = false;
+    }
 }

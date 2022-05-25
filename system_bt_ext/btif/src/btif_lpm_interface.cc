@@ -104,7 +104,10 @@ class BluetoothOffloadCallbacks:
       RawAddress::FromString(device, bdaddr);
       remote_devices.emplace_back(bdaddr);
     }
-    btif_lpm_prepare_offload_info((uint8_t) mode, remote_devices);
+    int ret = btif_lpm_prepare_offload_info((uint8_t) mode, remote_devices);
+    if (ret == 0) {
+        return BtOffloadStatus::BT_FAIL;
+    }
     btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD,(void *)&mode, 0);
     return BtOffloadStatus::BT_OK;
   }
