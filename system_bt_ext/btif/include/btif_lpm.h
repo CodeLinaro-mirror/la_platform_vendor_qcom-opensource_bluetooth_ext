@@ -77,9 +77,23 @@
 
 typedef struct {
   bluetooth::Uuid uuid;
+  uint16_t desc_handle;
+} btif_lpm_desc_t;
+
+typedef struct {
+  bluetooth::Uuid uuid;
+  uint16_t char_handle;
+  uint16_t char_property;
+  std::string char_value;
+  std::vector<btif_lpm_desc_t> gatt_descs;
+} btif_lpm_char_info_t;
+
+typedef struct {
+  bluetooth::Uuid uuid;
   uint16_t s_handle;
   uint16_t e_handle;
   bool is_notify_reg;
+  std::vector<btif_lpm_char_info_t> gatt_chars;
 } btif_lpm_gatt_t;
 
 typedef struct {

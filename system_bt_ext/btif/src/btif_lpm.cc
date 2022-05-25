@@ -749,16 +749,39 @@ void btif_lpm_ble_conn_srvc_db(int conn_id, btgatt_db_element_t* db, int count){
   btif_lpm_ble_conn_t& conn = *lpm_fetch_ble_conn_by_connid((uint16_t)conn_id);
   BTIF_TRACE_DEBUG(" %s: conn id : %d count: %d ", __FUNCTION__, conn_id, count);
   btgatt_db_element_t* curr_db = db;
+  conn.gatt_srvc.clear();
   for( int i=0; i <count; i++) {
-    if(curr_db->type == BTGATT_DB_PRIMARY_SERVICE) {
-      BTIF_TRACE_DEBUG(" %s: service uuid : %s ", __FUNCTION__, curr_db->uuid.ToString().c_str());
-      conn.gatt_srvc.emplace_back();
-      btif_lpm_gatt_t& srvc_el = conn.gatt_srvc.back();
-      srvc_el.uuid = curr_db->uuid;
-      srvc_el.s_handle= curr_db->start_handle;
-      srvc_el.e_handle= curr_db->end_handle;
-    }
-    curr_db++;
+        BTIF_TRACE_DEBUG(" %s: uuid : %s ", __FUNCTION__, curr_db->uuid.ToString().c_str());
+        BTIF_TRACE_DEBUG(" %s: Type: %d ", __FUNCTION__, curr_db->type);
+        if (curr_db->type == BTGATT_DB_PRIMARY_SERVICE) {
+            btif_lpm_gatt_t srvc_el;
+            srvc_el.uuid = curr_db->uuid;
+            srvc_el.s_handle= curr_db->start_handle;
+            srvc_el.e_handle= curr_db->end_handle;
+            conn.gatt_srvc.push_back(srvc_el);
+        } else if ( curr_db->type == BTGATT_DB_CHARACTERISTIC) {
+            btif_lpm_char_info_t characteristic;
+            btif_lpm_gatt_t srvc_el = conn.gatt_srvc.back();
+            conn.gatt_srvc.pop_back();
+            characteristic.uuid = curr_db->uuid;
+            characteristic.char_handle = curr_db->attribute_handle;
+            srvc_el.gatt_chars.push_back(characteristic);
+            conn.gatt_srvc.push_back(srvc_el);
+        } else if (curr_db->type == BTGATT_DB_DESCRIPTOR) {
+            btif_lpm_gatt_t srvc_el = conn.gatt_srvc.back();
+            conn.gatt_srvc.pop_back();
+            btif_lpm_char_info_t characteristic = srvc_el.gatt_chars.back();
+            srvc_el.gatt_chars.pop_back();
+            btif_lpm_desc_t desc;
+            desc.uuid = curr_db->uuid;
+            desc.desc_handle = curr_db->attribute_handle;
+            characteristic.gatt_descs.push_back(desc);
+            srvc_el.gatt_chars.push_back(characteristic);
+            conn.gatt_srvc.push_back(srvc_el);
+        }
+
+        curr_db++;
+
   }
 }
 
