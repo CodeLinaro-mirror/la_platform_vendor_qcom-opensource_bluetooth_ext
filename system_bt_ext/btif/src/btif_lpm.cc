@@ -936,13 +936,14 @@ void btif_lpm_update_rfcomm_context(tBTA_LPM *p_rfcomm){
   }
 }
 
-void btif_lpm_update_hci_info(tBTA_LPM *p_hci){
+void btif_lpm_update_hci_info(tBTA_LPM *p_hci) {
   BTIF_TRACE_ERROR("%s, hci context info", __FUNCTION__);
   btif_hci_context_t p_context;
   p_context.remote_addr = p_hci->hci_evt.bd_addr;
   BTIF_TRACE_ERROR("%s, hci context info addr : %s", __FUNCTION__,p_context.remote_addr.ToString().c_str());
   p_context.hci_handle = p_hci->hci_evt.hci_info.hci_handle;
   p_context.role = p_hci->hci_evt.hci_info.role;
+  p_context.mode = p_hci->hci_evt.hci_info.mode;
   btif_lpm_cb.bredr_context.emplace_back(p_context);
 }
 
@@ -968,6 +969,17 @@ void btif_lpm_clear_l2cap_info(tBTA_LPM *p_l2cap) {
     BTIF_TRACE_DEBUG("%s, after clear l2cap info vector size %d", __FUNCTION__, btif_lpm_cb.l2cap_context.size());
     for (auto it = btif_lpm_cb.l2cap_context.begin(); it!=btif_lpm_cb.l2cap_context.end(); it++) {
         BTIF_TRACE_DEBUG("%s, after clear l2cap info with cid %d", __FUNCTION__, it->local_cid);
+    }
+}
+
+void btif_lpm_update_hci_mode_info (tBTA_LPM *p_hci) {
+    BTIF_TRACE_DEBUG("%s, hci update info", __FUNCTION__);
+    for (auto it = btif_lpm_cb.bredr_context.begin(); it!=btif_lpm_cb.bredr_context.end(); it++) {
+        BTIF_TRACE_DEBUG("%s, update hci info with hci_handle %d", __FUNCTION__, it->hci_handle);
+        if (it->hci_handle == p_hci->hci_evt.hci_info.hci_handle) {
+            BTIF_TRACE_DEBUG("%s, found hci_handle", __FUNCTION__);
+            it->mode = p_hci->hci_evt.hci_info.mode;
+        }
     }
 }
 
@@ -1191,8 +1203,12 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
       btif_lpm_update_rfcomm_credits(p_data);
       break;
     case LPM_L2CAP_CLEAR_EVT:
-      LOG(ERROR) << "LPM_RFCOMM_CREDIT_EVT";
+      LOG(ERROR) << "LPM_L2CAP_CLEAR_EVT";
       btif_lpm_clear_l2cap_info(p_data);
+      break;
+    case LPM_HCI_MODE_UPDATE_EVT:
+      LOG(ERROR) << "LPM_HCI_MODE_UPDATE_EVT";
+      btif_lpm_update_hci_mode_info(p_data);
       break;
     default:
       break;
