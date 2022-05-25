@@ -699,9 +699,37 @@ std::vector<btif_lpm_ble_conn_t>::iterator
   for (; it!=btif_lpm_cb.ble_conns.end(); it++) {
     auto find_connid = std::find(it->conn_id_list.begin(), it->conn_id_list.end(), conn_id);
     if (find_connid != it->conn_id_list.end())
-      break;
+        break;
+    else
+        BTIF_TRACE_DEBUG(" %s: conn_id not found ", __FUNCTION__);
   }
   return it;
+}
+
+/*******************************************************************************
+ *
+ * Function         lpm_update_ble_conn_mtu
+ *
+ * Description      Searches BLE connection in LPM CB by address and update mtu
+ *
+ * Parameters       addr - Remote device address
+ *
+ * Returns          TRUE: Success FALSE: Failure
+ *
+ ******************************************************************************/
+
+bool lpm_update_ble_conn_mtu(RawAddress& addr, uint16_t mtu){
+  BTIF_TRACE_DEBUG(" %s: addr: %s ", __FUNCTION__, addr.ToString().c_str());
+  for (auto it = btif_lpm_cb.ble_conns.begin(); it!=btif_lpm_cb.ble_conns.end(); it++) {
+    if (it->remote_addr == addr)
+    {
+       BTIF_TRACE_DEBUG(" %s: address found in ble_conns ", __FUNCTION__);
+       it->mtu = mtu;
+       BTIF_TRACE_DEBUG(" %s: updated mtu %d, hci handle %d", __FUNCTION__, it->mtu, it->hci_handle);
+       return true;
+    }
+  }
+  return false;
 }
 
 /*******************************************************************************
@@ -818,6 +846,37 @@ void btif_lpm_update_gattc_upstreams_evt(tBTA_GATTC_EVT event, tBTA_GATTC* p_dat
     }
     default:
       break;
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_update_gatts_handle_event
+ *
+ * Description      Updates gatt server events to LPM
+ *
+ * Parameters       event - GATT Server event
+ *                  p_data - data associated with the event
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_update_gatts_handle_event(tBTA_GATTS_EVT event, tBTA_GATTS* p_data) {
+  BTIF_TRACE_DEBUG(" %s: event : %d ", __FUNCTION__, event);
+  switch (event) {
+    case BTA_GATTS_MTU_EVT: {
+        BTIF_TRACE_DEBUG(" %s: p_data->req_data.p_data->mtu : %d ", __FUNCTION__, p_data->req_data.p_data->mtu);
+        if (GATT_DEF_BLE_MTU_SIZE != p_data->req_data.p_data->mtu && p_data->req_data.p_data->mtu) {
+            if (lpm_update_ble_conn_mtu(p_data->conn.remote_bda, p_data->req_data.p_data->mtu))
+                BTIF_TRACE_DEBUG(" %s: lpm_update_ble_conn_mtu success", __FUNCTION__);
+            else
+                BTIF_TRACE_ERROR("%s: lpm_update_ble_conn_mtu failed", __FUNCTION__);
+        }
+        break;
+    }
+
+    default:
+        break;
   }
 }
 
