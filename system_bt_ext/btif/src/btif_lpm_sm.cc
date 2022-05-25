@@ -390,8 +390,6 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
       btif_lpm_native_interface_prepare_offload_done(LPM_FAILED, OFFLOAD_FAILED);
       break;
     case BTIF_LPM_SM_TIMER_INACTIVE_EVT:
-      /* Release wakelock if any packet is received */
-      BTIF_TRACE_DEBUG("%s, wakelock released",__FUNCTION__);
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
       break;
     case BTIF_SM_EXIT_EVT:
@@ -550,4 +548,26 @@ static bool btif_lpm_state_stack_offloaded_handler(btif_sm_event_t event,
     return false;
   }
   return true;
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_sm_get_state
+ *
+ * Description      To get current state of LPM SM
+ *
+ * Parameters       None
+ *
+ * Returns          btif_sm_state_t
+ *
+ ******************************************************************************/
+btif_lpm_state_t btif_lpm_sm_get_state() {
+    BTIF_TRACE_DEBUG("%s:", __FUNCTION__);
+    if (lpm_sm_handle != NULL) {
+        BTIF_TRACE_DEBUG("%s: SM Initialized returning state", __FUNCTION__);
+        return (btif_lpm_state_t)btif_sm_get_state(lpm_sm_handle);
+    } else {
+        BTIF_TRACE_DEBUG("%s: State machine not initialized", __FUNCTION__);
+        return (btif_lpm_state_t)-1;
+    }
 }
