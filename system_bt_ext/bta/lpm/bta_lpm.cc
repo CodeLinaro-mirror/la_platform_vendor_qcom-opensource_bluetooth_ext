@@ -349,7 +349,8 @@ static void bta_lpm_packet_after_flow_off_cb(void) {
 static void alarm_info_cb (bool state, char* name) {
   if(strcmp(name,"btm_ble_addr.refresh_raddr_timer") != 0) {
     tBTA_LPM alarm_evt;
-    strlcpy(alarm_evt.alarm_evt.name,name,strlen(name));
+    APPL_TRACE_DEBUG(" %s alarm name %s", __func__, name);
+    strlcpy(alarm_evt.alarm_evt.name,name, (strlen(name) + 1));
     if (state)
       alarm_evt.alarm_evt.state = ALARM_START;
     else
