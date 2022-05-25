@@ -524,6 +524,9 @@ public class BluetoothOffloadService extends Service {
         } else if (pwrState == mNativeInterface.ACTIVE_MODE) {
             NativeStateMachine.mStateMachine.sendMessage(
                       NativeStateMachine.NotificationOffloadStateMachine.MSG_LN_SM_ACTIVE);
+        } else if (pwrState == mNativeInterface.TWM_MODE) {
+            NativeStateMachine.mStateMachine.sendMessage(
+                      NativeStateMachine.NotificationOffloadStateMachine.MSG_LN_SM_TWM);
         }
     }
 

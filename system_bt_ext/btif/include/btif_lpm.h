@@ -136,6 +136,19 @@ typedef struct {
   std::vector<btif_l2cap_context_t> l2cap_context;
 } btif_lpm_cb_t;
 
+typedef struct {
+    uint8_t ltk[16];
+    uint8_t rand[8];
+    uint16_t ediv;
+    uint8_t sec_level;
+    uint8_t key_size;
+} tBTA_LE_KEY_VALUE_local;
+
+typedef struct {
+  uint8_t ir[16];
+  uint8_t er[16];
+} btif_dm_local_key_id_t_local;
+
 /*****************************************************************************
  *  BTIF LPM Function Declarations
  ****************************************************************************/

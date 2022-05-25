@@ -431,6 +431,20 @@ bool btif_lpm_native_interface_set_l2cap_context_info(std::vector<btif_l2cap_con
   return true;
 }
 
+bool btif_lpm_native_smp_keys(uint8_t *ltk, uint32_t ltk_size, uint8_t *rand, uint32_t rand_size, uint16_t ediv,std::string addr) {
+    std::vector<uint8_t> ltk_key(&ltk[0], &ltk[16]);
+    std::vector<uint8_t> rand_key(&rand[0], &rand[8]);
+    auto ret = btLpmNative->setSmpKeys(ltk_key,rand_key,addr,ediv);
+    return true;
+}
+
+bool btif_lpm_native_smp_keys_ir_er(uint8_t *ir, uint8_t *er, std::string addr) {
+    std::vector<uint8_t> ir_key(&ir[0], &ir[16]);
+    std::vector<uint8_t> er_key(&er[0], &er[16]);
+    auto ret = btLpmNative->setSmpKeysIrEr(ir_key,er_key,addr);
+    return true ;
+}
+
 }  // namespace V1_0
 }  // namespace bluetooth_offload
 }  // namespace hardware

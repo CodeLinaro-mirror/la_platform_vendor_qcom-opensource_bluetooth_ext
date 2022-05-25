@@ -100,9 +100,9 @@ public class NativeStateMachine {
         public static final int MSG_LN_SM_ATHERTON_WAKEUP_EVENT = 16;
         public static final int MSG_LN_SM_PREPARE_OFFLOAD_FAILED = 17;
         public static final int MSG_LN_CPU_SUSPEND_ONLY = 18;
-
-        public static final int POWER_STATUS_ACK = 0;
-        public static final int POWER_STATUS_NACK = 1;
+        public static final int MSG_LN_SM_TWM = 19;
+        public static final int POWER_STATUS_NACK = 0;
+        public static final int POWER_STATUS_ACK = 1;
 
         /* LPM Native Connection states.*/
         private LNStackActive mStackActive;
@@ -164,18 +164,27 @@ public class NativeStateMachine {
                         if(no_apps_register) {
                             Log.d(TAG,"mstackActive");
                             //send cpu suspend ok to power manager
-          mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_ACK);
-                        }
-                        else {
-          mBluetoothOffloadService.notifyEnableOffload(mNativeInterface.TRACKER_MODE);
+                            mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_ACK);
+                        } else {
+                            mBluetoothOffloadService.notifyEnableOffload(mNativeInterface.TRACKER_MODE);
                             Log.i(TAG,"MSG_LN_SM_TRACKER, in else");
-                            /*
-       Timer tt = new Timer();
-                            Thread t = new Thread(tt);
-                            t.start();
-       */
+                            mNativeInterface.SendtransitionToPwrState(mNativeInterface.TRACKER_MODE);
                             transitionTo(mAppsPending);
-       mStateMachine.sendMessage(
+                            mStateMachine.sendMessage(
+                                    NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD);
+                        }
+                        break;
+                    case MSG_LN_SM_TWM:
+                        if(no_apps_register) {
+                           Log.d(TAG,"mstackActive");
+                           //send cpu suspend ok to power manager
+                           mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_ACK);
+                        } else {
+                           mBluetoothOffloadService.notifyEnableOffload(mNativeInterface.TWM_MODE);
+                            Log.i(TAG,"MSG_LN_TWM, in else");
+                            mNativeInterface.SendtransitionToPwrState(mNativeInterface.TWM_MODE);
+                            transitionTo(mAppsPending);
+                            mStateMachine.sendMessage(
                                     NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD);
                         }
                         break;
