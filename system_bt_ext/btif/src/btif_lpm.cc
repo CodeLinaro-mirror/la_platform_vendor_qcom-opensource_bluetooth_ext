@@ -928,7 +928,6 @@ void btif_lpm_update_rfcomm_context(tBTA_LPM *p_rfcomm){
               if (btif_lpm_cb.comm_context.size() == 1) {
                   BTIF_TRACE_DEBUG("%s, clearing multiplexer port with dlci: %d", __FUNCTION__,btif_lpm_cb.comm_context.front().dlci);
                   btif_lpm_cb.comm_context.clear();
-                  btif_lpm_cb.l2cap_context.clear();
                   btif_lpm_cb.bredr_context.clear();
               }
               break;
@@ -948,16 +947,28 @@ void btif_lpm_update_hci_info(tBTA_LPM *p_hci){
 }
 
 void btif_lpm_update_l2cap_info(tBTA_LPM *p_l2cap){
-  BTIF_TRACE_DEBUG("%s, hci context info", __FUNCTION__);
+  BTIF_TRACE_DEBUG("%s, l2cap info", __FUNCTION__);
   btif_l2cap_context_t p_context;
   p_context.remote_addr = p_l2cap->l2cap_cfg_evt.bd_addr;
-  BTIF_TRACE_DEBUG("%s, hci context info addr : %s", __FUNCTION__,p_context.remote_addr.ToString().c_str());
+  BTIF_TRACE_DEBUG("%s, l2cap info addr : %s", __FUNCTION__,p_context.remote_addr.ToString().c_str());
   p_context.psm = p_l2cap->l2cap_cfg_evt.l2cap_info.psm;
   p_context.local_cid = p_l2cap->l2cap_cfg_evt.l2cap_info.local_cid;
   p_context.remote_cid = p_l2cap->l2cap_cfg_evt.l2cap_info.remote_cid;
   p_context.local_mtu = p_l2cap->l2cap_cfg_evt.l2cap_info.local_mtu;
   p_context.remote_mtu = p_l2cap->l2cap_cfg_evt.l2cap_info.remote_mtu;
   btif_lpm_cb.l2cap_context.emplace_back(p_context);
+}
+
+void btif_lpm_clear_l2cap_info(tBTA_LPM *p_l2cap) {
+    BTIF_TRACE_DEBUG("%s, clear l2cap info with cid %d", __FUNCTION__, p_l2cap->l2cap_cfg_evt.l2cap_info.local_cid);
+    uint16_t cid = p_l2cap->l2cap_cfg_evt.l2cap_info.local_cid;
+    btif_lpm_cb.l2cap_context.erase(std::remove_if(btif_lpm_cb.l2cap_context.begin(), btif_lpm_cb.l2cap_context.end(), [&](btif_l2cap_context_t const & l2cap_info) {
+                return l2cap_info.local_cid == cid;}),
+            btif_lpm_cb.l2cap_context.end());
+    BTIF_TRACE_DEBUG("%s, after clear l2cap info vector size %d", __FUNCTION__, btif_lpm_cb.l2cap_context.size());
+    for (auto it = btif_lpm_cb.l2cap_context.begin(); it!=btif_lpm_cb.l2cap_context.end(); it++) {
+        BTIF_TRACE_DEBUG("%s, after clear l2cap info with cid %d", __FUNCTION__, it->local_cid);
+    }
 }
 
 void btif_lpm_update_rfcomm_credits(tBTA_LPM *rfcomm_credits) {
@@ -1178,6 +1189,10 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
     case LPM_RFCOMM_CREDIT_EVT:
       LOG(ERROR) << "LPM_RFCOMM_CREDIT_EVT";
       btif_lpm_update_rfcomm_credits(p_data);
+      break;
+    case LPM_L2CAP_CLEAR_EVT:
+      LOG(ERROR) << "LPM_RFCOMM_CREDIT_EVT";
+      btif_lpm_clear_l2cap_info(p_data);
       break;
     default:
       break;

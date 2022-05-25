@@ -342,3 +342,8 @@ void LPM_CopyRfCommCredits(uint8_t dlci, uint16_t credits, bool is_tx_credits) {
    p_lpm_rfcomm_credit.is_tx_credits = is_tx_credits;
    lpm_cb.lpm_cback.p_rfcomm_credit_info_cb(&p_lpm_rfcomm_credit);
 }
+
+void LPM_ClearL2CAPInfo(uint16_t local_cid) {
+   LOG_DEBUG(LOG_TAG, "%s", __func__);
+   lpm_cb.lpm_cback.p_l2cap_clear_info_cb(local_cid);
+}
