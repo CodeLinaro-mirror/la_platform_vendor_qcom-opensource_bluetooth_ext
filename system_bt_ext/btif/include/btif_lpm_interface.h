@@ -269,6 +269,7 @@ bool btif_lpm_native_interface_set_Hci_Acl_Credits(BtType btType, uint16_t credi
 bool btif_lpm_native_interface_set_l2cap_context_info(std::vector<btif_l2cap_context_t>,std::string dev_addr);
 bool btif_lpm_native_smp_keys(uint8_t *ltk, uint32_t ltk_size, uint8_t *rand, uint32_t rand_size, uint16_t ediv,std::string addr);
 bool btif_lpm_native_smp_keys_ir_er(uint8_t *ir, uint8_t *er, std::string addr);
+bool btif_lpm_native_set_linkkey(uint8_t *link_key, std::string addr);
 }  // namespace V1_0
 }  // namespace bluetooth_offload
 }  // namespace hardware

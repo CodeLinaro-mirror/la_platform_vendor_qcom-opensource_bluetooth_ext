@@ -1190,6 +1190,12 @@ int btif_lpm_prepare_offload_info(tLPM_mode mode, std::vector<RawAddress> remote
             length = sizeof(adap_key.er);
             btif_config_get_bin("Adapter", "LE_LOCAL_KEY_ER", (uint8_t*)&adap_key.er, &length);
             btif_lpm_native_smp_keys_ir_er(adap_key.ir,adap_key.er,it->ToString().c_str());
+            btif_lpm_bredr_link_key bredr_link_key;
+            memset(&bredr_link_key, 0, sizeof(btif_lpm_bredr_link_key));
+            length = sizeof(bredr_link_key.link_key);
+            btif_config_get_bin(it->ToString().c_str() , "LinkKey", (uint8_t*)&bredr_link_key.link_key, &length);
+            BTIF_TRACE_DEBUG("calling set BREDR LinkKey");
+            btif_lpm_native_set_linkkey(bredr_link_key.link_key ,it->ToString().c_str());
         }
     }
     return 1;//BtOffloadStatus::BT_OK

@@ -164,6 +164,10 @@ typedef struct {
   uint8_t er[16];
 } btif_dm_local_key_id_t_local;
 
+typedef struct {
+    uint8_t link_key[16];
+} btif_lpm_bredr_link_key;
+
 typedef enum {
     BTAV_LPM_AUDIO_STATE_REMOTE_SUSPEND = 0,
     BTAV_LPM_AUDIO_STATE_STOPPED,
