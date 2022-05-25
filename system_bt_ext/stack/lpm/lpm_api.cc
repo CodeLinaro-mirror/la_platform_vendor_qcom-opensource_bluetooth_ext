@@ -116,7 +116,7 @@ void LPM_ModeSwitchReq(tLPM_mode mode) {
   LOG_DEBUG(LOG_TAG, "%s:", __func__);
   lpm_cb.mode = mode;
   LOG_DEBUG(LOG_TAG, "Mode: %d", mode);
-  if (mode == LPM_TRACKER) {
+  if ((mode == LPM_TRACKER) || (mode == LPM_TWM)) {
     lpm_cb.refresh_raddr_timer_state = btm_ble_cancel_refresh_raddr_timer();
   } else if ((mode == LPM_ACTIVE) && lpm_cb.refresh_raddr_timer_state) {
     btm_ble_restart_refresh_raddr_timer();
