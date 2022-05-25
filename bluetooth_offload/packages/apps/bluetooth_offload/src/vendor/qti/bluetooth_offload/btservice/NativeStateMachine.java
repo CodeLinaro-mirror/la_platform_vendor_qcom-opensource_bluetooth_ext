@@ -349,10 +349,8 @@ public class NativeStateMachine {
                 switch (message.what) {
                     case MSG_LN_SM_ACTIVE:
                         //check if synchronous call is working
-                        int status = mNativeInterface.SendDisableOffloadAonStack();
-                        if( status == AON_BT_SUCCESS) {
-                            transitionTo(mActivePending);
-                        }
+                        //int status = mNativeInterface.SendDisableOffloadAonStack();
+                        transitionTo(mActivePending);
                         break;
                     case MSG_LN_SM_ATHERTON_WAKEUP_EVENT:
                         transitionTo(mActivePending);
