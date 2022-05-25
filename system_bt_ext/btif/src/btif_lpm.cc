@@ -251,6 +251,10 @@ static void send_exit_lpm_cmd_complete(tBTM_VSC_CMPL* p_data) {
     /* Send context info to stack */
     btif_dispatch_lpm_event(BTIF_LPM_SM_LPM_EXIT_EVT,
             (void *)&status, DEFAULT_PARAM_LENGTH);
+    if (port_info != NULL) {
+        osi_free(port_info);
+        port_info = NULL;
+    }
   }
 }
 
