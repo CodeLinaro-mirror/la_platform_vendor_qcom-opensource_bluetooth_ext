@@ -1061,8 +1061,8 @@ void btif_lpm_alarm_stop(char *alarm_name) {
   std::vector<alarm_info_t>::iterator it;
   for(it = active_alarm.begin(); it != active_alarm.end(); it++) {
     if(!strcmp(alarm_name, it->alarm_name)) {
-      BTIF_TRACE_DEBUG(" %s, found alarm count = %d ",
-                                    __FUNCTION__, it->count);
+      BTIF_TRACE_DEBUG(" %s, found alarm count = %d, alarm = %s ",
+                                    __FUNCTION__, it->count, it->alarm_name);
       it->count--;
       if(it->count == 0) {
         active_alarm.erase(it);
