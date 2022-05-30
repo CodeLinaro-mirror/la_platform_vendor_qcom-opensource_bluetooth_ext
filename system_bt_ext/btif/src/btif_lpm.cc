@@ -1085,6 +1085,14 @@ void btif_lpm_update_rfcomm_context(tBTA_LPM *p_rfcomm){
   } else {
       for(auto it =  btif_lpm_cb.comm_context.begin();it != btif_lpm_cb.comm_context.end();++it){
           if (p_rfcomm->rfcomm_evt.port_info.dlci == it->dlci) {
+              if (p_rfcomm->rfcomm_evt.port_info.dlci == 0) {
+                  if (strcmp(p_rfcomm->rfcomm_evt.port_info.bd_addr.ToString().c_str(), it->remote_addr.ToString().c_str())) {
+                      BTIF_TRACE_DEBUG("%s, Removing multiplexer channel", __FUNCTION__);
+                  } else {
+                      BTIF_TRACE_DEBUG("%s, Received multiplexer disconnect for other device", __FUNCTION__);
+                      continue;
+                  }
+              }
               BTIF_TRACE_DEBUG("%s, clearing port with dlci: %d", __FUNCTION__,it->dlci);
               btif_lpm_cb.comm_context.erase(it);
               if (btif_lpm_cb.comm_context.size() == 1) {
@@ -1484,7 +1492,7 @@ void  btif_lpm_fetch_rfcomm_context_info_req(){
     }
     if (offloaded_device) {
       BTIF_TRACE_EVENT("%s, offload_device = true", __FUNCTION__);
-      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_rfcomm_context_info(btif_lpm_cb.comm_context, btif_lpm_cb.l2cap_context.back().remote_addr.ToString()))
+      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_rfcomm_context_info(btif_lpm_cb.comm_context, (it->remote_addr).ToString()))
         BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
     }
   }
@@ -1527,7 +1535,7 @@ void  btif_lpm_fetch_l2cap_context_info_req(){
     }
     if (offloaded_device) {
       BTIF_TRACE_EVENT("%s, offload_device = true", __FUNCTION__);
-      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_l2cap_context_info(btif_lpm_cb.l2cap_context, btif_lpm_cb.l2cap_context.back().remote_addr.ToString()))
+      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_l2cap_context_info(btif_lpm_cb.l2cap_context, (it->remote_addr).ToString()))
         BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
     }
   }

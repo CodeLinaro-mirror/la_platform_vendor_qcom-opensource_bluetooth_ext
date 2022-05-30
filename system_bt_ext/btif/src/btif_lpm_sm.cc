@@ -294,14 +294,14 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
       BTIF_TRACE_EVENT("%s, BTIF_LPM_SM_CHECK_OFFLOAD_CMD", __FUNCTION__);
+      /* mode from lpm native */
+      mode = *(int32_t*)data;
+      BTIF_TRACE_EVENT("%s, in BTIF_LPM_SM_CHECK_OFFLOAD_CMD, mode: %d", __FUNCTION__, mode);
       /* This condition will help to resolve race condition when we receive BTIF_LPM_SM_CHECK_OFFLOAD_CMD before starting active timer for cancel discovery*/
       if (mode == (int)PwrMode::PWR_MODE_TWM && btif_lpm_is_cancel_discovery_initiated) {
           BTIF_TRACE_EVENT("%s, Received BTIF_LPM_SM_CHECK_OFFLOAD_CMD before receiving timer inactive for cancel discovery. So moving to twm_pending state", __FUNCTION__);
           btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_TWM_PENDING);
       }
-      /* mode from lpm native */
-      mode = *(int32_t*)data;
-      BTIF_TRACE_EVENT("%s, in BTIF_LPM_SM_CHECK_OFFLOAD_CMD, mode: %d", __FUNCTION__, mode);
       /* tracker mode - set flow off flag, check inactivity timer (VSC)*/
       if(mode == (int)PwrMode::PWR_MODE_TRK) {
         if(btif_lpm_is_bt_sco_active_flag) {
@@ -407,16 +407,8 @@ static bool btif_lpm_state_stack_twm_pending_handler(btif_sm_event_t event,
     case BTIF_SM_ENTER_EVT:
       break;
     case BTIF_LPM_SM_TWM_OFFLOAD_CONT_EVT:
-        /* Send Check offload command VSC */
-        btif_lpm_flow_off_flag = true;
-        /* turn off rpa timer*/
-        BTA_LPM_ModeSwitchReq(LPM_TWM);
-        btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
-        /* Send flow off status to stack */
-        BTIF_TRACE_EVENT("%s: calling L2cap_flowoff api",__func__);
-        L2CA_setLpmFlowoff(true);
-        /* Move to Idle state after sending VSC */
-        btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
+      btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
+      btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD, &TWM_MODE, 0);
       break;
     case BTIF_SM_EXIT_EVT:
       break;
