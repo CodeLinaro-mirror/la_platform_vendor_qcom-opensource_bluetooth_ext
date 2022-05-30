@@ -51,6 +51,9 @@ static bool btif_lpm_flow_off_flag = false;
 static bool btif_lpm_is_bt_active_flag = false;
 static bool btif_lpm_is_bt_sco_active_flag = false;
 
+static bool btif_lpm_is_cancel_discovery_initiated = false;
+static int TWM_MODE = 1;
+
 /*******************************************************************************
  * BTIF LPM SM Function declarations
  *******************************************************************************/
@@ -290,6 +293,12 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       }
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
+      BTIF_TRACE_EVENT("%s, BTIF_LPM_SM_CHECK_OFFLOAD_CMD", __FUNCTION__);
+      /* This condition will help to resolve race condition when we receive BTIF_LPM_SM_CHECK_OFFLOAD_CMD before starting active timer for cancel discovery*/
+      if (mode == (int)PwrMode::PWR_MODE_TWM && btif_lpm_is_cancel_discovery_initiated) {
+          BTIF_TRACE_EVENT("%s, Received BTIF_LPM_SM_CHECK_OFFLOAD_CMD before receiving timer inactive for cancel discovery. So moving to twm_pending state", __FUNCTION__);
+          btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_TWM_PENDING);
+      }
       /* mode from lpm native */
       mode = *(int32_t*)data;
       BTIF_TRACE_EVENT("%s, in BTIF_LPM_SM_CHECK_OFFLOAD_CMD, mode: %d", __FUNCTION__, mode);
@@ -411,6 +420,14 @@ static bool btif_lpm_state_stack_twm_pending_handler(btif_sm_event_t event,
       break;
     case BTIF_SM_EXIT_EVT:
       break;
+    case BTIF_LPM_SM_TIMER_INACTIVE_EVT:
+      if (btif_lpm_is_cancel_discovery_initiated) {
+          BTIF_TRACE_DEBUG("%s, cancel_discovery_initiated in TWM, starting prepare offload on timer inactive",__FUNCTION__);
+          btif_lpm_is_cancel_discovery_initiated = false;
+          btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
+          btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD, &TWM_MODE, 0);
+      }
+      break;
     default:
       BTIF_TRACE_WARNING("%s: Unhandled event=%s",
                          __PRETTY_FUNCTION__,
@@ -469,9 +486,18 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
                         OFFLOAD_FAILED);
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_ACK_EVT:
-    case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
       /* send offload failed to LPM Native */
       btif_lpm_native_interface_prepare_offload_done(LPM_FAILED, OFFLOAD_FAILED);
+      break;
+    case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
+      if (btif_lpm_is_cancel_discovery_initiated) {
+          BTIF_TRACE_EVENT("%s: TWM mode - started cancel discovery wait till it's complete ",__func__);
+          /* started cancel discovery wait till it's complete */
+          btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_TWM_PENDING);
+      } else {
+          /* send offload failed to LPM Native */
+          btif_lpm_native_interface_prepare_offload_done(LPM_FAILED, OFFLOAD_FAILED);
+      }
       break;
     case BTIF_LPM_SM_TIMER_INACTIVE_EVT:
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
@@ -654,4 +680,20 @@ btif_lpm_state_t btif_lpm_sm_get_state() {
         BTIF_TRACE_DEBUG("%s: State machine not initialized", __FUNCTION__);
         return (btif_lpm_state_t)-1;
     }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_sm_set_discovery_cancel
+ *
+ * Description      To set weather we initiated stop discovery or not
+ *
+ * Parameters       true if we started cancel discovery
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_sm_set_discovery_cancel(bool value) {
+    BTIF_TRACE_DEBUG("%s, value %d",__FUNCTION__, value);
+    btif_lpm_is_cancel_discovery_initiated = value;
 }

@@ -49,6 +49,7 @@
 #include "osi/include/log.h"
 #include "btif_dm.h"
 #include "btif_config.h"
+#include "btif_api.h"
 #include <vector>
 #include <mutex>
 
@@ -124,6 +125,7 @@ static void send_prepare_offload_cmd_complete(tBTM_VSC_CMPL* p_data) {
  LOG_INFO(LOG_TAG,"In send_prepare_offload_cmd_complete");
  uint8_t         *stream,  status;
  uint16_t        opcode, length;
+ btif_lpm_sm_set_discovery_cancel(false);
 
  if (p_data && (stream = (uint8_t*)p_data->p_param_buf))
  {
@@ -1177,6 +1179,13 @@ int btif_lpm_prepare_offload_info(tLPM_mode mode, std::vector<RawAddress> remote
     if (is_hf_audio_active || is_a2dp_stream_active) {
         BTIF_TRACE_DEBUG("%s: HFP or A2DP are active so sending fail", __FUNCTION__);
         return 0; //BtOffloadStatus::BT_FAIL
+    }
+    if (mode == LPM_TWM) {
+        BTIF_TRACE_DEBUG(" %s Discovery state = %d",__func__, btif_dm_get_discovery_state());
+        if (btif_dm_get_discovery_state()) {
+            btif_lpm_sm_set_discovery_cancel(true);
+            btif_dm_cancel_discovery();
+        }
     }
     /* Inform BTA layer regarding offloadable connections */
     BTA_DmSetLPMInfo(mode, remote_devices);
