@@ -80,6 +80,7 @@ typedef enum {
   BTIF_LPM_SM_PROFILE_UPDATE_EVT,
   BTIF_LPM_SM_TWM_OFFLOAD_CONT_EVT,
   BTIF_LPM_SM_NOTIFY_NACK_MSG,
+  BTIF_LPM_SM_DEINIT,
 } btif_lpm_sm_event_t;
 
 typedef enum {

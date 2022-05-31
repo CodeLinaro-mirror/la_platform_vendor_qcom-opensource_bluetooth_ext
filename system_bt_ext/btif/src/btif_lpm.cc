@@ -358,7 +358,7 @@ void btif_lpm_init() {
 void btif_lpm_deinit() {
   BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
 
-  deinitialize_lpm_sm();
+  btif_dispatch_lpm_event(BTIF_LPM_SM_DEINIT,NULL,0);
   BTA_DisableLPM();
 }
 
