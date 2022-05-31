@@ -46,6 +46,7 @@
 #include "btm_int_types.h"
 #include "btm_int.h"
 #include "osi/include/log.h"
+#include "sdpdefs.h"
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -263,28 +264,32 @@ void lpm_gatts_serv_db_element(tGATT_SRV_LIST_ELEM& db_el) {
 }
 
 void LPM_CopyPortInfo(tPORT* port) {
-  LOG_DEBUG(LOG_TAG, "%s:  port->dlci = %d, port->scn = %d", __func__,port->dlci, port->scn);
-  tLPM_PORT_INFO p_lpm_port_info;
-  p_lpm_port_info.state = port->state;
-  p_lpm_port_info.scn = port->scn;
-  p_lpm_port_info.uuid = port->uuid;
-  p_lpm_port_info.bd_addr = port->bd_addr;
-  p_lpm_port_info.is_server = port->is_server;
-  p_lpm_port_info.dlci = port->dlci;
-  p_lpm_port_info.mtu = port->mtu;
-  p_lpm_port_info.peer_mtu = port->peer_mtu;
-  p_lpm_port_info.credit_tx = port->credit_tx;
-  p_lpm_port_info.credit_rx = port->credit_rx;
-  p_lpm_port_info.credit_rx_max = port->credit_rx_max;
-  p_lpm_port_info.credit_rx_low = port->credit_rx_low;
-  p_lpm_port_info.keep_mtu = port->keep_mtu;
-  //send callback to bta
-  LOG_DEBUG(LOG_TAG, "%s:  sendong to bta layer", __func__);
-  lpm_cb.lpm_cback.p_rfcomm_port_info_cb(&p_lpm_port_info);
+    LOG_DEBUG(LOG_TAG, "%s:  port->dlci = %d, port-> uuid = %d", __func__,port->dlci, port->uuid);
+    if (port->uuid == UUID_SERVCLASS_HUMAN_INTERFACE || port->uuid == UUID_SERVCLASS_HF_HANDSFREE || port->uuid == UUID_SERVCLASS_AG_HANDSFREE) {
+        LOG_DEBUG(LOG_TAG, "%s: port-> uuid = %d. Skipping this dlci because this will comes under non offload profiles", __func__, port->uuid);
+    } else {
+        tLPM_PORT_INFO p_lpm_port_info;
+        p_lpm_port_info.state = port->state;
+        p_lpm_port_info.scn = port->scn;
+        p_lpm_port_info.uuid = port->uuid;
+        p_lpm_port_info.bd_addr = port->bd_addr;
+        p_lpm_port_info.is_server = port->is_server;
+        p_lpm_port_info.dlci = port->dlci;
+        p_lpm_port_info.mtu = port->mtu;
+        p_lpm_port_info.peer_mtu = port->peer_mtu;
+        p_lpm_port_info.credit_tx = port->credit_tx;
+        p_lpm_port_info.credit_rx = port->credit_rx;
+        p_lpm_port_info.credit_rx_max = port->credit_rx_max;
+        p_lpm_port_info.credit_rx_low = port->credit_rx_low;
+        p_lpm_port_info.keep_mtu = port->keep_mtu;
+        //send callback to bta
+        LOG_DEBUG(LOG_TAG, "%s:  sendong to bta layer", __func__);
+        lpm_cb.lpm_cback.p_rfcomm_port_info_cb(&p_lpm_port_info);
+    }
 }
 
 void LPM_ReleasePortInfo(tPORT* port) {
-  LOG_DEBUG(LOG_TAG, "%s:  port->dlci = %d", __func__,port->dlci);
+  LOG_DEBUG(LOG_TAG, "%s:  port->dlci = %d, port-> uuid = %d", __func__,port->dlci, port->uuid);
   tLPM_PORT_INFO p_lpm_port_info;
   p_lpm_port_info.state = port->state;
   p_lpm_port_info.scn = port->scn;
