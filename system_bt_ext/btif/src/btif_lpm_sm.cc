@@ -430,7 +430,7 @@ static bool btif_lpm_state_stack_twm_pending_handler(btif_sm_event_t event,
       break;
     case BTIF_LPM_SM_TWM_OFFLOAD_CONT_EVT:
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
-      btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD, &TWM_MODE, 0);
+      btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD, &TWM_MODE, sizeof(TWM_MODE));
       break;
     case BTIF_SM_EXIT_EVT:
       break;
@@ -439,7 +439,7 @@ static bool btif_lpm_state_stack_twm_pending_handler(btif_sm_event_t event,
           BTIF_TRACE_DEBUG("%s, cancel_discovery_initiated in TWM, starting prepare offload on timer inactive",__FUNCTION__);
           btif_lpm_is_cancel_discovery_initiated = false;
           btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
-          btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD, &TWM_MODE, 0);
+          btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD, &TWM_MODE, sizeof(TWM_MODE));
       }
       break;
     case BTIF_LPM_SM_DEINIT:
