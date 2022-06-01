@@ -1401,11 +1401,6 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
       BTIF_TRACE_DEBUG("%s p_data.hci_evt.hci_info.bd_addr: %s",__FUNCTION__,p_data->hci_evt.bd_addr.ToString().c_str());
       btif_lpm_update_hci_info(p_data);
       break;
-    case LPM_GATT_REMOTE_SRVC_DB_EVT:
-      LOG(ERROR) << "LPM_GATT_REMOTE_SRVC_DB_EVT";
-      BTIF_TRACE_DEBUG("%s p_data.rmt_srvc_db_evt.hci_handle: %d",__FUNCTION__,p_data->rmt_srvc_db_evt.hci_handle);
-      btif_lpm_ble_conn_srvc_db(p_data->rmt_srvc_db_evt.hci_handle, p_data->rmt_srvc_db_evt.db_element, p_data->rmt_srvc_db_evt.num_attr);
-      break;
     case LPM_L2CAP_INFO_EVT:
       LOG(ERROR) << "LPM_L2CAP_INFO_EVT";
       BTIF_TRACE_DEBUG("%s p_data.l2cap_cfg_evt.l2cap_info.bd_addr: %s",__FUNCTION__,p_data->l2cap_cfg_evt.bd_addr.ToString().c_str());
