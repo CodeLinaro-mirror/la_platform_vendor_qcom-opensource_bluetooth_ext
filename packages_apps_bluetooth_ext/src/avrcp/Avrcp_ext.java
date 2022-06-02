@@ -1618,7 +1618,8 @@ public final class Avrcp_ext {
                     }
                     setAvrcpDisconnectedDevice(device);
                 }
-                if(ApmConstIntf.getLeAudioEnabled()) {
+                AdapterService adapterService = AdapterService.getAdapterService();
+                if(adapterService.isAdvUnicastAudioFeatEnabled()) {
                     if (DEBUG) Log.d(TAG, "update Avrcp conn state to volumeManager");
                     VolumeManagerIntf mVolumeManager = VolumeManagerIntf.get();
                     mVolumeManager.onConnStateChange(device,
@@ -3090,7 +3091,8 @@ public final class Avrcp_ext {
     }
 
     private void notifyVolumeChanged(int volume, boolean isShowUI) {
-        if(ApmConstIntf.getLeAudioEnabled()) {
+        AdapterService adapterService = AdapterService.getAdapterService();
+        if(adapterService.isAdvUnicastAudioFeatEnabled()) {
             VolumeManagerIntf mVolumeManager = VolumeManagerIntf.get();
             mVolumeManager.onVolumeChange(volume,
                 ApmConstIntf.AudioFeatures.MEDIA_AUDIO, isShowUI);
@@ -4667,7 +4669,8 @@ public final class Avrcp_ext {
             return;
         }
 
-        if(ApmConstIntf.getLeAudioEnabled()) {
+        AdapterService adapterService = AdapterService.getAdapterService();
+        if(adapterService.isAdvUnicastAudioFeatEnabled()) {
             DeviceProfileMapIntf dpm = DeviceProfileMapIntf.getDeviceProfileMapInstance();
             if(dpm != null) {
                 dpm.profileConnectionUpdate(device, ApmConstIntf.AudioFeatures.MEDIA_VOLUME_CONTROL,
@@ -5012,7 +5015,7 @@ public final class Avrcp_ext {
             if((rspStatus == AvrcpConstants_ext.RSP_NO_ERROR) && ((mA2dpService != null) &&
                     !Objects.equals(mA2dpService.getActiveDevice(), device))) {
                 Log.d(TAG, "Trigger Handoff by playItem");
-                if(ApmConstIntf.getLeAudioEnabled()) {
+                if(ApmConstIntf.getQtiLeAudioEnabled()) {
                     ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
                     activeDeviceManager.setActiveDevice(device,
                         ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
@@ -5359,12 +5362,15 @@ public final class Avrcp_ext {
     }
 
     public int getVolume(BluetoothDevice device) {
-        if (ApmConstIntf.getLeAudioEnabled()) {
+        AdapterService adapterService = AdapterService.getAdapterService();
+        if(adapterService.isAdvUnicastAudioFeatEnabled()) {
+            DeviceProfileMapIntf dpm = DeviceProfileMapIntf.getDeviceProfileMapInstance();
             VolumeManagerIntf mVolumeManager = VolumeManagerIntf.get();
             int volume = mVolumeManager.getSavedVolume(device, ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
             Log.d(TAG, "getVolume_LE: Returning volume " + volume);
             return volume;
         }
+
         if (!mVolumeMap.containsKey(device)) {
             Log.w(TAG, "getVolume: Couldn't find volume preference for device: " + device);
             return mAudioStreamMax/2;
@@ -5394,7 +5400,7 @@ public final class Avrcp_ext {
                 if (is_active) {
                     if (((passthrough && action == KeyEvent.ACTION_DOWN) ||
                          playitem)&& !rc_only_device) {
-                        if (ApmConstIntf.getLeAudioEnabled()) {
+                        if (ApmConstIntf.getQtiLeAudioEnabled()) {
                             ActiveDeviceManagerServiceIntf activeDeviceManager =
                                                  ActiveDeviceManagerServiceIntf.get();
                             activeDeviceManager.setActiveDevice(device,
@@ -5454,7 +5460,8 @@ public final class Avrcp_ext {
     }
 
     private void updateAbsVolumeSupport(BluetoothDevice device, boolean isSupported) {
-        if(ApmConstIntf.getLeAudioEnabled()) {
+        AdapterService adapterService = AdapterService.getAdapterService();
+        if(adapterService.isAdvUnicastAudioFeatEnabled()) {
             VolumeManagerIntf mVolumeManager = VolumeManagerIntf.get();
             mVolumeManager.setAbsoluteVolumeSupport(device, isSupported, ApmConstIntf.AudioProfiles.AVRCP);
         } else {
@@ -5521,7 +5528,7 @@ public final class Avrcp_ext {
                 }
                 if (action == KeyEvent.ACTION_DOWN && !rc_only_device) {
                     Log.d(TAG, "AVRCP Trigger Handoff");
-                    if(ApmConstIntf.getLeAudioEnabled()) {
+                    if(ApmConstIntf.getQtiLeAudioEnabled()) {
                         ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
                         activeDeviceManager.setActiveDevice(device,
                             ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);

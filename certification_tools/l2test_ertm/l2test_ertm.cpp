@@ -334,7 +334,8 @@ static tL2CAP_APPL_INFO l2test_l2c_appl = {
     l2test_l2c_QoSViolationInd,
     l2test_l2c_data_ind_cb,
     l2test_l2c_congestion_ind_cb,
-    l2test_l2c_tx_complete_cb
+    l2test_l2c_tx_complete_cb,
+    NULL
 };
 
 
@@ -619,7 +620,9 @@ static bt_callbacks_t bt_callbacks = {
     NULL, /*le_test_mode_cb*/
     NULL, /*energy_info_cb */
     NULL, /* link_quality_report_cb */
-    NULL  /* generate_local_oob_data_cb */
+    NULL,  /* generate_local_oob_data_cb */
+    NULL, /* switch_buffer_size_cb */
+    NULL /* switch_codec_cb */
 };
 
 static bool set_wake_alarm(uint64_t delay_millis, bool should_wake, alarm_cb cb, void *data) {

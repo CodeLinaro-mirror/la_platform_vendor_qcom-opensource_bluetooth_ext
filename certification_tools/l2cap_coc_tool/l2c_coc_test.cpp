@@ -334,6 +334,7 @@ static btgatt_client_callbacks_t sGattClient_cb =
     NULL,
     NULL,
     NULL,
+    NULL
 };
 
 static void GetFieldByType_2(const uint8_t* ad, size_t ad_len,
@@ -1153,7 +1154,9 @@ static bt_callbacks_t bt_callbacks = {
     le_test_mode, /* le_test_mode_cb */
     NULL,      /*energy_info_cb*/
     NULL, /* link_quality_report_cb */
-    NULL  /* generate_local_oob_data_cb */
+    NULL,  /* generate_local_oob_data_cb */
+    NULL,   /* switch_buffer_size_cb */
+    NULL   /* switch_codec_cb */
 };
 
 static bt_os_callouts_t bt_os_callbacks = {
@@ -1493,7 +1496,8 @@ static tL2CAP_APPL_INFO l2test_l2c_appl = {
     l2test_l2c_QoSViolationInd,
     NULL,
     l2test_l2c_congestion_ind_cb,
-    l2test_l2c_tx_complete_cb
+    l2test_l2c_tx_complete_cb,
+    NULL
 };
 
 
