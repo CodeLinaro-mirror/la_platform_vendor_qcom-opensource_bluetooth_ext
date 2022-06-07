@@ -2,12 +2,12 @@
 // ========================================================
 
 soong_config_module_type_import {
-    from: "frameworks/base/Android.bp",
+    from: "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/Android.bp",
     module_types: [
-         "aosp_vs_qva_cc_defaults",
+         "bluetooth_ext_aosp_vs_qva_cc_defaults",
     ],
 }
-aosp_vs_qva_cc_defaults {
+bluetooth_ext_aosp_vs_qva_cc_defaults {
      name: "qva_bta_cc_defaults",
      soong_config_variables: {
          aosp_or_qva: {
