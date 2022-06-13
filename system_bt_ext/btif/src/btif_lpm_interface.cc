@@ -108,7 +108,7 @@ class BluetoothOffloadCallbacks:
     if (ret == 0) {
         return BtOffloadStatus::BT_FAIL;
     }
-    btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD,(void *)&mode, 0);
+    btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD,(void *)&mode, sizeof(mode));
     return BtOffloadStatus::BT_OK;
   }
 
