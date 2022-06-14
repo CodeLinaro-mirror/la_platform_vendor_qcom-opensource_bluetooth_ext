@@ -48,7 +48,7 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 
-import vendor.qti.bluetooth_offload.NotificationOffloadAdapter;
+import vendor.qti.bluetooth_offload.NotificationOffloadMgr;
 import vendor.qti.bluetooth_offload.BluetoothPowerStateMgr;
 import vendor.qti.bluetooth_offload.SubscribedGattHandles;
 import vendor.qti.bluetooth_offload.IBluetoothOffloadApp;
@@ -194,7 +194,7 @@ public class BluetoothOffloadService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         debugLog("onBind()");
-        if (NotificationOffloadAdapter.BLUETOOTH_OFFLOAD_APP_BINDING.equals(intent.getAction())) {
+        if (NotificationOffloadMgr.BLUETOOTH_OFFLOAD_APP_BINDING.equals(intent.getAction())) {
             debugLog("returning OffloadApp Binder");
             return mBinder;
         } else {
