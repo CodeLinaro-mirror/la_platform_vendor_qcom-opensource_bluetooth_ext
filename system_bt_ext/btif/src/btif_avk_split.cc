@@ -2958,8 +2958,11 @@ void set_ttp_range_for_aptx_ad(uint16_t min, uint16_t max) {
 *******************************************************************************/
 static void update_streaming_device_vendor(bt_bdaddr_t *bd_addr)
 {
+    btif_sm_state_t state = btif_get_conn_state_of_device(*bd_addr);
     BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
-    streaming_bda = *bd_addr;
+    if (state == BTIF_AVK_STATE_STARTED) {
+       streaming_bda = *bd_addr;
+    }
     BTIF_TRACE_DEBUG(" %s streaming bda %s ", __FUNCTION__, streaming_bda.ToString().c_str());
 }
 
