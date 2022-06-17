@@ -18,6 +18,8 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/include/",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/bta/include/",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/btif/include/",
+        "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/stack/include/",
+        "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/stack/lpm/",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include/",
         "vendor/qcom/opensource/commonsys-intf/bluetooth/include/",
     ],
@@ -28,7 +30,8 @@ cc_library_static {
         "ba/bta_ba.cc",
         "tws_plus/ag/bta_ag_twsp_dev.cc",
         "tws_plus/ag/bta_ag_twsp_sco.cc",
-        "swb/bta_ag_swb.cc"
+        "swb/bta_ag_swb.cc",
+        "lpm/bta_lpm.cc",
     ],
     shared_libs: [
         "libcutils",
