@@ -122,7 +122,7 @@ typedef struct {
 #define L2CAP_LE_DEFAULT_MPS 230
 #define L2CAP_LE_MAX_CREDIT 65535
 #define L2CAP_LE_DEFAULT_CREDIT 1
-#define LE_CHAR_MAX_LEN_VAL 500
+#define LE_CHAR_MAX_LEN_VAL 512
 
 /************************************************************************************
 **  Local type definitions
@@ -444,13 +444,13 @@ static btgatt_client_callbacks_t sGattClient_cb =
 /************************************************************************************
 **  Scanner Callbacks
 ************************************************************************************/
-
 static void scan_result_cb(uint16_t event_type, uint8_t addr_type,
                            RawAddress *bda, uint8_t primary_phy,
                            uint8_t secondary_phy,
                            uint8_t advertising_sid, int8_t tx_power,
                            int8_t rssi, uint16_t periodic_adv_int,
-                           std::vector<uint8_t> adv_data)
+                           std::vector<uint8_t> adv_data,
+                           RawAddress* original_bda)
 {
     printf("%s:: event_type=%d, bda=%02x%02x%02x%02x%02x%02x \n", __FUNCTION__, event_type, bda->address[0],
            bda->address[1], bda->address[2], bda->address[3], bda->address[4], bda->address[5]);
@@ -1099,7 +1099,7 @@ static void request_write_cb(int conn_id, int trans_id, const RawAddress& bda,
             printf("%s:: Invalid attribute value length for long char/desc \n", __FUNCTION__);
             exec_write_status = invalid_attribute_value_len;
         }
-        if(offset > len_long_char)
+        if((offset > len_long_char) || ((curr_char_val_len > 0) && (offset > curr_char_val_len)))
         {
             printf("%s:: Invalid offset for long char/desc \n", __FUNCTION__);
             exec_write_status = invalid_offset;
