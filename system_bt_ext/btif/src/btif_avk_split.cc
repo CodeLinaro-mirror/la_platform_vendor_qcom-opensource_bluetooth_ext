@@ -532,8 +532,6 @@ static bool btif_avk_split_state_idle_handler(btif_sm_event_t event, void *p_dat
                 BTIF_TRACE_EVENT("reset A2dp states in IDLE ");
                 btif_avk_split_a2dp_on_idle();
             }
-            // reset all memorized messages list.
-            btif_avk_reset_messages(index);
             if((!streaming_bda.IsEmpty()) && (streaming_bda == btif_avk_cb[index].peer_bda)) {
                 //streaming bda is assigned to current device, but we move to opened state.
                 // mark it empty
@@ -2909,6 +2907,7 @@ static bt_status_t suspend_req(const RawAddress& bd_addr) {
 void set_ttp_range_for_aptx_ad(uint16_t min, uint16_t max) {
 
     BTIF_TRACE_DEBUG("%s: with min %d max %d",__FUNCTION__, min, max);
+#if defined(APTX_AD_DECODER_INCLUDED) && (APTX_AD_DECODER_INCLUDED == TRUE)
     if (max >= min) {
 
        uint8_t ttp_min,ttp_max;
@@ -2945,6 +2944,7 @@ void set_ttp_range_for_aptx_ad(uint16_t min, uint16_t max) {
     else {
        BTIF_TRACE_DEBUG("Setting TTP range for aptxad codec failed: max < min");
     }
+#endif
 }
 
 /*******************************************************************************
