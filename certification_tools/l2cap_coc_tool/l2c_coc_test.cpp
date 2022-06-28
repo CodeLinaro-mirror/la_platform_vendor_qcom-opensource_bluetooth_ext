@@ -334,6 +334,7 @@ static btgatt_client_callbacks_t sGattClient_cb =
     NULL,
     NULL,
     NULL,
+    NULL,
     NULL
 };
 
@@ -470,6 +471,7 @@ static btgatt_server_callbacks_t     sGattServer_cb =
     NULL,
     NULL,
     NULL,
+    NULL,
     NULL
 };
 
@@ -484,6 +486,7 @@ static void Connection_cb (tGATT_IF gatt_if, const RawAddress& bda, uint16_t con
 static tGATT_CBACK sGattCB =
 {
     Connection_cb,
+    NULL,
     NULL,
     NULL,
     NULL,

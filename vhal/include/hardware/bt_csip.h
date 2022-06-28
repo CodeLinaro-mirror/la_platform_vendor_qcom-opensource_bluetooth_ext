@@ -117,6 +117,11 @@ typedef void (* btcsip_set_size_changed_callback) (uint8_t set_id, uint8_t size,
 typedef void (* btcsip_set_sirk_changed_callback) (uint8_t set_id, uint8_t* sirk,
                                                    RawAddress& bd_addr);
 
+/** Callback when RSI data of coordinated set has been found
+ */
+typedef void (* btcsip_on_rsi_data_found) (uint8_t* rsi,
+                                                   const RawAddress& bd_addr);
+
 /** BT-CSIP callback structure. */
 typedef struct {
     size_t size;
@@ -128,6 +133,7 @@ typedef struct {
     btcsip_lock_available_callback        lock_available_cb;
     btcsip_set_size_changed_callback      size_changed_cb;
     btcsip_set_sirk_changed_callback      sirk_changed_cb;
+    btcsip_on_rsi_data_found              rsi_data_found_cb;
 } btcsip_callbacks_t;
 
 /** Represents the standard BT-CSIP interface. */
@@ -155,6 +161,8 @@ typedef struct {
     /** change lock value */
     bt_status_t (*set_lock_value) (uint8_t app_id, uint8_t set_id, uint8_t lock_value,
                                   std::vector<RawAddress> devices);
+
+    void (*set_opportunistic_scan) (bool is_start);
 
     /** Closes the interface. */
     void  (*cleanup) (void);

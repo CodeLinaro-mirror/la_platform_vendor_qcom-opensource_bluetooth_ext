@@ -226,6 +226,7 @@ public final class Avrcp_ext {
     private static final int MSG_PLAYERSETTINGS_TIMEOUT = 23;
     private static final int MSG_SET_MEDIA_SESSION = 24;
     private static final int MSG_SET_AVRCP_CONNECTED_DEVICE = 25;
+    private static final int MSG_UPDATE_ABS_VOLUME_FLAG = 30;
     private static final int MSG_UPDATE_ABS_VOLUME_STATUS = 31;
     private static final int MSG_PLAY_STATUS_CMD_TIMEOUT = 33;
     private static final int MSG_START_SHO = 34;
@@ -822,6 +823,11 @@ public final class Avrcp_ext {
                 int rsp = msg.arg1;
                 CreateMusicSettingsAppCmdLookupOrUpdate(rsp, deviceIndex, false);
                 mAvrcpPlayerAppSettings.handlerMsgTimeout(msg.arg1, currdevice);
+                break;
+            }
+            case MSG_UPDATE_ABS_VOLUME_FLAG:
+            {
+                setAbsVolumeFlag((BluetoothDevice)msg.obj);
                 break;
             }
             case MSG_UPDATE_ABS_VOLUME_STATUS:
@@ -5413,6 +5419,14 @@ public final class Avrcp_ext {
         }
         return false;
     }
+
+    public void sendSetAbsVolumeFlagMsg(BluetoothDevice device) {
+        Message msg = mHandler.obtainMessage();
+        msg.what = MSG_UPDATE_ABS_VOLUME_FLAG;
+        msg.obj = device;
+        mHandler.sendMessage(msg);
+    }
+
     public void setAbsVolumeFlag(BluetoothDevice device) {
         int deviceIndex = getIndexForDevice(device);
         int volume = getVolume(device);
@@ -5528,7 +5542,7 @@ public final class Avrcp_ext {
                 }
                 if (action == KeyEvent.ACTION_DOWN && !rc_only_device) {
                     Log.d(TAG, "AVRCP Trigger Handoff");
-                    if(ApmConstIntf.getQtiLeAudioEnabled()) {
+                    if(/*ApmConstIntf.getQtiLeAudioEnabled()*/true) {
                         ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
                         activeDeviceManager.setActiveDevice(device,
                             ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);

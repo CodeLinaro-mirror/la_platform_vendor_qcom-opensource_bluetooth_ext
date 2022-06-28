@@ -622,7 +622,8 @@ static bt_callbacks_t bt_callbacks = {
     NULL,                       /* energy_info_cb */
     NULL,                       /* link_quality_report_cb */
     NULL,                        /* generate_local_oob_data_cb */
-    NULL                         /* switch_buffer_size_cb */
+    NULL,                        /* switch_buffer_size_cb */
+    NULL                        /* switch_codec_cb */
 };
 
 static bool set_wake_alarm(uint64_t delay_millis, bool should_wake, alarm_cb cb, void *data)
