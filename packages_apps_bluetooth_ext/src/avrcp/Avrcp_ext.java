@@ -230,6 +230,7 @@ public final class Avrcp_ext {
     private static final int MSG_SET_ACTIVE_DEVICE = 35;
     private static final int MSG_LONG_PRESS_PT_CMD_TIMEOUT = 36;
     private static final int MSG_INIT_MEDIA_PLAYER_LIST = 37;
+    private static final int MSG_UPDATE_CURRENT_MEDIA_STATE = 38;
 
     private static final int LONG_PRESS_PT_CMD_TIMEOUT_DELAY = 600;
     private static final int CMD_TIMEOUT_DELAY = 2000;
@@ -684,7 +685,9 @@ public final class Avrcp_ext {
 
             if (mAudioPlaybackIsActive != isActive) {
                 mAudioPlaybackIsActive = isActive;
-                updateCurrentMediaState(null);
+                if (mHandler != null) {
+                    mHandler.sendEmptyMessage(MSG_UPDATE_CURRENT_MEDIA_STATE);
+                }
             }
         }
     }
@@ -1805,7 +1808,11 @@ public final class Avrcp_ext {
                     deviceFeatures[deviceIndex].mReportedPlayerID = mCurrAddrPlayerID;
                     break;
                 }
-
+                break;
+            case MSG_UPDATE_CURRENT_MEDIA_STATE:
+                Log.d(TAG, "MSG_UPDATE_CURRENT_MEDIA_STATE");
+                updateCurrentMediaState(null);
+                break;
             default:
                 Log.e(TAG, "unknown message! msg.what=" + msg.what);
                 break;
