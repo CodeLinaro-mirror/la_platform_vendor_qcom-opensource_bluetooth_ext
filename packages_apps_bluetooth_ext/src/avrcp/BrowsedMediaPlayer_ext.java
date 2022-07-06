@@ -16,6 +16,7 @@
 
 package com.android.bluetooth.avrcp;
 
+import android.bluetooth.BluetoothAdapter;
 import android.annotation.NonNull;
 import android.content.ComponentName;
 import android.content.Context;
@@ -96,6 +97,8 @@ class BrowsedMediaPlayer_ext {
 
     /* store result of getfolderitems with scope="vfs" */
     private List<MediaBrowser.MediaItem> mFolderItems = null;
+
+    private BluetoothAdapter mAdapter;
 
     /* Connection state callback handler */
     class MediaConnectionCallback extends MediaBrowser.ConnectionCallback {
@@ -310,6 +313,7 @@ class BrowsedMediaPlayer_ext {
         mMediaInterface = mAvrcpMediaRspInterface;
         mBDAddr = address;
         mAvrcp = mAvrcp_ext;
+        mAdapter = BluetoothAdapter.getDefaultAdapter();
     }
 
     /* initialize mediacontroller in order to communicate with media player. */
@@ -915,8 +919,9 @@ class BrowsedMediaPlayer_ext {
                 case AvrcpConstants_ext.ATTRID_COVER_ART:
                     if (mAvrcp != null && mAvrcp.isCoverArtFeatureSupported(bdaddr)) {
                         String title  = desc.getTitle().toString();
-                        String handle = mAvrcp.getImgHandle(bdaddr, title);
-                        attrValue = (handle != null && !handle.isEmpty()) ? handle : null;
+                        String handle =
+                                mAvrcp.getImgHandle(mAdapter.getRemoteDevice(bdaddr), title);
+                        attrValue = (handle != null && !handle.isEmpty()) ? handle : "";
                     }
 
                     break;
