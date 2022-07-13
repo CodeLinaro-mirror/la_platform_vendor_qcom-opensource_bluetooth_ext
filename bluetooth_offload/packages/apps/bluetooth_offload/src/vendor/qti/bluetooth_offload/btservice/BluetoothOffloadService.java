@@ -48,9 +48,13 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 
+import vendor.qti.bluetooth_offload.NotificationOffloadMgr;
+import vendor.qti.bluetooth_offload.BluetoothPowerStateMgr;
 import vendor.qti.bluetooth_offload.SubscribedGattHandles;
 import vendor.qti.bluetooth_offload.IBluetoothOffloadApp;
+import vendor.qti.bluetooth_offload.IBluetoothOffloadLpm;
 import vendor.qti.bluetooth_offload.IBluetoothOffloadAppCallback;
+import vendor.qti.bluetooth_offload.IBluetoothOffloadLpmCallback;
 
 import java.util.List;
 import java.io.IOException;
@@ -73,8 +77,9 @@ public class BluetoothOffloadService extends Service {
     public static BluetoothOffloadNativeInterface mNativeInterface = null;
 
     HashMap<String, BluetoothOffloadAppInfo> mAppCbMap = new HashMap<String, BluetoothOffloadAppInfo>();
+    BluetoothOffloadLpmInfo mLpmCallback = null;
 
-  private boolean mCleaningUp = false;
+    private boolean mCleaningUp = false;
 
     private static BluetoothOffloadService sBluetoothOffloadService;
 
@@ -112,6 +117,7 @@ public class BluetoothOffloadService extends Service {
                 Log.e(TAG,"BT OFF - clearing object");
                 mNativeInterface.deregisterCb();
                 mNativeInterface = null;
+                mNativeStateMachine.cleanUp();
                 mNativeStateMachine = null;
             }
             else if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action) &&
@@ -144,6 +150,7 @@ public class BluetoothOffloadService extends Service {
         super.onCreate();
         debugLog("onCreate()");
         mBinder = new BluetoothOffloadServiceBinder(this);
+        mLpmBinder = new BluetoothOffloadLpmServiceBinder(this);
         setBluetoothOffloadService(this);
         registerReceiver(mReceiver,
                 new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
@@ -187,7 +194,13 @@ public class BluetoothOffloadService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         debugLog("onBind()");
-        return mBinder;
+        if (NotificationOffloadMgr.BLUETOOTH_OFFLOAD_APP_BINDING.equals(intent.getAction())) {
+            debugLog("returning OffloadApp Binder");
+            return mBinder;
+        } else {
+            debugLog("returning OffloadLpm Binder");
+            return mLpmBinder;
+        }
     }
 
     @Override
@@ -343,6 +356,103 @@ public class BluetoothOffloadService extends Service {
         }
     }
 
+    private BluetoothOffloadLpmServiceBinder mLpmBinder;
+
+    private static class BluetoothOffloadLpmServiceBinder extends IBluetoothOffloadLpm.Stub {
+        private BluetoothOffloadService mService;
+
+        BluetoothOffloadLpmServiceBinder(BluetoothOffloadService svc) {
+            mService = svc;
+        }
+
+        public void cleanup() {
+            mService = null;
+        }
+
+        public BluetoothOffloadService getService() {
+            if (mService != null && mService.isAvailable()) {
+                return mService;
+            }
+            return null;
+        }
+
+        @Override
+        public int registerBtLpmFwk(IBluetoothOffloadLpmCallback mOffloadableCb) {
+            BluetoothOffloadService service = getService();
+            if (service == null) {
+                return BT_FAIL;
+            }
+            return service.registerBtLpmFwk(mOffloadableCb);
+        }
+
+        @Override
+        public int deregisterBtLpmFwk() {
+            BluetoothOffloadService service = getService();
+            if (service == null) {
+                return BT_FAIL;
+            }
+            return service.deregisterBtLpmFwk();
+        }
+
+        @Override
+        public void transitionToPwrState(int pwrState) {
+            BluetoothOffloadService service = getService();
+            if (service != null) {
+                service.transitionToPwrState(pwrState);
+            }
+        }
+    }
+
+    class BluetoothOffloadLpmInfo {
+        public BluetoothOffloadLpmDeathRecipient deathRecipient;
+        public IBluetoothOffloadLpmCallback callback;
+
+        BluetoothOffloadLpmInfo(BluetoothOffloadLpmDeathRecipient deathRecipient,
+                IBluetoothOffloadLpmCallback callback) {
+            this.deathRecipient = deathRecipient;
+            this.callback = callback;
+        }
+    }
+
+    class BluetoothOffloadLpmDeathRecipient implements IBinder.DeathRecipient {
+
+        BluetoothOffloadLpmDeathRecipient() {
+        }
+
+        @Override
+        public void binderDied() {
+            if (DBG) {
+                Log.d(TAG, "Binder is dead - unregistering OffloadableLpm");
+                deregisterBtLpmFwk();
+            }
+        }
+    }
+
+    public int registerBtLpmFwk(IBluetoothOffloadLpmCallback mOffloadableCb) {
+        Log.i(TAG, "registerBtLpmFwk");
+        if (null == mOffloadableCb) {
+            Log.i(TAG, "start: failed. null cb for offloadableApp ");
+            return BT_FAIL;
+        }
+        try {
+            synchronized (mLock) {
+                BluetoothOffloadLpmDeathRecipient deathRecipient = new BluetoothOffloadLpmDeathRecipient();
+                IBinder binder = toLpmBinder(mOffloadableCb);
+                try {
+                    binder.linkToDeath(deathRecipient, 0);
+                } catch (RemoteException e) {
+                    throw new IllegalArgumentException("Can't link to OffloadLpm's death");
+                }
+                mLpmCallback = new BluetoothOffloadLpmInfo(deathRecipient, mOffloadableCb);
+                Log.i(TAG, "cb added for LPM map");
+            }
+            return BT_OK;
+        } catch (Exception e) {
+            Log.e(TAG, "registerCb: failed for offloadableApp exception " + e);
+        }
+        return BT_FAIL;
+    }
+
     public int registerCb(String applicationId, IBluetoothOffloadAppCallback mOffloadableCb) {
 
         if (null == mOffloadableCb) {
@@ -407,6 +517,28 @@ public class BluetoothOffloadService extends Service {
             return BT_FAIL;
         } else {
           Log.e(TAG, "unregisterCb: failed app " + applicationId + " does not exist");
+            return BT_FAIL;
+        }
+    }
+
+    public int deregisterBtLpmFwk() {
+        Log.i(TAG, "deregisterBtLpmFwk");
+        if (mLpmCallback != null) {
+            IBluetoothOffloadLpmCallback mOffloadableCb = mLpmCallback.callback;
+
+            try {
+                synchronized (mLock) {
+                    IBinder binder = toLpmBinder(mLpmCallback.callback);
+                    binder.unlinkToDeath(mLpmCallback.deathRecipient, 0);
+                    mLpmCallback = null;
+                }
+                return BT_OK;
+            } catch (Exception e) {
+                Log.e(TAG, "stop: failed for offloadableApp exception " + e);
+            }
+            return BT_FAIL;
+        } else {
+            Log.e(TAG, "unregisterCb: failed no callback registered");
             return BT_FAIL;
         }
     }
@@ -562,6 +694,10 @@ public class BluetoothOffloadService extends Service {
         return ((IInterface) e).asBinder();
     }
 
+    IBinder toLpmBinder(IBluetoothOffloadLpmCallback e) {
+        return ((IInterface) e).asBinder();
+    }
+
     void cleanup() {
         debugLog("cleanup()");
         if (mCleaningUp) {
@@ -575,7 +711,11 @@ public class BluetoothOffloadService extends Service {
             mBinder.cleanup();
             mBinder = null;  //Do not remove. Otherwise Binder leak!
         }
-    clearBluetoothOffloadService(this);
+        if (mLpmBinder != null) {
+            mLpmBinder.cleanup();
+            mLpmBinder = null;
+        }
+        clearBluetoothOffloadService(this);
     }
 
     private void debugLog(String msg) {
@@ -690,8 +830,18 @@ public class BluetoothOffloadService extends Service {
                         mOffloadableCb.transitionToPwrStateDone(status);
                     } catch (Exception e) {
                         Log.e(TAG, "failed for transitionToPwrStateDone " +
-                              ". exception " + e);
+                                ". exception " + e);
                     }
+                }
+            }
+        }
+        if (mLpmCallback != null) {
+            synchronized (mLock) {
+                IBluetoothOffloadLpmCallback mOffloadableCb = mLpmCallback.callback;
+                try {
+                    mOffloadableCb.transitionToPwrStateCb(status);
+                } catch (Exception e) {
+                    Log.e(TAG, "failed for Lpm transitionToPwrStateCb exception " + e);
                 }
             }
         }

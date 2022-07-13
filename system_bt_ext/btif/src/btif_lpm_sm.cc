@@ -51,6 +51,9 @@ static bool btif_lpm_flow_off_flag = false;
 static bool btif_lpm_is_bt_active_flag = false;
 static bool btif_lpm_is_bt_sco_active_flag = false;
 
+static bool btif_lpm_is_cancel_discovery_initiated = false;
+static int TWM_MODE = 1;
+
 /*******************************************************************************
  * BTIF LPM SM Function declarations
  *******************************************************************************/
@@ -108,6 +111,7 @@ const char* dump_btif_lpm_sm_event_name(btif_lpm_sm_event_t event) {
     CASE_RETURN_STR(BTIF_LPM_SM_NOTIFY_NACK_MSG)
     CASE_RETURN_STR(BTIF_SM_ENTER_EVT)
     CASE_RETURN_STR(BTIF_SM_EXIT_EVT)
+    CASE_RETURN_STR(BTIF_LPM_SM_DEINIT)
     default:
       return "UNKNOWN_EVENT";
   }
@@ -149,6 +153,29 @@ void btif_lpm_sm_update_profile_active_status(tBTA_LPM_PROFILE_UPDATE_EVT lpm_ev
 
 /*******************************************************************************
  *
+ * Function         btif_hande_lpm_event
+ *
+ * Description      Sends message to LPM SM
+ *
+ * Parameters       event - event to be sent to LPM SM
+ *                  p_data - data needed for the event
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_hande_lpm_event(btif_lpm_sm_event_t event, void *p_data) {
+  BTIF_TRACE_EVENT("%s: event=%s", __FUNCTION__,
+                  dump_btif_lpm_sm_event_name(event));
+  if (lpm_sm_handle != NULL) {
+    btif_sm_dispatch(lpm_sm_handle, event, p_data);
+  } else {
+    BTIF_TRACE_EVENT("%s: state handlers already deinitialized, so ignoring", __FUNCTION__);
+  }
+}
+
+
+/*******************************************************************************
+ *
  * Function         btif_dispatch_lpm_event
  *
  * Description      Sends message to LPM SM
@@ -161,13 +188,7 @@ void btif_lpm_sm_update_profile_active_status(tBTA_LPM_PROFILE_UPDATE_EVT lpm_ev
  *
  ******************************************************************************/
 void btif_dispatch_lpm_event(btif_lpm_sm_event_t event, void *p_data, int len) {
-  BTIF_TRACE_EVENT("%s: event=%s", __FUNCTION__,
-                  dump_btif_lpm_sm_event_name(event));
-  if (lpm_sm_handle != NULL) {
-      btif_sm_dispatch(lpm_sm_handle, event, p_data);
-  } else {
-      BTIF_TRACE_EVENT("%s: state handlers already deinitialized, so ignoring", __FUNCTION__);
-  }
+  btif_transfer_context((tBTIF_CBACK *)btif_hande_lpm_event, event, (char*)p_data, len, NULL);
 }
 
 /*******************************************************************************
@@ -198,6 +219,7 @@ void initialize_lpm_sm(void) {
  *
  ******************************************************************************/
 void deinitialize_lpm_sm(void) {
+  BTIF_TRACE_EVENT("%s:", __FUNCTION__);
   btif_lpm_native_interface_deinit();
   btif_sm_shutdown(lpm_sm_handle);
   lpm_sm_handle = NULL;
@@ -251,7 +273,7 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
   BTIF_TRACE_EVENT("%s event = %s ", __FUNCTION__,
       dump_btif_lpm_sm_event_name((btif_lpm_sm_event_t)event));
   uint8_t status;
-  int32_t mode;
+  int32_t mode = (int)PwrMode::PWR_MODE_ACTIVE;
   bool offloadable_links = true;
   tBTA_LPM_PROFILE_UPDATE_EVT lpm_event;
 
@@ -270,20 +292,35 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_OFFLOAD_PENDING);
       break;
     case BTIF_LPM_SM_TIMER_ACTIVE_EVT:
-      btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
+      BTIF_TRACE_EVENT("%s, mode: %d", __FUNCTION__, mode);
+      if (mode != (int)PwrMode::PWR_MODE_TWM) {
+          btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
+      } else {
+          BTIF_TRACE_EVENT("%s, Timer active event is not allowed", __FUNCTION__);
+      }
       break;
     case BTIF_LPM_SM_PROFILE_UPDATE_EVT:
-      lpm_event = *(tBTA_LPM_PROFILE_UPDATE_EVT*)data;
-      BTIF_TRACE_EVENT("%s, event-%d", __FUNCTION__, lpm_event);
-      btif_lpm_sm_update_profile_active_status(lpm_event);
-      if(btif_lpm_is_bt_active_flag){
-        btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
+      if (mode != (int)PwrMode::PWR_MODE_TWM) {
+          lpm_event = *(tBTA_LPM_PROFILE_UPDATE_EVT*)data;
+          BTIF_TRACE_EVENT("%s, event-%d", __FUNCTION__, lpm_event);
+          btif_lpm_sm_update_profile_active_status(lpm_event);
+          if (btif_lpm_is_bt_active_flag){
+              btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE);
+          }
+      } else {
+          BTIF_TRACE_EVENT("%s, profile update event is not allowed", __FUNCTION__);
       }
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
+      BTIF_TRACE_EVENT("%s, BTIF_LPM_SM_CHECK_OFFLOAD_CMD", __FUNCTION__);
       /* mode from lpm native */
       mode = *(int32_t*)data;
       BTIF_TRACE_EVENT("%s, in BTIF_LPM_SM_CHECK_OFFLOAD_CMD, mode: %d", __FUNCTION__, mode);
+      /* This condition will help to resolve race condition when we receive BTIF_LPM_SM_CHECK_OFFLOAD_CMD before starting active timer for cancel discovery*/
+      if (mode == (int)PwrMode::PWR_MODE_TWM && btif_lpm_is_cancel_discovery_initiated) {
+          BTIF_TRACE_EVENT("%s, Received BTIF_LPM_SM_CHECK_OFFLOAD_CMD before receiving timer inactive for cancel discovery. So moving to twm_pending state", __FUNCTION__);
+          btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_TWM_PENDING);
+      }
       /* tracker mode - set flow off flag, check inactivity timer (VSC)*/
       if(mode == (int)PwrMode::PWR_MODE_TRK) {
         if(btif_lpm_is_bt_sco_active_flag) {
@@ -303,6 +340,9 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
       /* twm mode - disconnects all the links except offloaded */
       else if (mode == (int)PwrMode::PWR_MODE_TWM) {
         BTIF_TRACE_EVENT("%s: TWM mode",__func__);
+        //Stop advertisement and scanning
+        btif_lpm_stop_advertisements();
+        btif_lpm_stop_scan();
         /* check if there are any non offloadable links */
         offloadable_links = btif_lpm_check_offloadable_links();
         if(offloadable_links) {
@@ -345,10 +385,17 @@ static bool btif_lpm_state_stack_idle_handler(btif_sm_event_t event,
 
       break;
     case BTIF_LPM_SM_NOTIFY_NACK_MSG:
-      /* (yes) reset flow off flag */
-      btif_lpm_flow_off_flag = false;
-      BTA_LPM_ModeSwitchReq(LPM_ACTIVE);
-      btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
+      if (mode != (int)PwrMode::PWR_MODE_TWM) {
+          /* (yes) reset flow off flag */
+          btif_lpm_flow_off_flag = false;
+          BTA_LPM_ModeSwitchReq(LPM_ACTIVE);
+          btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
+      } else {
+          BTIF_TRACE_EVENT("%s, BTIF_LPM_SM_NOTIFY_NACK_MSG is not allowed in TWM", __FUNCTION__);
+      }
+      break;
+    case BTIF_LPM_SM_DEINIT:
+      deinitialize_lpm_sm();
       break;
     default:
       BTIF_TRACE_WARNING("%s: Unhandled event=%s",
@@ -382,18 +429,21 @@ static bool btif_lpm_state_stack_twm_pending_handler(btif_sm_event_t event,
     case BTIF_SM_ENTER_EVT:
       break;
     case BTIF_LPM_SM_TWM_OFFLOAD_CONT_EVT:
-        /* Send Check offload command VSC */
-        btif_lpm_flow_off_flag = true;
-        /* turn off rpa timer*/
-        BTA_LPM_ModeSwitchReq(LPM_TWM);
-        btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
-        /* Send flow off status to stack */
-        BTIF_TRACE_EVENT("%s: calling L2cap_flowoff api",__func__);
-        L2CA_setLpmFlowoff(true);
-        /* Move to Idle state after sending VSC */
-        btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
+      btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
+      btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD, &TWM_MODE, sizeof(TWM_MODE));
       break;
     case BTIF_SM_EXIT_EVT:
+      break;
+    case BTIF_LPM_SM_TIMER_INACTIVE_EVT:
+      if (btif_lpm_is_cancel_discovery_initiated) {
+          BTIF_TRACE_DEBUG("%s, cancel_discovery_initiated in TWM, starting prepare offload on timer inactive",__FUNCTION__);
+          btif_lpm_is_cancel_discovery_initiated = false;
+          btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
+          btif_dispatch_lpm_event(BTIF_LPM_SM_CHECK_OFFLOAD_CMD, &TWM_MODE, sizeof(TWM_MODE));
+      }
+      break;
+    case BTIF_LPM_SM_DEINIT:
+      deinitialize_lpm_sm();
       break;
     default:
       BTIF_TRACE_WARNING("%s: Unhandled event=%s",
@@ -424,7 +474,8 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
                   dump_btif_lpm_sm_event_name((btif_lpm_sm_event_t)event));
 
   tBTA_LPM_PROFILE_UPDATE_EVT lpm_event;
-
+  int32_t mode;
+  bool offloadable_links = true;
   switch (event) {
     case BTIF_SM_ENTER_EVT:
       wakelock_acquire();
@@ -453,9 +504,35 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
                         OFFLOAD_FAILED);
       break;
     case BTIF_LPM_SM_CHECK_OFFLOAD_ACK_EVT:
-    case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
       /* send offload failed to LPM Native */
       btif_lpm_native_interface_prepare_offload_done(LPM_FAILED, OFFLOAD_FAILED);
+      break;
+    case BTIF_LPM_SM_CHECK_OFFLOAD_CMD:
+      mode = *(int32_t*)data;
+      if (mode == (int)PwrMode::PWR_MODE_TWM && btif_lpm_is_cancel_discovery_initiated) {
+        btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_TWM_PENDING);
+      } else if (mode == (int)PwrMode::PWR_MODE_TWM) {
+        BTIF_TRACE_EVENT("%s: TWM mode",__func__);
+        //Stop advertisement and scanning
+        btif_lpm_stop_advertisements();
+        btif_lpm_stop_scan();
+        /* check if there are any non offloadable links */
+        offloadable_links = btif_lpm_check_offloadable_links();
+        if(offloadable_links) {
+          BTIF_TRACE_EVENT("%s: TWM mode - offloadable_links",__func__);
+          /* Send Check offload command VSC */
+          btif_lpm_flow_off_flag = true;
+          BTA_LPM_ModeSwitchReq(mode);
+          btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
+          /* Send flow off status to stack */
+          BTIF_TRACE_EVENT("%s: calling L2cap_flowoff api",__func__);
+          L2CA_setLpmFlowoff(true);
+        } else {
+          BTIF_TRACE_EVENT("%s: TWM mode - non offloadable_links",__func__);
+          /* there are non offloadable links too, wait till they get disconnected */
+          btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_TWM_PENDING);
+        }
+      }
       break;
     case BTIF_LPM_SM_TIMER_INACTIVE_EVT:
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
@@ -463,6 +540,9 @@ static bool btif_lpm_state_stack_active_handler(btif_sm_event_t event,
     case BTIF_SM_EXIT_EVT:
       BTIF_TRACE_DEBUG("%s, wakelock released",__FUNCTION__);
       wakelock_release();
+      break;
+    case BTIF_LPM_SM_DEINIT:
+      deinitialize_lpm_sm();
       break;
     default:
       BTIF_TRACE_WARNING("%s: Unhandled event=%s",
@@ -500,6 +580,9 @@ static bool btif_lpm_state_stack_active_pending_handler(btif_sm_event_t event,
       /* reply success to LPM Native */
       btif_lpm_native_disable_offload_status_interface(LPM_SUCCESS);
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_IDLE);
+      break;
+    case BTIF_LPM_SM_DEINIT:
+      deinitialize_lpm_sm();
       break;
     default:
       BTIF_TRACE_WARNING("%s: Unhandled event=%s",
@@ -572,6 +655,9 @@ static bool btif_lpm_state_stack_offload_pending_handler(btif_sm_event_t event,
       BTA_LPM_ModeSwitchReq(LPM_ACTIVE);
       btif_lpm_send_prepare_offload_cmd(btif_lpm_flow_off_flag);
       break;
+    case BTIF_LPM_SM_DEINIT:
+      deinitialize_lpm_sm();
+      break;
     default:
       BTIF_TRACE_WARNING("%s: Unhandled event=%s",
                          __FUNCTION__,
@@ -609,6 +695,9 @@ static bool btif_lpm_state_stack_offloaded_handler(btif_sm_event_t event,
       btif_transfer_context(lpm_sm_cmd_handler, BTIF_SM_SEND_LPM_EXIT_CMD, NULL, 0, NULL);
       btif_sm_change_state(lpm_sm_handle, BTIF_LPM_STATE_STACK_ACTIVE_PENDING);
       break;
+    case BTIF_LPM_SM_DEINIT:
+      deinitialize_lpm_sm();
+      break;
     default:
       BTIF_TRACE_WARNING("%s: Unhandled event=%s",
                           __FUNCTION__,
@@ -638,4 +727,20 @@ btif_lpm_state_t btif_lpm_sm_get_state() {
         BTIF_TRACE_DEBUG("%s: State machine not initialized", __FUNCTION__);
         return (btif_lpm_state_t)-1;
     }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_sm_set_discovery_cancel
+ *
+ * Description      To set weather we initiated stop discovery or not
+ *
+ * Parameters       true if we started cancel discovery
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_sm_set_discovery_cancel(bool value) {
+    BTIF_TRACE_DEBUG("%s, value %d",__FUNCTION__, value);
+    btif_lpm_is_cancel_discovery_initiated = value;
 }

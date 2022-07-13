@@ -62,8 +62,6 @@ static void bta_lpm_ble_conn_cb (const RawAddress& rmt_addr, bool addr_type, boo
 
 static void bta_lpm_gatts_service_cb (std::vector<tLPM_GATTS_SRVC_ATTR> attr_list);
 
-static void bta_lpm_gatts_rmt_srvc_cb (uint16_t hci_handle, btgatt_db_element_t* db, uint8_t count);
-
 static void bta_lpm_packet_after_flow_off_cb(void);
 
 static void bta_lpm_rfcomm_port_cb(tLPM_PORT_INFO*);
@@ -88,7 +86,6 @@ static tLPM_CBACK bta_lpm_cback = {bta_lpm_ble_conn_cb,
                                    bta_lpm_rfcomm_port_cb,
                                    bta_lpm_hci_info_cb,
                                    bta_lpm_l2cap_credit_cb,
-                                   bta_lpm_gatts_rmt_srvc_cb,
                                    bta_lpm_l2cap_info_cb,
                                    bta_lpm_rfcomm_credit_cb,
                                    bta_lpm_rfcomm_port_release_cb,
@@ -301,25 +298,6 @@ static void bta_lpm_gatts_service_cb(std::vector<tLPM_GATTS_SRVC_ATTR> attr_list
   }
 }
 
-/*******************************************************************************
- *
- * Function         bta_lpm_gatts_rmt_srvc_cb
- *
- * Description      LPM callback for remote services added
- *
- * Returns          void
- *
- ******************************************************************************/
-static void bta_lpm_gatts_rmt_srvc_cb (uint16_t hci_handle, btgatt_db_element_t* db, uint8_t count) {
-  APPL_TRACE_DEBUG("%s: ", __func__);
-  if(bta_lpm_cb.p_lpm_cback != NULL) {
-    tBTA_LPM gatt_srvc_evt;
-    gatt_srvc_evt.rmt_srvc_db_evt.hci_handle = hci_handle;
-    gatt_srvc_evt.rmt_srvc_db_evt.num_attr = count;
-    gatt_srvc_evt.rmt_srvc_db_evt.db_element = db;
-    bta_lpm_cb.p_lpm_cback(LPM_GATT_REMOTE_SRVC_DB_EVT, &gatt_srvc_evt);
-  }
-}
 
 /*******************************************************************************
  *

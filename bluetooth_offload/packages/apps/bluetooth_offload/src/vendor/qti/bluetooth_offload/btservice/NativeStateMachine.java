@@ -55,7 +55,7 @@ import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 
 public class NativeStateMachine {
-    private static final String TAG = "NativeStateMachine";
+    private static final String TAG = "LPM_SM";
     public static int LOG_LEVEL = 6;
     private Context mcontext = null;
 
@@ -63,7 +63,7 @@ public class NativeStateMachine {
     public static final int AON_BT_SUCCESS = 1;
     public static NotificationOffloadStateMachine mStateMachine;
     private static BluetoothOffloadNativeInterface mNativeInterface = null;
- private static BluetoothOffloadService mBluetoothOffloadService = null;
+    private static BluetoothOffloadService mBluetoothOffloadService = null;
 
     public NativeStateMachine(Context mcontext, BluetoothOffloadNativeInterface NativeIf) {
         Log.i(TAG, ": start");
@@ -76,7 +76,13 @@ public class NativeStateMachine {
         } else {
             Log.i(TAG, "mNativeInterface not null");
         }
-  mBluetoothOffloadService = BluetoothOffloadService.getBluetoothOffloadService();
+        mBluetoothOffloadService = BluetoothOffloadService.getBluetoothOffloadService();
+    }
+
+    public void cleanUp() {
+        Log.i(TAG, "cleanUp");
+        mStateMachine.quitNow();
+        mStateMachine = null;
     }
 
     public class NotificationOffloadStateMachine extends StateMachine {
@@ -101,7 +107,7 @@ public class NativeStateMachine {
         public static final int MSG_LN_SM_PREPARE_OFFLOAD_FAILED = 17;
         public static final int MSG_LN_CPU_SUSPEND_ONLY = 18;
         public static final int MSG_LN_SM_TWM = 19;
-		public static final int MSG_LN_SM_DS = 20;
+        public static final int MSG_LN_SM_DS = 20;
         public static final int POWER_STATUS_NACK = 0;
         public static final int POWER_STATUS_ACK = 1;
 
@@ -139,10 +145,19 @@ public class NativeStateMachine {
         }
 
         private class LNStackActive extends State {
-            private static final String TAG = "NStackActive";
+            private static final String TAG = "LPM_SM:LNStackActive";
 
             @Override
             public void enter() {
+                removeDeferredMessages(MSG_LN_SM_ACTIVE);
+                if (hasDeferredMessages(MSG_LN_SM_TWM) || hasDeferredMessages(MSG_LN_SM_TRACKER)
+                  || hasDeferredMessages(MSG_LN_SM_DS)) {
+                    Log.i(TAG, "Native State Machine entered active, not handling any transitions, retry if needed");
+                    mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_NACK);
+                    removeDeferredMessages(MSG_LN_SM_TWM);
+                    removeDeferredMessages(MSG_LN_SM_TRACKER);
+                    removeDeferredMessages(MSG_LN_SM_DS);
+                }
                 Log.i(TAG, "Enter" + getCurrentMessage().what);
             }
 
@@ -224,7 +239,7 @@ public class NativeStateMachine {
         }
 
         private class LNAppsPending extends State {
-            private static final String TAG = "LNAppsPending";
+            private static final String TAG = "LPM_SM:LNAppsPending";
 
             @Override
             public void enter() {
@@ -253,6 +268,12 @@ public class NativeStateMachine {
                     case MSG_LN_SM_APP_SPECIFIC_INFO:
                         transitionTo(mStackActive);
                         break;
+                    case MSG_LN_SM_TWM:
+                    case MSG_LN_SM_ACTIVE:
+                    case MSG_LN_SM_TRACKER:
+                    case MSG_LN_SM_DS:
+                        deferMessage(message);
+                        break;
                     default:
                         return NOT_HANDLED;
                 }
@@ -261,7 +282,7 @@ public class NativeStateMachine {
         }
 
         private class LNStackOffloadPending extends State {
-            private static final String TAG = "LNStackOffloadPending";
+            private static final String TAG = "LPM_SM:LNStackOffloadPending";
 
             @Override
             public void enter() {
@@ -290,9 +311,15 @@ public class NativeStateMachine {
                     case MSG_LN_CPU_SUSPEND_ONLY:
                     case MSG_LN_SM_BT_ACTIVITY_ON:
                         mNativeInterface.notifyPwrTransitionDone(POWER_STATUS_NACK);
-         mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_NACK);
+                        mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_NACK);
                         processDisableOffload();
                         transitionTo(mAppsPending);
+                        break;
+                    case MSG_LN_SM_TWM:
+                    case MSG_LN_SM_ACTIVE:
+                    case MSG_LN_SM_TRACKER:
+                    case MSG_LN_SM_DS:
+                        deferMessage(message);
                         break;
                     default:
                         Log.d(TAG, "Not handled");
@@ -302,12 +329,12 @@ public class NativeStateMachine {
             }
 
             private void processDisableOffload() {
-    mBluetoothOffloadService.notifyDisableOffloadToAll(null);
+                mBluetoothOffloadService.notifyDisableOffloadToAll(null);
             }
         }
 
         private class LNSocOffloadPending extends State {
-            private static final String TAG = "LNSocOffloadPending";
+            private static final String TAG = "LPM_SM:LNSocOffloadPending";
 
             @Override
             public void enter() {
@@ -339,17 +366,23 @@ public class NativeStateMachine {
                     case MSG_LN_SM_COMMIT_OFFLOAD_DONE:
                          int status = mNativeInterface.SendEnableOffloadAonStack();
                          if( status == AON_BT_SUCCESS) {
-          mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_ACK);
+                            mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_ACK);
                             transitionTo(mOffloaded);
                          } else if(status == AON_BT_FAIL) {
-          mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_NACK);
+                            mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_NACK);
                             transitionTo(mActivePending);
                           }
                         break;
                     case MSG_LN_SM_FLOW_ON_DONE:
                         mBluetoothOffloadService.notifyDisableOffloadToAll(null);
-      mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_NACK);
+                        mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_NACK);
                         transitionTo(mAppsPending);
+                        break;
+                    case MSG_LN_SM_TWM:
+                    case MSG_LN_SM_ACTIVE:
+                    case MSG_LN_SM_TRACKER:
+                    case MSG_LN_SM_DS:
+                        deferMessage(message);
                         break;
                     default:
                         return NOT_HANDLED;
@@ -359,10 +392,22 @@ public class NativeStateMachine {
         }
 
         private class LNOffloaded extends State {
-            private static final String TAG = "LNOffloaded";
+            private static final String TAG = "LPM_SM:LNOffloaded";
 
             @Override
             public void enter() {
+                if (hasDeferredMessages(MSG_LN_SM_ACTIVE)) {
+                    removeDeferredMessages(MSG_LN_SM_ACTIVE);
+                    mStateMachine.sendMessage(
+                                    NotificationOffloadStateMachine.MSG_LN_SM_ACTIVE);
+                }
+                if (hasDeferredMessages(MSG_LN_SM_TWM) || hasDeferredMessages(MSG_LN_SM_TRACKER)
+                  || hasDeferredMessages(MSG_LN_SM_DS)) {
+                    Log.i(TAG, "has deferred messages ");
+                }
+                removeDeferredMessages(MSG_LN_SM_TWM);
+                removeDeferredMessages(MSG_LN_SM_TRACKER);
+                removeDeferredMessages(MSG_LN_SM_DS);
                 Log.i(TAG, "Enter: " + getCurrentMessage().what);
             }
 
@@ -385,7 +430,12 @@ public class NativeStateMachine {
                     case MSG_LN_SM_ATHERTON_WAKEUP_EVENT:
                         transitionTo(mActivePending);
                         break;
-     default:
+                    case MSG_LN_SM_TWM:
+                    case MSG_LN_SM_TRACKER:
+                    case MSG_LN_SM_DS:
+                        mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_ACK);
+                        break;
+                    default:
                         return NOT_HANDLED;
                 }
                 return retValue;
@@ -393,7 +443,7 @@ public class NativeStateMachine {
         }
 
         private class LNActivePending extends State {
-            private static final String TAG = "LNActivePending";
+            private static final String TAG = "LPM_SM:LNActivePending";
 
             @Override
             public void enter() {
@@ -413,8 +463,11 @@ public class NativeStateMachine {
                 switch (message.what) {
                     case MSG_LN_DISABLE_OFFLOAD_DONE:
                         mBluetoothOffloadService.getAppSpecificContextInfo();
-         mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_ACK);
+                        mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_ACK);
                         transitionTo(mAppsPending);
+                        break;
+                    case MSG_LN_SM_ACTIVE:
+                        deferMessage(message);
                         break;
                     default:
                         return NOT_HANDLED;

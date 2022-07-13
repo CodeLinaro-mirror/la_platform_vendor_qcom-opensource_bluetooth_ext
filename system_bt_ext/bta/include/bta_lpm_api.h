@@ -107,12 +107,6 @@ typedef struct {
   tLPM_GATTS_SRVC_ATTR* srvc_attr;
 } tBTA_LPM_GATTS_EVT;
 
-typedef struct {
-  uint16_t hci_handle;
-  uint8_t num_attr;
-  btgatt_db_element_t* db_element;
-} tBTA_LPM_GATT_REMOTE_SRVC_DB_EVT;
-
 enum {
  ALARM_START,
  ALARM_STOP
@@ -163,7 +157,6 @@ typedef union {
   tBTA_LPM_RFCOMM_EVT rfcomm_evt;
   tBTA_LPM_HCI_EVT hci_evt;
   tBTA_LPM_L2CAP_EVT l2cap_evt;
-  tBTA_LPM_GATT_REMOTE_SRVC_DB_EVT rmt_srvc_db_evt;
   tBTA_LPM_L2CAP_CFG_EVT l2cap_cfg_evt;
   tBTA_LPM_RFCOMM_CREDIT_EVT rfcomm_crd_evt;
 } tBTA_LPM;

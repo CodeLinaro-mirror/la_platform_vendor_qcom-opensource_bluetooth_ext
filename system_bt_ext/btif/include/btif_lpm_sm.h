@@ -80,6 +80,7 @@ typedef enum {
   BTIF_LPM_SM_PROFILE_UPDATE_EVT,
   BTIF_LPM_SM_TWM_OFFLOAD_CONT_EVT,
   BTIF_LPM_SM_NOTIFY_NACK_MSG,
+  BTIF_LPM_SM_DEINIT,
 } btif_lpm_sm_event_t;
 
 typedef enum {
@@ -166,5 +167,18 @@ void deinitialize_lpm_sm(void);
  *
  ******************************************************************************/
 btif_lpm_state_t btif_lpm_sm_get_state(void);
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_sm_set_discovery_cancel
+ *
+ * Description      To set weather we initiated stop discovery or not
+ *
+ * Parameters       true if we started cancel discovery
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_sm_set_discovery_cancel(bool value);
 
 #endif /* BTIF_LPM_SM_H */ 

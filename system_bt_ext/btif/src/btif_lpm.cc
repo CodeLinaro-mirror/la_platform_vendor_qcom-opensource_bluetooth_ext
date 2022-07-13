@@ -49,6 +49,7 @@
 #include "osi/include/log.h"
 #include "btif_dm.h"
 #include "btif_config.h"
+#include "btif_api.h"
 #include <vector>
 #include <mutex>
 
@@ -56,6 +57,15 @@
 #undef LOG_TAG
 #define LOG_TAG "btif_lpm"
 #endif
+
+/*bt_gatt_types.h GATT_TRANSPORT_LE and gatt_api.h macro GATT_TRANSPORT_LE conflicts so undefining*/
+#ifdef GATT_TRANSPORT_LE
+#undef GATT_TRANSPORT_LE
+#endif
+
+#include "hardware/ble_advertiser.h"
+#include "hardware/ble_scanner.h"
+//#include "ble_advertiser.h"
 
 /*******************************************************************************
  *  Structures and Macros
@@ -92,6 +102,10 @@ bool is_hf_audio_active;
 
 void btif_lpm_evt(tBTA_LPM_EVT event, tBTA_LPM* p_data);
 
+BleAdvertiserInterface* get_ble_advertiser_instance();
+BleScannerInterface* get_ble_scanner_instance();
+
+
 using namespace ::vendor::qti::hardware::bluetooth_offload::V1_0;
 /*******************************************************************************
 * BTIF LPM Interface Functions
@@ -111,6 +125,7 @@ static void send_prepare_offload_cmd_complete(tBTM_VSC_CMPL* p_data) {
  LOG_INFO(LOG_TAG,"In send_prepare_offload_cmd_complete");
  uint8_t         *stream,  status;
  uint16_t        opcode, length;
+ btif_lpm_sm_set_discovery_cancel(false);
 
  if (p_data && (stream = (uint8_t*)p_data->p_param_buf))
  {
@@ -343,7 +358,7 @@ void btif_lpm_init() {
 void btif_lpm_deinit() {
   BTIF_TRACE_DEBUG(" %s ", __FUNCTION__);
 
-  deinitialize_lpm_sm();
+  btif_dispatch_lpm_event(BTIF_LPM_SM_DEINIT,NULL,0);
   BTA_DisableLPM();
 }
 
@@ -448,9 +463,10 @@ void btif_lpm_fetch_ble_context_info_req(void) {
  ******************************************************************************/
 void btif_lpm_send_prepare_offload_cmd(bool flow_off_flag) {
   BTIF_TRACE_EVENT("%s", __FUNCTION__);
-  uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH);
+  uint8_t* msg = (uint8_t *)osi_malloc(DEFAULT_PARAM_LENGTH + 1);
   uint8_t *pp = (uint8_t *)msg;
   *pp++ = flow_off_flag;
+  *pp++ = lpm_mode;
   {
    std::unique_lock<std::mutex> lock(bt_flow_lock);
    btif_flow_off_flag = flow_off_flag;
@@ -467,7 +483,7 @@ void btif_lpm_send_prepare_offload_cmd(bool flow_off_flag) {
       }
     }
   }
-  BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, DEFAULT_PARAM_LENGTH,
+  BTM_VendorSpecificCommand(HCI_BLE_LPM_PREPARE_OFFLOAD_OPCODE, DEFAULT_PARAM_LENGTH + 1,
           msg, send_prepare_offload_cmd_complete);
   osi_free(msg);
 }
@@ -680,6 +696,8 @@ void btif_lpm_check_timer_activity(void) {
 void btif_lpm_process_profile_update(uint8_t profile_id,
                                   tBTA_LPM_PROFILE_UPDATE_EVT profile_evt) {
   /* Post Profile update to state machine */
+  btif_dispatch_lpm_event(BTIF_LPM_SM_PROFILE_UPDATE_EVT,
+                  (void*) &profile_evt, sizeof(profile_evt));
 }
 
 
@@ -1067,6 +1085,14 @@ void btif_lpm_update_rfcomm_context(tBTA_LPM *p_rfcomm){
   } else {
       for(auto it =  btif_lpm_cb.comm_context.begin();it != btif_lpm_cb.comm_context.end();++it){
           if (p_rfcomm->rfcomm_evt.port_info.dlci == it->dlci) {
+              if (p_rfcomm->rfcomm_evt.port_info.dlci == 0) {
+                  if (strcmp(p_rfcomm->rfcomm_evt.port_info.bd_addr.ToString().c_str(), it->remote_addr.ToString().c_str())) {
+                      BTIF_TRACE_DEBUG("%s, Removing multiplexer channel", __FUNCTION__);
+                  } else {
+                      BTIF_TRACE_DEBUG("%s, Received multiplexer disconnect for other device", __FUNCTION__);
+                      continue;
+                  }
+              }
               BTIF_TRACE_DEBUG("%s, clearing port with dlci: %d", __FUNCTION__,it->dlci);
               btif_lpm_cb.comm_context.erase(it);
               if (btif_lpm_cb.comm_context.size() == 1) {
@@ -1161,6 +1187,13 @@ int btif_lpm_prepare_offload_info(tLPM_mode mode, std::vector<RawAddress> remote
     if (is_hf_audio_active || is_a2dp_stream_active) {
         BTIF_TRACE_DEBUG("%s: HFP or A2DP are active so sending fail", __FUNCTION__);
         return 0; //BtOffloadStatus::BT_FAIL
+    }
+    if (mode == LPM_TWM) {
+        BTIF_TRACE_DEBUG(" %s Discovery state = %d",__func__, btif_dm_get_discovery_state());
+        if (btif_dm_get_discovery_state()) {
+            btif_lpm_sm_set_discovery_cancel(true);
+            btif_dm_cancel_discovery();
+        }
     }
     /* Inform BTA layer regarding offloadable connections */
     BTA_DmSetLPMInfo(mode, remote_devices);
@@ -1368,11 +1401,6 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
       BTIF_TRACE_DEBUG("%s p_data.hci_evt.hci_info.bd_addr: %s",__FUNCTION__,p_data->hci_evt.bd_addr.ToString().c_str());
       btif_lpm_update_hci_info(p_data);
       break;
-    case LPM_GATT_REMOTE_SRVC_DB_EVT:
-      LOG(ERROR) << "LPM_GATT_REMOTE_SRVC_DB_EVT";
-      BTIF_TRACE_DEBUG("%s p_data.rmt_srvc_db_evt.hci_handle: %d",__FUNCTION__,p_data->rmt_srvc_db_evt.hci_handle);
-      btif_lpm_ble_conn_srvc_db(p_data->rmt_srvc_db_evt.hci_handle, p_data->rmt_srvc_db_evt.db_element, p_data->rmt_srvc_db_evt.num_attr);
-      break;
     case LPM_L2CAP_INFO_EVT:
       LOG(ERROR) << "LPM_L2CAP_INFO_EVT";
       BTIF_TRACE_DEBUG("%s p_data.l2cap_cfg_evt.l2cap_info.bd_addr: %s",__FUNCTION__,p_data->l2cap_cfg_evt.bd_addr.ToString().c_str());
@@ -1408,6 +1436,8 @@ static void btif_lpm_upstreams_evt(uint16_t event, char* p_param) {
  ******************************************************************************/
 bool is_bt_active_during_offload(void) {
   std::unique_lock<std::mutex> lock(bt_activity_lock);
+  if (lpm_mode == LPM_TWM)
+      return false;
   return bt_activity_after_flow_off;
 }
 
@@ -1457,7 +1487,7 @@ void  btif_lpm_fetch_rfcomm_context_info_req(){
     }
     if (offloaded_device) {
       BTIF_TRACE_EVENT("%s, offload_device = true", __FUNCTION__);
-      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_rfcomm_context_info(btif_lpm_cb.comm_context, btif_lpm_cb.l2cap_context.back().remote_addr.ToString()))
+      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_rfcomm_context_info(btif_lpm_cb.comm_context, (it->remote_addr).ToString()))
         BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
     }
   }
@@ -1500,7 +1530,7 @@ void  btif_lpm_fetch_l2cap_context_info_req(){
     }
     if (offloaded_device) {
       BTIF_TRACE_EVENT("%s, offload_device = true", __FUNCTION__);
-      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_l2cap_context_info(btif_lpm_cb.l2cap_context, btif_lpm_cb.l2cap_context.back().remote_addr.ToString()))
+      if(!vendor::qti::hardware::bluetooth_offload::V1_0::btif_lpm_native_interface_set_l2cap_context_info(btif_lpm_cb.l2cap_context, (it->remote_addr).ToString()))
         BTIF_TRACE_ERROR("%s, couldn't send context info to lpm native", __FUNCTION__);
     }
   }
@@ -1526,5 +1556,50 @@ void btif_lpm_hf_audio_update(bthf_audio_state_t state) {
         hf_connected_clients_count--;
         if(hf_connected_clients_count == 0)
             is_hf_audio_active = false;
+    }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_stop_advertisements
+ *
+ * Description      Stop all advertisements
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_stop_advertisements(void)
+{
+    BleAdvertiserInterface* advertiser = get_ble_advertiser_instance();
+    if (advertiser != NULL)
+    {
+        BTIF_TRACE_DEBUG("%s advertiser is not null", __FUNCTION__);
+        advertiser->StopAdvertisements();
+    }
+    else {
+        BTIF_TRACE_DEBUG("%s advertiser is NULL", __FUNCTION__);
+    }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_lpm_stop_scan
+ *
+ * Description      Stop scan
+ *
+ * Parameters       None
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_lpm_stop_scan(void)
+{
+    BleScannerInterface* scanner = get_ble_scanner_instance();
+    if (scanner != NULL)
+    {
+        BTIF_TRACE_DEBUG("%s scanner is not null", __FUNCTION__);
+        scanner->Scan(false);
     }
 }
