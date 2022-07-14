@@ -898,10 +898,11 @@ void btif_lpm_update_ble_conn_evt(RawAddress& rmt_addr, bool rmt_addr_type,
   } else {
     auto it = btif_lpm_cb.ble_conns.begin();
     for (; it!=btif_lpm_cb.ble_conns.end(); it++) {
-      if (it->remote_addr == rmt_addr) 
-      break;
+      if (it->remote_addr == rmt_addr) {
+        btif_lpm_cb.ble_conns.erase(it);
+        break;
+      }
     }
-    btif_lpm_cb.ble_conns.erase(it);
   }
 }
 

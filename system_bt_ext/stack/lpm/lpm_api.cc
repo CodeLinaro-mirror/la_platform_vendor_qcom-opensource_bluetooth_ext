@@ -158,10 +158,11 @@ void lpm_send_conn_cback(const RawAddress& bda, int state) {
     lpm_cb.lpm_cback.p_ble_conn_cb(bda, 0, 0, 0, 0);
     auto it = lpm_cb.ble_conn.begin();
     for(;it != lpm_cb.ble_conn.end(); it++) {
-      if(it->rmt_addr == bda)
+      if(it->rmt_addr == bda) {
+        lpm_cb.ble_conn.erase(it);
         break;
+      }
     }
-    lpm_cb.ble_conn.erase(it);
   } else {
     tACL_CONN* p = btm_bda_to_acl(bda, BT_TRANSPORT_LE);
     lpm_cb.ble_conn.emplace_back();
