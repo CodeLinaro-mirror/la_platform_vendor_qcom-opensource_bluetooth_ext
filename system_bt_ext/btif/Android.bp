@@ -56,6 +56,7 @@ cc_library_static {
         "src/btif_twsp_hf.cc",
         "src/btif_iot_config.cc",
         "src/btif_vendor_hf.cc",
+        "src/btif_av_vendor.cc"
     ],
     shared_libs: [
         "libcutils",
