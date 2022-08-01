@@ -2224,7 +2224,7 @@ public final class Avrcp_ext {
                         String name = (TextUtils.isEmpty(title) ? albumName : title);
                         coverArt = getImgHandle(device, name);
                     }
-                    if (TextUtils.isEmpty(coverArt)) {
+                    if (TextUtils.isEmpty(coverArt) && mediaMetadata != null) {
                         coverArt = getImgHandle(device, mediaMetadata);
                     }
                     return coverArt;
@@ -5964,6 +5964,11 @@ public final class Avrcp_ext {
 
     String getImgHandle(BluetoothDevice device, MediaMetadata data) {
         String handle = "";
+        if(data == null) {
+            if (DEBUG)
+                Log.d(TAG, " getImgHandle data null");
+            return handle;
+        }
         boolean isKeyContains = data.containsKey(MediaMetadata.METADATA_KEY_ALBUM_ART);
         if (mAvrcpBipRsp != null && device != null && data != null && isKeyContains ) {
             handle = mAvrcpBipRsp.getImgHandle(device, data);
