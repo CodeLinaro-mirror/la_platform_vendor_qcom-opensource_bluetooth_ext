@@ -242,11 +242,6 @@ public class AvrcpBipRsp implements IObexConnectionHandler {
                 (START_LISTENER));
     }
 
-    BluetoothDevice getBluetoothDevice(byte[] address) {
-        return Attributable.setAttributionSource(
-                BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address), null);
-    }
-
     synchronized String getImgHandle(BluetoothDevice device, MediaMetadata data) {
         if (D) Log.d(TAG," getImgHandle device :" + device + " data :" + data);
         if ( data == null || device == null) {
