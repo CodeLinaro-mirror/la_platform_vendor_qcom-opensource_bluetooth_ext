@@ -186,8 +186,6 @@ public class NativeStateMachine {
                             Log.i(TAG,"MSG_LN_SM_TRACKER, in else");
                             mNativeInterface.SendtransitionToPwrState(mNativeInterface.TRACKER_MODE);
                             transitionTo(mAppsPending);
-                            mStateMachine.sendMessage(
-                                    NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD);
                         }
                         break;
                     case MSG_LN_SM_TWM:
@@ -240,10 +238,12 @@ public class NativeStateMachine {
 
         private class LNAppsPending extends State {
             private static final String TAG = "LPM_SM:LNAppsPending";
+            private boolean isPrepareOffloadSent = false;
 
             @Override
             public void enter() {
                 Log.i(TAG, "Enter: " + getCurrentMessage().what);
+                isPrepareOffloadSent = false;
             }
 
             @Override
@@ -257,12 +257,17 @@ public class NativeStateMachine {
                 boolean retValue = HANDLED;
                 switch (message.what) {
                     case MSG_LN_SM_SEND_PREPARE_OFFLOAD:
-                        int ret = mNativeInterface.SendPrepareOffload();
-                        if (ret != AON_BT_SUCCESS) {
-                            mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_NACK);
-                            transitionTo(mStackActive);
+                        if (!isPrepareOffloadSent) {
+                            isPrepareOffloadSent = true;
+                            int ret = mNativeInterface.SendPrepareOffload();
+                            if (ret != AON_BT_SUCCESS) {
+                                mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_NACK);
+                                transitionTo(mStackActive);
+                            } else {
+                                transitionTo(mStackOffloadPending);
+                            }
                         } else {
-                            transitionTo(mStackOffloadPending);
+                          Log.i(TAG, "PrepareOffload already sent");
                         }
                         break;
                     case MSG_LN_SM_APP_SPECIFIC_INFO:
@@ -320,6 +325,9 @@ public class NativeStateMachine {
                     case MSG_LN_SM_TRACKER:
                     case MSG_LN_SM_DS:
                         deferMessage(message);
+                        break;
+                    case MSG_LN_SM_SEND_PREPARE_OFFLOAD:
+                        Log.d(TAG, "Duplicate prepareOffload");
                         break;
                     default:
                         Log.d(TAG, "Not handled");

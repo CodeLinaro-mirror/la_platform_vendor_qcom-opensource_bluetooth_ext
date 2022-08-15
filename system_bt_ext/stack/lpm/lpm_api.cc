@@ -158,17 +158,22 @@ void lpm_send_conn_cback(const RawAddress& bda, int state) {
     lpm_cb.lpm_cback.p_ble_conn_cb(bda, 0, 0, 0, 0);
     auto it = lpm_cb.ble_conn.begin();
     for(;it != lpm_cb.ble_conn.end(); it++) {
-      if(it->rmt_addr == bda)
+      if(it->rmt_addr == bda) {
+        lpm_cb.ble_conn.erase(it);
         break;
+      }
     }
-    lpm_cb.ble_conn.erase(it);
   } else {
     tACL_CONN* p = btm_bda_to_acl(bda, BT_TRANSPORT_LE);
     lpm_cb.ble_conn.emplace_back();
     tLPM_BLE_CONN& conn = lpm_cb.ble_conn.back();
     conn.master = state;
     conn.rmt_addr = bda;
-    conn.ble_handle = p->hci_handle;
+    if(p) {
+      conn.ble_handle = p->hci_handle;
+    } else {
+      conn.ble_handle = (uint16_t)NULL;
+    }
     lpm_cb.lpm_cback.p_ble_conn_cb(bda, 1, ((state == LPM_BLE_MASTER)? 1: 0),1, conn.ble_handle );
     /* tcb is skipped as of now */
   }
@@ -198,7 +203,7 @@ void lpm_gatts_serv_db_element(tGATT_SRV_LIST_ELEM& db_el) {
     srvc_attr_list.clear();
   }
 
-  if (p_srvc_db || !(p_srvc_db->attr_list.empty())) {
+  if (p_srvc_db && !(p_srvc_db->attr_list.empty())) {
     svc_uuid = p_srvc_db->attr_list[0].p_value->uuid;
     if (svc_uuid == Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER)) {
       srvc_attr_list.emplace_back();

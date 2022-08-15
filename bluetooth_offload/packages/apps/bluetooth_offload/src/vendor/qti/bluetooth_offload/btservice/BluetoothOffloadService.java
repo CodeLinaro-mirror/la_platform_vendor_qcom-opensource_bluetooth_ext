@@ -60,6 +60,7 @@ import java.util.List;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -75,6 +76,8 @@ public class BluetoothOffloadService extends Service {
     private final Object mLock = new Object();
     public static NativeStateMachine mNativeStateMachine = null;
     public static BluetoothOffloadNativeInterface mNativeInterface = null;
+    public static final int PREPARE_OFFLOAD_HANDLER_TIMEOUT = 2000; //ms
+    public static int mEnableDoneCount = 0;
 
     HashMap<String, BluetoothOffloadAppInfo> mAppCbMap = new HashMap<String, BluetoothOffloadAppInfo>();
     BluetoothOffloadLpmInfo mLpmCallback = null;
@@ -101,8 +104,6 @@ public class BluetoothOffloadService extends Service {
             sBluetoothOffloadService = null;
         }
     }
-
-
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -543,6 +544,23 @@ public class BluetoothOffloadService extends Service {
         }
     }
 
+    public void checkAndSendPrepareOffload() {
+        Log.i(TAG, ":checkAndSendPrepareOffload: Size of a mAppCbMap " + mAppCbMap.size());
+        boolean allEnableDoneReceived = true;
+        for (Map.Entry<String, BluetoothOffloadAppInfo> mApp : mAppCbMap.entrySet()) {
+            BluetoothOffloadAppInfo appInfo = mApp.getValue();
+            if (!appInfo.isEnableOffloadDone) {
+                Log.i(TAG, ":checkAndSendPrepareOffload: Not received enable done for AppID " + mApp.getKey());
+                allEnableDoneReceived = false;
+                break;
+            }
+        }
+        if (allEnableDoneReceived) {
+            Log.i(TAG, ":checkAndSendPrepareOffload: EnableOffloadDone Recieved for all the apps so sending prepare offload");
+            NativeStateMachine.mStateMachine.sendMessage(NativeStateMachine.NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD);
+        }
+    }
+
     public int enableOffloadDone(String applicationId, int status) {
         Log.i(TAG, "enableOffloadDone: %s" + applicationId);
         if (mAppCbMap.containsKey(applicationId)) {
@@ -552,6 +570,10 @@ public class BluetoothOffloadService extends Service {
 
                 synchronized (mLock) {
                     mAppCbMap.replace(applicationId, appInfo);
+                }
+                mEnableDoneCount++;
+                if (mEnableDoneCount >= mAppCbMap.size()) {
+                    checkAndSendPrepareOffload();
                 }
                 return BT_OK;
             }
@@ -730,6 +752,7 @@ public class BluetoothOffloadService extends Service {
 
     public int notifyEnableOffload(int mode) {
         Log.i(TAG, "notifyEnableOffload: mode " + mode);
+        mEnableDoneCount = 0;
         for (String appId : mAppCbMap.keySet())
         {
             BluetoothOffloadAppInfo appInfo = mAppCbMap.get(appId);
@@ -748,6 +771,7 @@ public class BluetoothOffloadService extends Service {
                 }
             }
         }
+        NativeStateMachine.mStateMachine.sendMessageDelayed(NativeStateMachine.NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD, PREPARE_OFFLOAD_HANDLER_TIMEOUT);
         return BT_OK;
     }
 

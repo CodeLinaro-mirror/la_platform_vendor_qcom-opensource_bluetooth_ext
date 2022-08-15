@@ -251,6 +251,10 @@ static void send_exit_lpm_cmd_complete(tBTM_VSC_CMPL* p_data) {
     /* Send context info to stack */
     btif_dispatch_lpm_event(BTIF_LPM_SM_LPM_EXIT_EVT,
             (void *)&status, DEFAULT_PARAM_LENGTH);
+    if (port_info != NULL) {
+        osi_free(port_info);
+        port_info = NULL;
+    }
   }
 }
 
@@ -894,10 +898,11 @@ void btif_lpm_update_ble_conn_evt(RawAddress& rmt_addr, bool rmt_addr_type,
   } else {
     auto it = btif_lpm_cb.ble_conns.begin();
     for (; it!=btif_lpm_cb.ble_conns.end(); it++) {
-      if (it->remote_addr == rmt_addr) 
-      break;
+      if (it->remote_addr == rmt_addr) {
+        btif_lpm_cb.ble_conns.erase(it);
+        break;
+      }
     }
-    btif_lpm_cb.ble_conns.erase(it);
   }
 }
 
