@@ -557,7 +557,11 @@ public class BluetoothOffloadService extends Service {
         }
         if (allEnableDoneReceived) {
             Log.i(TAG, ":checkAndSendPrepareOffload: EnableOffloadDone Recieved for all the apps so sending prepare offload");
-            NativeStateMachine.mStateMachine.sendMessage(NativeStateMachine.NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD);
+            if (NativeStateMachine.mStateMachine != null) {
+                NativeStateMachine.mStateMachine.sendMessage(NativeStateMachine.NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD);
+            } else {
+                Log.e(TAG, "LPM_SM not yet initialized");
+            }
         }
     }
 
@@ -671,6 +675,10 @@ public class BluetoothOffloadService extends Service {
 
     public void transitionToPwrState(int pwrState) {
         Log.i(TAG, "transitionToPwrState: state " + pwrState);
+        if (NativeStateMachine.mStateMachine == null) {
+            Log.e(TAG, "LPM_SM not yet initialized");
+            return;
+        }
 
         if (pwrState == mNativeInterface.TRACKER_MODE) {
             NativeStateMachine.mStateMachine.sendMessage(
@@ -771,7 +779,11 @@ public class BluetoothOffloadService extends Service {
                 }
             }
         }
-        NativeStateMachine.mStateMachine.sendMessageDelayed(NativeStateMachine.NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD, PREPARE_OFFLOAD_HANDLER_TIMEOUT);
+        if (NativeStateMachine.mStateMachine != null) {
+            NativeStateMachine.mStateMachine.sendMessageDelayed(NativeStateMachine.NotificationOffloadStateMachine.MSG_LN_SM_SEND_PREPARE_OFFLOAD, PREPARE_OFFLOAD_HANDLER_TIMEOUT);
+        } else {
+            Log.e(TAG, "LPM_SM not yet initialized");
+        }
         return BT_OK;
     }
 
