@@ -230,6 +230,7 @@ public final class Avrcp_ext {
     private static final int MSG_SET_ACTIVE_DEVICE = 35;
     private static final int MSG_LONG_PRESS_PT_CMD_TIMEOUT = 36;
     private static final int MSG_INIT_MEDIA_PLAYER_LIST = 37;
+    private static final int MSG_UPDATE_CURRENT_MEDIA_STATE = 38;
 
     private static final int LONG_PRESS_PT_CMD_TIMEOUT_DELAY = 600;
     private static final int CMD_TIMEOUT_DELAY = 2000;
@@ -684,7 +685,9 @@ public final class Avrcp_ext {
 
             if (mAudioPlaybackIsActive != isActive) {
                 mAudioPlaybackIsActive = isActive;
-                updateCurrentMediaState(null);
+                if (mHandler != null) {
+                    mHandler.sendEmptyMessage(MSG_UPDATE_CURRENT_MEDIA_STATE);
+                }
             }
         }
     }
@@ -1081,7 +1084,7 @@ public final class Avrcp_ext {
                 responseDebug.append("getElementAttr response: ");
                 BluetoothDevice device = null;
                 if (mAvrcpBipRsp != null) {
-                    device = mAvrcpBipRsp.getBluetoothDevice(remoteAddr);
+                    device = mAdapter.getRemoteDevice(remoteAddr);
                 }
                 for (int i = 0; i < numAttr; ++i) {
                     textArray[i] = mMediaAttributes.getString(device, attrIds[i]);
@@ -1805,7 +1808,11 @@ public final class Avrcp_ext {
                     deviceFeatures[deviceIndex].mReportedPlayerID = mCurrAddrPlayerID;
                     break;
                 }
-
+                break;
+            case MSG_UPDATE_CURRENT_MEDIA_STATE:
+                Log.d(TAG, "MSG_UPDATE_CURRENT_MEDIA_STATE");
+                updateCurrentMediaState(null);
+                break;
             default:
                 Log.e(TAG, "unknown message! msg.what=" + msg.what);
                 break;
@@ -2106,6 +2113,7 @@ public final class Avrcp_ext {
         private String genre;
         private long playingTimeMs;
         private String coverArt;
+        private MediaMetadata mediaMetadata;
 
         private static final int ATTR_TITLE = 1;
         private static final int ATTR_ARTIST_NAME = 2;
@@ -2140,10 +2148,12 @@ public final class Avrcp_ext {
                 mediaTotalNumber = longStringOrBlank(data.getLong(MediaMetadata.METADATA_KEY_NUM_TRACKS));
                 genre = stringOrBlank(data.getString(MediaMetadata.METADATA_KEY_GENRE));
                 playingTimeMs = data.getLong(MediaMetadata.METADATA_KEY_DURATION);
+                coverArt = "";
                 if (mAvrcpBipRsp != null) {
                     coverArt = getImgHandle(device, data);
-                } else {
-                    coverArt = "";
+                    if (!TextUtils.isEmpty(coverArt)){
+                        mediaMetadata = data;
+                    }
                 }
                 // Try harder for the title.
                 title = data.getString(MediaMetadata.METADATA_KEY_TITLE);
@@ -2210,8 +2220,13 @@ public final class Avrcp_ext {
                 case ATTR_PLAYING_TIME_MS:
                     return Long.toString(playingTimeMs);
                 case ATTR_COVER_ART:
-                    String name = (TextUtils.isEmpty(title) ? albumName : title);
-                    coverArt = getImgHandle(device, name);
+                    if (TextUtils.isEmpty(coverArt)) {
+                        String name = (TextUtils.isEmpty(title) ? albumName : title);
+                        coverArt = getImgHandle(device, name);
+                    }
+                    if (TextUtils.isEmpty(coverArt)) {
+                        coverArt = getImgHandle(device, mediaMetadata);
+                    }
                     return coverArt;
                 default:
                     return new String();
@@ -5947,14 +5962,6 @@ public final class Avrcp_ext {
     private native boolean registerNotificationRspNowPlayingChangedNative(int type,
             byte[] address);
 
-    String getImgHandle(byte[] bdaddr, MediaMetadata data) {
-        String handle = "";
-        if (mAvrcpBipRsp != null) {
-            handle = getImgHandle(mAvrcpBipRsp.getBluetoothDevice(bdaddr), data);
-        }
-        return handle;
-    }
-
     String getImgHandle(BluetoothDevice device, MediaMetadata data) {
         String handle = "";
         boolean isKeyContains = data.containsKey(MediaMetadata.METADATA_KEY_ALBUM_ART);
@@ -5963,14 +5970,6 @@ public final class Avrcp_ext {
             if (DEBUG)
                 Log.d(TAG, " getImgHandle device:" + device + " data:" + data
                         + " isKeyContains " + isKeyContains + " Handle " + handle);
-        }
-        return handle;
-    }
-
-    String getImgHandle(byte[] bdaddr, String title) {
-        String handle = "";
-        if (mAvrcpBipRsp != null && title != null) {
-            handle = getImgHandle(mAvrcpBipRsp.getBluetoothDevice(bdaddr), title);
         }
         return handle;
     }
