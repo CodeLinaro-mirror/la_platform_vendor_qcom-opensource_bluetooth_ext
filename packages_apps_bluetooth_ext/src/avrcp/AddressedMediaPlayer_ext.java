@@ -18,6 +18,7 @@ package com.android.bluetooth.avrcp;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.bluetooth.BluetoothAdapter;
 import android.media.MediaDescription;
 import android.media.MediaMetadata;
 import android.media.session.MediaSession;
@@ -57,6 +58,7 @@ public class AddressedMediaPlayer_ext {
     private final List<MediaSession.QueueItem> mEmptyNowPlayingList;
 
     private long mLastTrackIdSent;
+    private BluetoothAdapter mAdapter;
 
     public AddressedMediaPlayer_ext(AvrcpMediaRspInterface_ext mediaInterface) {
         mEmptyNowPlayingList = new ArrayList<MediaSession.QueueItem>();
@@ -68,6 +70,7 @@ public class AddressedMediaPlayer_ext {
     public AddressedMediaPlayer_ext(AvrcpMediaRspInterface_ext mediaInterface, Avrcp_ext mAvrcp_ext) {
         this(mediaInterface);
         mAvrcp = mAvrcp_ext;
+        mAdapter = BluetoothAdapter.getDefaultAdapter();
     }
 
     void cleanup() {
@@ -511,7 +514,7 @@ public class AddressedMediaPlayer_ext {
 
                 case AvrcpConstants_ext.ATTRID_COVER_ART:
                     if (mAvrcp != null && mAvrcp.isCoverArtFeatureSupported(bdaddr)) {
-                        String handle = mAvrcp.getImgHandle(bdaddr, data);
+                        String handle = mAvrcp.getImgHandle(mAdapter.getRemoteDevice(bdaddr), data);
                         attrValue = (handle != null && !handle.isEmpty()) ? handle : null;
                     }
                     break;
