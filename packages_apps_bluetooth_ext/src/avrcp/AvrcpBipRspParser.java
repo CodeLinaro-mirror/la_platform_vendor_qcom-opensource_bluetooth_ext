@@ -82,7 +82,7 @@ public class AvrcpBipRspParser {
     private final boolean D = true;
     private static final boolean V = AvrcpBipRsp.V;
     private Context mContext;
-    private static final int COVER_ART_MAX_ITEMS = 12;
+    private static final int COVER_ART_MAX_ITEMS = 32; // Based on AOSP VALUE
     private static Map<String, String> mArtHandleMap = new HashMap<String, String>();
     private static Map<String, AvrcpBipRspCoverArtAttributes> mCoverArtAttributesMap
             = new LinkedHashMap<String, AvrcpBipRspCoverArtAttributes>(
@@ -176,7 +176,7 @@ public class AvrcpBipRspParser {
     public String getImgHandle(MediaMetadata data) {
         long artHandle = -1;
         String imageHandle = "";
-        if (data.containsKey(MediaMetadata.METADATA_KEY_ALBUM_ART)) {
+        if (data != null && data.containsKey(MediaMetadata.METADATA_KEY_ALBUM_ART)) {
             String title = data.getString(MediaMetadata.METADATA_KEY_TITLE);
             if (TextUtils.isEmpty(title)) {
                 title = data.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST);
@@ -191,6 +191,7 @@ public class AvrcpBipRspParser {
             } else {
                 Bitmap tempBitmap = data.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
                 if (tempBitmap != null) {
+                    trimToSize();
                     /* Create a scaled version of the image for now, as consumers don't need
                        anything larger than this at the moment. */
                     Bitmap bitmap = Bitmap.createScaledBitmap(tempBitmap, BIP_THUMB_WIDTH,
@@ -216,11 +217,21 @@ public class AvrcpBipRspParser {
                         Log.v(TAG, "getImgHandle imgHandle :" + imageHandle
                                 + " title " + title + ", coverArtAttributes  "
                                 + coverArtAttributes);
-                    trimToSize();
                 }
             }
         }
         return imageHandle;
+    }
+
+    private void trimToSize() {
+        while (mArtHandleMap.size() > COVER_ART_MAX_ITEMS) {
+            Map.Entry<String, String> entry = mArtHandleMap.entrySet().iterator().next();
+            String key_title = entry.getKey();
+            String val = entry.getValue();
+            if (D) Log.d(TAG, "trimToSize Evicting " + key_title + " -> " + val);
+            mArtHandleMap.remove(key_title);
+            mCoverArtAttributesMap.remove(val);
+        }
     }
 
     String getImgHandle(String title) {
@@ -618,17 +629,6 @@ public class AvrcpBipRspParser {
                     bitmap.getWidth() * bitmap.getHeight());
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, buffer);
         return buffer.toByteArray();
-    }
-
-    private void trimToSize() {
-        while (mArtHandleMap.size() > COVER_ART_MAX_ITEMS) {
-            Map.Entry<String, String> entry = mArtHandleMap.entrySet().iterator().next();
-            String imageHandle = entry.getKey();
-            String val = entry.getValue();
-            if (D) Log.d(TAG, "trimToSize Evicting " + imageHandle + " -> " + val);
-            mArtHandleMap.remove(imageHandle);
-            mCoverArtAttributesMap.remove(val);
-        }
     }
 
     private Bitmap getScaledBitmap(Bitmap bip, int w, int h) {
