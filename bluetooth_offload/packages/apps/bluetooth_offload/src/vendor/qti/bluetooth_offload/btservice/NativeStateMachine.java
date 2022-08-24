@@ -174,7 +174,8 @@ public class NativeStateMachine {
                 boolean no_apps_register = false;
                 switch (message.what) {
                     case MSG_LN_SM_ACTIVE:
-                        Log.d(TAG,"mstackActive");
+                        Log.d(TAG,"mstackActive Device already in active state, so sending success");
+                        mBluetoothOffloadService.transitionToPwrStateDone(POWER_STATUS_ACK);
                         break;
                     case MSG_LN_SM_TRACKER:
                         if(no_apps_register) {
