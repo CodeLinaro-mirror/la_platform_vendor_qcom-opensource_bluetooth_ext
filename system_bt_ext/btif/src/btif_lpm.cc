@@ -1193,6 +1193,12 @@ int btif_lpm_prepare_offload_info(tLPM_mode mode, std::vector<RawAddress> remote
         BTIF_TRACE_DEBUG("%s: HFP or A2DP are active so sending fail", __FUNCTION__);
         return 0; //BtOffloadStatus::BT_FAIL
     }
+
+    if (btif_lpm_cb.ble_conns.size() == 0 && btif_lpm_cb.comm_context.size() == 0 && remote_devices.size() ==0) {
+        BTIF_TRACE_DEBUG("%s: No device connected, so sending fail", __FUNCTION__);
+        return 0; //BtOffloadStatus::BT_FAIL
+    }
+
     if (mode == LPM_TWM) {
         BTIF_TRACE_DEBUG(" %s Discovery state = %d",__func__, btif_dm_get_discovery_state());
         if (btif_dm_get_discovery_state()) {
