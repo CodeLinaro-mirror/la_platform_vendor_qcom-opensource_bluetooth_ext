@@ -156,6 +156,10 @@ typedef void (* whitelisted_players_vendor_prop_callback)(bt_status_t status,
                           int num_properties,
                           bt_vendor_property_t *properties);
 
+/** Callback to notify the LE high priority mode changed event. */
+typedef void (* le_high_priority_mode_changed_callback)(uint8_t status,
+                          RawAddress *bd_addr, bool mode);
+
 /** BT-Vendor callback structure. */
 typedef struct {
     /** set to sizeof(BtVendorCallbacks) */
@@ -168,6 +172,7 @@ typedef struct {
     adapter_vendor_prop_callback     adapter_vendor_prop_cb;
     ssr_vendor_callback         ssr_vendor_cb;
     whitelisted_players_vendor_prop_callback    wl_players_prop_cb;
+    le_high_priority_mode_changed_callback le_high_priority_mode_cb;
 } btvendor_callbacks_t;
 
 typedef int (*property_set_callout)(const char* key, const char* value);
@@ -256,6 +261,11 @@ typedef struct {
         const char* feature_name, const char* name);
 
     void (*get_remote_le_services)(RawAddress *remote_addr, int transport);
+    /** set the BLE ACL priority over BREDR ACL */
+    bt_status_t (*set_le_high_priority_mode)(const RawAddress* addr, bool enable);
+
+    //**gets the status of BLE ACL Priority over BREDR ACL*/
+    bool (*is_le_high_priority_mode_set)(const RawAddress* addr);
 
 } btvendor_interface_t;
 
