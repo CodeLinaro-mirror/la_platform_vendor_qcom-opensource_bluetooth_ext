@@ -196,6 +196,7 @@ void lpm_gatts_serv_db_element(tGATT_SRV_LIST_ELEM& db_el) {
   Uuid svc_uuid;
   Uuid char_uuid;
   tGATT_VALUE gap_attr_value;
+  memset(&gap_attr_value, 0, sizeof(gap_attr_value));
 
   LOG_DEBUG(LOG_TAG, "%s:", __func__);
   if (db_el.type == GATT_UUID_PRI_SERVICE) {
@@ -239,9 +240,9 @@ void lpm_gatts_serv_db_element(tGATT_SRV_LIST_ELEM& db_el) {
             srvc_attr_list.emplace_back();
             tLPM_GATTS_SRVC_ATTR& srvc_attr_c = srvc_attr_list.back();
             srvc_attr_c.attr_uuid = attr.uuid;
-            srvc_attr_c.handle = gap_attr_value.handle;
+            srvc_attr_c.handle = attr.handle;
             srvc_attr_c.gatt_type = BTGATT_DB_CHARACTERISTIC;
-            srvc_attr_c.offset = gap_attr_value.offset;
+            srvc_attr_c.offset = 0;
             strlcpy((char *)srvc_attr_c.value, (char *)gap_attr_value.value, gap_attr_value.len);
           }
         }
