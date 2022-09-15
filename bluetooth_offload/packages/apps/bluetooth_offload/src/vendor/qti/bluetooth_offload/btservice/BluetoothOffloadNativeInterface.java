@@ -101,7 +101,11 @@ public class BluetoothOffloadNativeInterface {
     }
 
     public void sendMessageToSM(int message) {
-        NativeStateMachine.mStateMachine.sendMessage(message);
+        if (NativeStateMachine.mStateMachine != null) {
+          NativeStateMachine.mStateMachine.sendMessage(message);
+        } else {
+          Log.e(TAG, "LPM_SM not yet initialized");
+        }
     }
 
     public int registerCb() {
