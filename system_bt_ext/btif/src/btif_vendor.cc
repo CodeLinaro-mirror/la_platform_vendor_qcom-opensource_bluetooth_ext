@@ -85,6 +85,8 @@
 #include "device/include/controller.h"
 #include "device/include/interop.h"
 #include "interop_config.h"
+#include "stack/btm/btm_int_types.h"
+#include "stack/btm/btm_int.h"
 
 #if TEST_APP_INTERFACE == TRUE
 #include <bt_testapp.h>
@@ -109,6 +111,16 @@ typedef struct {
   uint16_t manufacturer_id;
   bool is_valid;
 } BTIF_VND_IOT_INFO_CB_DATA;
+
+typedef enum {
+    LE_HIGH_PRIORITY_MODE_NONE = 0,
+    LE_HIGH_PRIORITY_MODE_ENABLED = 1,
+    LE_HIGH_PRIORITY_MODE_DISABLED = 2,
+} btle_high_priority_mode_t;
+
+static btle_high_priority_mode_t le_pending_mode = LE_HIGH_PRIORITY_MODE_NONE;
+static RawAddress le_high_priority_bd_addr = {};
+static std::mutex le_high_priority_mutex_;
 
 extern bt_status_t btif_in_execute_service_request(tBTA_SERVICE_ID service_id,
                                                bool b_enable);
@@ -714,6 +726,131 @@ static void vendor_interop_database_add_remove_name(bool do_add,
   }
 }
 
+void btif_vendor_le_acl_disconnected (RawAddress bd_addr) {
+    LOG_INFO(LOG_TAG,"In btif_vendor_le_acl_disconnected");
+    std::unique_lock<std::mutex> guard(le_high_priority_mutex_);
+    if(le_high_priority_bd_addr == bd_addr) {
+        le_high_priority_bd_addr = {};
+        LOG_INFO(LOG_TAG," reset LE high priority mode address");
+        HAL_CBACK(bt_vendor_callbacks, le_high_priority_mode_cb,
+                  0, &le_high_priority_bd_addr, false);
+        le_pending_mode = LE_HIGH_PRIORITY_MODE_NONE;
+    }
+}
+
+static void set_le_high_priority_mode_complete(tBTM_VSC_CMPL* p_data)
+{
+    LOG_INFO(LOG_TAG,"In set_le_high_priority_mode_complete");
+    uint8_t         *stream,  status, subcmd;
+    uint16_t        opcode, length;
+
+    std::unique_lock<std::mutex> guard(le_high_priority_mutex_);
+
+    if (p_data && (stream = (uint8_t*)p_data->p_param_buf))
+    {
+        opcode = p_data->opcode;
+        length = p_data->param_len;
+        STREAM_TO_UINT8(status, stream);
+        STREAM_TO_UINT8(subcmd, stream);
+        BTIF_TRACE_DEBUG("%s opcode = 0x%04X, length = %d, status = %d, subcmd = %d",
+                __FUNCTION__, opcode, length, status, subcmd);
+
+        if (status == HCI_SUCCESS)
+        {
+            BTIF_TRACE_DEBUG("set_le_high_priority_mode status success");
+        }
+
+        if(le_pending_mode == LE_HIGH_PRIORITY_MODE_ENABLED) {
+            do_in_jni_thread(
+                FROM_HERE,
+                base::Bind(
+                    [](RawAddress addr, uint8_t status, bool mode) {
+                        HAL_CBACK(bt_vendor_callbacks, le_high_priority_mode_cb, status,
+                                  &addr, mode);
+                    },
+                    le_high_priority_bd_addr, status, true));
+        } else if(le_pending_mode == LE_HIGH_PRIORITY_MODE_DISABLED) {
+
+            do_in_jni_thread(
+                FROM_HERE,
+                base::Bind(
+                    [](RawAddress addr, uint8_t status, bool mode) {
+                        HAL_CBACK(bt_vendor_callbacks, le_high_priority_mode_cb, status,
+                                  &addr, mode);
+                    },
+                    le_high_priority_bd_addr, status, false));
+            le_high_priority_bd_addr = {};
+        }
+        le_pending_mode = LE_HIGH_PRIORITY_MODE_NONE;
+    }
+}
+static bool is_le_high_priority_mode_set(const RawAddress* addr)
+{
+    LOG_INFO(LOG_TAG,"In is_le_high_priority_mode_set");
+
+    std::unique_lock<std::mutex> guard(le_high_priority_mutex_);
+
+    tACL_CONN* acl = btm_bda_to_acl(*addr, BT_TRANSPORT_LE);
+    if(acl == nullptr) {
+       LOG_INFO(LOG_TAG,"no BLE ACL found return");
+       return false;
+    }
+
+    if(*addr == le_high_priority_bd_addr){
+        return true;
+    }
+    return false;
+}
+
+static bt_status_t set_le_high_priority_mode(const RawAddress* addr, bool enable)
+{
+    LOG_INFO(LOG_TAG,"In set_le_high_priority_mode");
+    std::unique_lock<std::mutex> guard(le_high_priority_mutex_);
+
+    uint8_t param[20], *p;
+    p = param;
+    memset(param, 0, 20);
+
+    UINT8_TO_STREAM(p, HCI_VSC_LE_HIGH_PRIORITY_MODE_OCF);
+
+    tACL_CONN* acl = btm_bda_to_acl(*addr, BT_TRANSPORT_LE);
+    if(acl == nullptr) {
+        LOG_INFO(LOG_TAG,"no BLE ACL found return");
+        return BT_STATUS_RMT_DEV_DOWN;
+    }
+    UINT16_TO_STREAM(p, acl->hci_handle);
+    UINT8_TO_STREAM(p, enable ? 0x01 : 0x00);
+
+    uint16_t param_len = sizeof(uint8_t) + sizeof(uint16_t) + sizeof(enable);
+
+    if(enable) {
+        if (*addr == le_high_priority_bd_addr) {
+            return BT_STATUS_DONE;
+        } else if(le_pending_mode != LE_HIGH_PRIORITY_MODE_NONE) {
+            return BT_STATUS_BUSY;
+        } else if(!le_high_priority_bd_addr.IsEmpty()) {
+            // already other device is active
+            return BT_STATUS_UNSUPPORTED;
+        }
+        le_high_priority_bd_addr = *addr;
+        le_pending_mode = LE_HIGH_PRIORITY_MODE_ENABLED;
+    } else {
+        if (le_high_priority_bd_addr.IsEmpty()) {
+            return BT_STATUS_DONE;
+        } else if(le_pending_mode != LE_HIGH_PRIORITY_MODE_NONE) {
+            return BT_STATUS_BUSY;
+        } else if(le_high_priority_bd_addr != *addr) {
+            // can't disable for not active device
+            return BT_STATUS_UNSUPPORTED;
+        }
+        le_pending_mode = LE_HIGH_PRIORITY_MODE_DISABLED;
+    }
+
+    BTM_VendorSpecificCommand(HCI_VSC_LE_HIGH_PRIORITY_MODE, param_len,
+            param, set_le_high_priority_mode_complete);
+    return BT_STATUS_SUCCESS;
+}
+
 /*******************************************************************************
 **
 ** Function         get_testapp_interface
@@ -778,6 +915,9 @@ static const btvendor_interface_t btvendorInterface = {
     vendor_interop_match_addr_or_name,
     vendor_interop_database_add_remove_addr,
     vendor_interop_database_add_remove_name,
+    set_le_high_priority_mode,
+    is_le_high_priority_mode_set
+
 };
 
 /*******************************************************************************

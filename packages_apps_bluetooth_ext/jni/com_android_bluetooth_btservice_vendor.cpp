@@ -71,6 +71,7 @@ static jmethodID method_devicePropertyChangedCallback;
 static jmethodID method_adapterPropertyChangedCallback;
 static jmethodID method_ssrCleanupCallback;
 static jmethodID method_whitelistedPlayersChangedCallback;
+static jmethodID method_leHighPriorityModeCallback;
 
 
 static btvendor_interface_t *sBluetoothVendorInterface = NULL;
@@ -327,6 +328,26 @@ static void remote_device_properties_callback(bt_status_t status,
                                types.get(), props.get());
 }
 
+static void le_high_priority_mode_callback(uint8_t status,
+                          RawAddress *bd_addr, bool mode) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  ALOGE("%s: Status is: %d ", __func__, status);
+
+  ScopedLocalRef<jbyteArray> addr(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
+  if (!addr.get()) {
+    ALOGE("Error while allocation byte array in %s", __func__);
+    return;
+  }
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
+                                   (jbyte*)bd_addr);
+  sCallbackEnv->CallVoidMethod(mCallbacksObj,
+                               method_leHighPriorityModeCallback,
+                               addr.get(), (jint)status,
+                               (jboolean)mode );
+}
+
 static btvendor_callbacks_t sBluetoothVendorCallbacks = {
     sizeof(sBluetoothVendorCallbacks),
     bredr_cleanup_callback,
@@ -337,6 +358,7 @@ static btvendor_callbacks_t sBluetoothVendorCallbacks = {
     adapter_vendor_properties_callback,
     ssr_cleanup_callback,
     whitelisted_players_properties_callback,
+    le_high_priority_mode_callback
 };
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
@@ -352,6 +374,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       clazz, "ssr_cleanup_callback", "()V");
     method_whitelistedPlayersChangedCallback = env->GetMethodID(
       clazz, "whitelistedPlayersChangedCallback", "([I[[B)V");
+    method_leHighPriorityModeCallback = env->GetMethodID(
+      clazz, "leHighPriorityModeCallback", "([BIZ)V");
     ALOGI("%s: succeeds", __FUNCTION__);
 }
 
@@ -811,6 +835,66 @@ static void interopDatabaseAddRemoveNameNative(JNIEnv* env, jclass clazz,
   env->ReleaseStringUTFChars(name, name_str);
 }
 
+static jboolean isLeHighPriorityModeSetNative(JNIEnv* env, jclass clazz,
+                                        jstring address) {
+  ALOGV("%s", __func__);
+
+  std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
+
+  if (!sBluetoothVendorInterface) {
+    ALOGW("%s: sBluetoothVendorInterface is null.", __func__);
+    return false;
+  }
+
+  const char* tmp_addr = env->GetStringUTFChars(address, NULL);
+  if (!tmp_addr) {
+    ALOGW("%s: address is null.", __func__);
+    return false;
+  }
+  RawAddress bdaddr;
+  bool success = RawAddress::FromString(tmp_addr, bdaddr);
+
+  env->ReleaseStringUTFChars(address, tmp_addr);
+
+  if (!success) {
+    ALOGW("%s: address is invalid.", __func__);
+    return false;
+  }
+  return sBluetoothVendorInterface->is_le_high_priority_mode_set(
+      &bdaddr);
+}
+
+
+static int setLeHighPriorityModeNative(JNIEnv* env, jclass clazz,
+                                       jstring address, jboolean enable) {
+  ALOGV("%s", __func__);
+
+  std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
+
+  if (!sBluetoothVendorInterface) {
+    ALOGW("%s: sBluetoothVendorInterface is null.", __func__);
+    return JNI_FALSE;
+  }
+
+  const char* tmp_addr = env->GetStringUTFChars(address, NULL);
+  if (!tmp_addr) {
+    ALOGW("%s: address is null.", __func__);
+    return JNI_FALSE;
+  }
+  RawAddress bdaddr;
+  bool success = RawAddress::FromString(tmp_addr, bdaddr);
+
+  env->ReleaseStringUTFChars(address, tmp_addr);
+
+  if (!success) {
+    ALOGW("%s: address is invalid.", __func__);
+    return JNI_FALSE;
+  }
+
+  return sBluetoothVendorInterface->set_le_high_priority_mode(
+      &bdaddr, (enable == JNI_TRUE));
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void *) classInitNative},
     {"initNative", "()V", (void *) initNative},
@@ -843,6 +927,10 @@ static JNINativeMethod sMethods[] = {
         (void*)interopDatabaseAddRemoveAddrNative},
     {"interopDatabaseAddRemoveNameNative", "(ZLjava/lang/String;Ljava/lang/String;)V",
         (void*)interopDatabaseAddRemoveNameNative},
+    {"setLeHighPriorityModeNative", "(Ljava/lang/String;Z)I",
+        (void*) setLeHighPriorityModeNative},
+    {"isLeHighPriorityModeSetNative", "(Ljava/lang/String;)Z",
+        (void*) isLeHighPriorityModeSetNative},
 };
 
 int load_bt_configstore_lib() {
