@@ -1212,8 +1212,8 @@ int btif_lpm_prepare_offload_info(tLPM_mode mode, std::vector<RawAddress> remote
         return 0; //BtOffloadStatus::BT_FAIL
     }
 
-    if (btif_lpm_cb.ble_conns.size() == 0 && btif_lpm_cb.comm_context.size() == 0 && remote_devices.size() ==0) {
-        BTIF_TRACE_DEBUG("%s: No device connected, so sending fail", __FUNCTION__);
+    if ((btif_lpm_cb.ble_conns.size() == 0 && btif_lpm_cb.comm_context.size() == 0) || (remote_devices.size() == 0)) {
+        BTIF_TRACE_DEBUG("%s: Offloadable connection or Offloadable device not exist, so sending fail", __FUNCTION__);
         return 0; //BtOffloadStatus::BT_FAIL
     }
 
