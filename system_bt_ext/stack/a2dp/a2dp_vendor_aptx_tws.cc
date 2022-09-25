@@ -223,6 +223,12 @@ static tA2DP_STATUS A2DP_ParseInfoAptxTWS(tA2DP_APTX_TWS_CIE* p_ie,
   return A2DP_SUCCESS;
 }
 
+uint8_t A2DP_IsPeerVendorCodecValidAptxTWS(const uint8_t* p_codec_info) {
+
+  return A2DP_CodecInfoMatchesCapabilityAptxTWS(&a2dp_aptx_tws_caps,
+                                                p_codec_info,false);
+}
+
 bool A2DP_IsVendorSourceCodecValidAptxTWS(const uint8_t* p_codec_info) {
   tA2DP_APTX_TWS_CIE cfg_cie;
 

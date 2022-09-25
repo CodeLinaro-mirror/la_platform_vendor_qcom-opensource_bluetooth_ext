@@ -81,6 +81,13 @@ class A2dpCodecConfigAptxTWS : public A2dpCodecConfig {
 // codec.
 // NOTE: only codecs that are implemented are considered valid.
 // Returns true if |p_codec_info| contains information about a valid aptX-TWS
+// codec, otherwise specific error code.
+uint8_t A2DP_IsPeerVendorCodecValidAptxTWS(const uint8_t* p_codec_info);
+
+// Checks whether the codec capabilities contain a valid A2DP aptX-TWS Source
+// codec.
+// NOTE: only codecs that are implemented are considered valid.
+// Returns true if |p_codec_info| contains information about a valid aptX-TWS
 // codec, otherwise false.
 bool A2DP_IsVendorSourceCodecValidAptxTWS(const uint8_t* p_codec_info);
 
