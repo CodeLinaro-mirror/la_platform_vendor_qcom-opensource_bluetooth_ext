@@ -127,6 +127,7 @@ EXPORT_SYMBOL bt_configstore_interface_t btConfigStoreInterface = {
 static bool getVendorProperties(uint32_t vPropType, std::vector<vendor_property_t> &vPropList)
 {
   bool status = false;
+  Return<void> ret;
 
   LOG_INFO(LOG_TAG, "%s ", __func__);
   btConfigStoreHal_2_0 = IBTConfigStore_V2_0::getService();
@@ -140,7 +141,10 @@ static bool getVendorProperties(uint32_t vPropType, std::vector<vendor_property_
       vendorPropList = vendorPropListCb;
     };
 
-    btConfigStoreHal_2_0->getVendorProperties(vPropType, cb);
+    ret = btConfigStoreHal_2_0->getVendorProperties(vPropType, cb);
+    if (!ret.isOk()){
+      LOG_ERROR(LOG_TAG, "%s, HIDL returns error ", __func__);
+    }
     if (halResult == Result_V2_0::SUCCESS) {
       for (auto&& vendorProp : vendorPropList) {
         vendor_property_t vProp;
@@ -164,7 +168,10 @@ static bool getVendorProperties(uint32_t vPropType, std::vector<vendor_property_
         vendorPropList = vendorPropListCb;
       };
 
-      btConfigStoreHal_1_0->getVendorProperties(vPropType, cb);
+     ret = btConfigStoreHal_1_0->getVendorProperties(vPropType, cb);
+     if (!ret.isOk()){
+       LOG_ERROR(LOG_TAG, "%s, HIDL returns error ", __func__);
+     }
       if (halResult == Result_V1_0::SUCCESS){
         for (auto&& vendorProp : vendorPropList) {
           vendor_property_t vProp;

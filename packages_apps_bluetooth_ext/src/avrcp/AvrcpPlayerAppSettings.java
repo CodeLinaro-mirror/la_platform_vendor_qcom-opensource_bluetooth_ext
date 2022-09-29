@@ -18,6 +18,12 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 package com.android.bluetooth.avrcp;
 
 import java.util.Timer;
@@ -419,8 +425,8 @@ public class AvrcpPlayerAppSettings {
         byte[] array = new byte[num*2];
         for ( int i = 0; i < num; i++)
         {
-            array[i] = attr_id[i] ;
-            array[i+1] = attr_val[i];
+            array[i*2] = attr_id[i] ;
+            array[i*2+1] = attr_val[i];
             mPendingSetAttributes.add(new Integer(attr_id[i]));
         }
         Intent intent = new Intent(PLAYERSETTINGS_REQUEST);

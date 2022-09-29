@@ -42,6 +42,8 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define IS_DEBUGGABLE_PROPERTY "ro.debuggable"
 #define BTSNOOP_LOG_MODE_PROPERTY "persist.bluetooth.btsnooplogmode"
+//adding adv prop
+#define BTSNOOP_LOG_MODE_PROPERTY_ADV "persist.vendor.service.bt.adv_snoop"
 #define BTSNOOP_DEFAULT_MODE_PROPERTY "persist.bluetooth.btsnoopdefaultmode"
 #define BTSNOOP_MODE_DISABLED "disabled"
 #define BTSNOOP_MODE_FILTERED "filtered"
@@ -127,18 +129,22 @@ static bool is_logging_enable()
     default_mode = std::string(property.data(), len);
   }
 
-  // Get the actual mode
-  int len = osi_property_get(BTSNOOP_LOG_MODE_PROPERTY, property.data(),
+  // Get the adv prop
+  int len = osi_property_get(BTSNOOP_LOG_MODE_PROPERTY_ADV, property.data(),
+                             default_mode.c_str());
+  std::string btsnoop_mode_adv(property.data(), len);
+  // Get the aosp prop
+  len = osi_property_get(BTSNOOP_LOG_MODE_PROPERTY, property.data(),
                              default_mode.c_str());
   std::string btsnoop_mode(property.data(), len);
 
-  if (btsnoop_mode == BTSNOOP_MODE_FULL ||
-      btsnoop_mode == BTSNOOP_MODE_MEDIAPKTSFILTERED ||
-      btsnoop_mode == BTSNOOP_MODE_SNOOPHEADERSFILTERED) {
-    osi_property_set("persist.bluetooth.btsnoopenable", "true");
+  if ( btsnoop_mode == BTSNOOP_MODE_FULL ||
+       btsnoop_mode_adv == BTSNOOP_MODE_MEDIAPKTSFILTERED ||
+       btsnoop_mode_adv == BTSNOOP_MODE_SNOOPHEADERSFILTERED) {
+    osi_property_set(BTLOGGER_ENABLE_PROPERTY, "true");
     bt_logger_enabled = true;
   } else {
-    osi_property_set("persist.bluetooth.btsnoopenable", "");
+    osi_property_set(BTLOGGER_ENABLE_PROPERTY, "");
     bt_logger_enabled = false;
   }
   return bt_logger_enabled;

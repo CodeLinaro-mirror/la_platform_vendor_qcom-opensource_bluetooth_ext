@@ -49,6 +49,7 @@ import android.graphics.Color;
 import android.media.AudioManager;
 import android.media.AudioAttributes;
 import android.media.AudioDeviceAttributes;
+import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioPlaybackConfiguration;
 import android.media.MediaDescription;
@@ -133,6 +134,8 @@ public final class Avrcp_ext {
     private @Nullable MediaController mMediaController;
     private MediaControllerListener mMediaControllerCb;
     private MediaAttributes mMediaAttributes;
+    private final AudioDeviceChangedCallback mAudioDeviceChangedCallback =
+                    new AudioDeviceChangedCallback();
     private long mLastQueueId;
     private PackageManager mPackageManager;
     private int mA2dpState;
@@ -530,9 +533,13 @@ public final class Avrcp_ext {
         mAvrcpBrowseManager = new AvrcpBrowseManager(mContext, mAvrcpMediaRsp);
 
         mHandler.sendEmptyMessage(MSG_INIT_MEDIA_PLAYER_LIST);
-
         mAudioManager.registerAudioPlaybackCallback(
                 mAudioManagerPlaybackCb, mAudioManagerPlaybackHandler);
+        if (!adapterService.isAdvUnicastAudioFeatEnabled()) {
+            Log.v(TAG, "LE Audio disabled, register AudioDeviceCallback in Avrcp_ext");
+            mAudioManager.registerAudioDeviceCallback(
+                    mAudioDeviceChangedCallback, null);
+        }
         changePathDepth = 0;
         changePathFolderType = 0;
         changePathDirection = 0;
@@ -564,8 +571,14 @@ public final class Avrcp_ext {
 
     public synchronized void doQuit() {
         if (DEBUG) Log.d(TAG, "doQuit");
-        if (mAudioManager != null)
+        if (mAudioManager != null) {
             mAudioManager.unregisterAudioPlaybackCallback(mAudioManagerPlaybackCb);
+            AdapterService adapterService = AdapterService.getAdapterService();
+            if (!adapterService.isAdvUnicastAudioFeatEnabled()) {
+                Log.v(TAG, "LE Audio disabled, unregister AudioDeviceCallback in Avrcp_ext");
+                mAudioManager.unregisterAudioDeviceCallback(mAudioDeviceChangedCallback);
+            }
+        }
 
         if (mMediaController != null) mMediaController.unregisterCallback(mMediaControllerCb);
         Message msg = mHandler.obtainMessage(MSG_DEVICE_RC_CLEANUP, 0,
@@ -764,6 +777,31 @@ public final class Avrcp_ext {
             Log.v(TAG, "onQueueChanged: NowPlaying list changed, Queue Size = "+ queue.size());
             mHandler.sendEmptyMessage(MSG_NOW_PLAYING_CHANGED_RSP);
             Log.d(TAG, "Exit onQueueChanged");
+        }
+    }
+
+    private class AudioDeviceChangedCallback extends AudioDeviceCallback {
+        @Override
+        public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+            if (addedDevices == null)
+                return;
+            Log.d(TAG, "onAudioDevicesAdded: size=" + addedDevices.length);
+
+            for (AudioDeviceInfo deviceInfo : addedDevices) {
+                Log.d(TAG, "onAudioDevicesAdded: address=" +
+                        deviceInfo.getAddress() + ", type=" + deviceInfo.getType());
+                String addr = deviceInfo.getAddress();
+                if (!BluetoothAdapter.checkBluetoothAddress(addr))
+                    continue;
+
+                BluetoothDevice activeDevice = mA2dpService.getActiveDevice();
+                if (activeDevice != null && Objects.equals(addr, activeDevice.getAddress()) &&
+                        deviceInfo.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP) {
+                    Log.d(TAG, "set abs volume flag while device added for " + activeDevice);
+                    setAbsVolumeFlag(activeDevice);
+                    break;
+                }
+             }
         }
     }
 
