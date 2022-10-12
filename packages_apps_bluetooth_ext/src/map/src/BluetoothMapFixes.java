@@ -65,8 +65,7 @@ public class BluetoothMapFixes {
     private static HashMap<String,String> mapSdpResponse = new HashMap <String,String>();
     // Stores map of BD address to MCE version for the given BT Session
     private static HashMap<String,Integer> remoteVersion = new HashMap <String,Integer>();
-    private static final String MAP_NOTIFICATION_ID = "map_notification",
-                                MAP_NOTIFICATION_NAME = "BT_MAP_ADVANCE_SUPPORT";
+    private static final String MAP_NOTIFICATION_ID = "map_notification";
     private static final int RECORD_LENGTH = 6,
                              VERSION_LENGTH = 2,
                              MAP_ADV_NOTIFICATION_ID = -1000003,
@@ -202,8 +201,9 @@ public class BluetoothMapFixes {
         if (mNotificationManager == null) {
             mNotificationManager = (NotificationManager)
                     context.getSystemService(Context.NOTIFICATION_SERVICE);
+            String map_notification_name = context.getString(R.string.bluetooth_map_notification_name);
             NotificationChannel mChannel = new NotificationChannel(MAP_NOTIFICATION_ID,
-                    MAP_NOTIFICATION_NAME, NotificationManager.IMPORTANCE_HIGH);
+                    map_notification_name, NotificationManager.IMPORTANCE_HIGH);
             mNotificationManager.createNotificationChannel(mChannel);
         }
 
