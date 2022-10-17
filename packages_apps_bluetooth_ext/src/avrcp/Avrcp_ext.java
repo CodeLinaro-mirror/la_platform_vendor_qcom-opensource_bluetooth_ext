@@ -237,6 +237,7 @@ public final class Avrcp_ext {
     private static final int MSG_LONG_PRESS_PT_CMD_TIMEOUT = 36;
     private static final int MSG_INIT_MEDIA_PLAYER_LIST = 37;
     private static final int MSG_UPDATE_CURRENT_MEDIA_STATE = 38;
+    private static final int MSG_UPDATE_MEDIA_PLAYER_LIST = 39;
 
     private static final int LONG_PRESS_PT_CMD_TIMEOUT_DELAY = 600;
     private static final int CMD_TIMEOUT_DELAY = 2000;
@@ -1859,6 +1860,10 @@ public final class Avrcp_ext {
             case MSG_UPDATE_CURRENT_MEDIA_STATE:
                 Log.d(TAG, "MSG_UPDATE_CURRENT_MEDIA_STATE");
                 updateCurrentMediaState(null);
+                break;
+            case MSG_UPDATE_MEDIA_PLAYER_LIST:
+                Log.d(TAG, "MSG_UPDATE_MEDIA_PLAYER_LIST");
+                buildBrowsablePlayerList();
                 break;
             default:
                 Log.e(TAG, "unknown message! msg.what=" + msg.what);
@@ -3596,9 +3601,10 @@ public final class Avrcp_ext {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (action.equals(Intent.ACTION_USER_UNLOCKED)) {
-                if (DEBUG) Log.d(TAG, "User unlocked, initializing player lists");
+                Log.d(TAG, "User unlocked, initializing player lists");
                 /* initializing media player's list */
-                buildBrowsablePlayerList();
+                if (mHandler != null)
+                    mHandler.sendEmptyMessage(MSG_UPDATE_MEDIA_PLAYER_LIST);
             }
         }
     }
@@ -3682,7 +3688,8 @@ public final class Avrcp_ext {
             // new package has been added.
             if (isBrowsableListUpdated(packageName)) {
                 // Rebuilding browsable players list
-                buildBrowsablePlayerList();
+                if (mHandler != null)
+                    mHandler.sendEmptyMessage(MSG_UPDATE_MEDIA_PLAYER_LIST);
             }
         }
         Log.d(TAG, "Exit handlePackageModified");
