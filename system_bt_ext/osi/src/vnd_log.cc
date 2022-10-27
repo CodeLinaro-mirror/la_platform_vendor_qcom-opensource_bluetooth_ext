@@ -50,6 +50,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define BTSNOOP_MODE_FULL "full"
 #define BTSNOOP_MODE_SNOOPHEADERSFILTERED "snoopheadersfiltered"
 #define BTSNOOP_MODE_MEDIAPKTSFILTERED "mediapktsfiltered"
+#define BTSNOOP_MODE_PROFILESFILTERED "profilesfiltered"
 #define BTLOGGER_ENABLE_PROPERTY "persist.bluetooth.btsnoopenable"
 #define LOCAL_SOCKET_NAME "bthcitraffic"
 
@@ -140,7 +141,8 @@ static bool is_logging_enable()
 
   if ( btsnoop_mode == BTSNOOP_MODE_FULL ||
        btsnoop_mode_adv == BTSNOOP_MODE_MEDIAPKTSFILTERED ||
-       btsnoop_mode_adv == BTSNOOP_MODE_SNOOPHEADERSFILTERED) {
+       btsnoop_mode_adv == BTSNOOP_MODE_SNOOPHEADERSFILTERED ||
+       btsnoop_mode_adv == BTSNOOP_MODE_PROFILESFILTERED) {
     osi_property_set(BTLOGGER_ENABLE_PROPERTY, "true");
     bt_logger_enabled = true;
   } else {
