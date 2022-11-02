@@ -1635,6 +1635,7 @@ void do_le_server_register_ext(char *p);
 void do_le_server_deregister(char *p);
 void do_le_server_deregister_ext(char *p);
 void do_le_server_add_service(char *p);
+void do_le_server_add_custom_service(char *p);
 void do_le_server_connect(char *p);
 void do_le_server_connect_ext(char *p);
 void do_le_server_connect_auto (char *p);
@@ -1736,6 +1737,7 @@ const t_cmd console_cmd_list[] =
     { "s_disconnect", do_le_server_disconnect, ":: transport, BdAddr<00112233445566>", 0 },
     { "s_disconnect_ext", do_le_server_disconnect_ext, ":: serverIf, transport, BdAddr<00112233445566>", 0 },
     { "s_add_service", do_le_server_add_service, "::", 0 },
+    { "s_add_custom_service", do_le_server_add_custom_service, "::UUID length: 2, 4 or 16, UUID<1856>", 0 },
     { "s_send_indication", do_le_server_send_indication, "::handle(hex), confirm (1 for indication, 0 for notification)", 0 },
     { "s_send_multi_notification", do_le_server_send_multi_notification, "::NumAttributes, handles(hex), AttrValueLengths, AttrValueOfAttributes", 0 },
 
@@ -3328,6 +3330,27 @@ void do_le_server_add_service(char *p)
     svc2.uuid = Uuid::FromString("00001801-0000-1000-8000-00805f9b34fb", &is_valid);//00001801-0000-1000-8000-00805f9b34fb
     svc2.type = BTGATT_DB_PRIMARY_SERVICE;
     service.push_back(svc2);
+
+    Ret = sGattIfaceScan->server->add_service(g_server_if_scan, service.data(), service.size());
+    printf("%s:: Ret=%d \n", __FUNCTION__,Ret );
+}
+
+void do_le_server_add_custom_service(char *p)
+{
+    int  Ret = 0;
+    bool is_valid = false;
+    int  uuid_len = 0, uuid_len_bytes = 0;
+
+    uuid_len = get_int(&p, -1); //arg1 - Size in bytes for the uuid (2, 4, or 16)
+    std::string uuid_str = get_uuid_str(&p, uuid_len_bytes); //arg2 service uuid
+    printf("%s:: uuid_str=%s \n", __FUNCTION__, uuid_str.c_str());
+
+    std::vector<btgatt_db_element_t> service;
+    //1st service
+    btgatt_db_element_t svc1 = {0};
+    svc1.uuid = Uuid::FromString(uuid_str, &is_valid);
+    svc1.type = BTGATT_DB_PRIMARY_SERVICE;
+    service.push_back(svc1);
 
     Ret = sGattIfaceScan->server->add_service(g_server_if_scan, service.data(), service.size());
     printf("%s:: Ret=%d \n", __FUNCTION__,Ret );
