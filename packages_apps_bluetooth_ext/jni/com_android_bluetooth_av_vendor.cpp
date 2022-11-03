@@ -45,6 +45,7 @@ static btav_sink_vendor_interface_t *sBluetoothVendorA2dpSinkInterface = NULL;
 static jobject mCallbacksObj = NULL;
 static jmethodID method_onStartIndCallback;
 static jmethodID method_onSuspendIndCallback;
+static jmethodID method_onIsSuspendNeededCallback;
 
 static jbyteArray marshall_bda(const RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
@@ -84,10 +85,22 @@ static void SuspendIndCallback(const RawAddress* bd_addr) {
                                  addr.get());
 }
 
+static bool IsSuspendNeededCallback(const RawAddress* bd_addr) {
+    ALOGI("%s", __FUNCTION__);
+    CallbackEnv sCallbackEnv(__func__);
+    if (!sCallbackEnv.valid()) return false;
+
+    ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
+    if (addr.get() == nullptr) return false;
+    return sCallbackEnv->CallBooleanMethod(mCallbacksObj,
+                         method_onIsSuspendNeededCallback, addr.get());
+}
+
 static btav_sink_vendor_callbacks_t sBluetoothVendorA2dpSinkCallbacks = {
     sizeof(sBluetoothVendorA2dpSinkCallbacks),
     StartIndCallback,
-    SuspendIndCallback
+    SuspendIndCallback,
+    IsSuspendNeededCallback
 };
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
@@ -95,6 +108,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
     method_onStartIndCallback = env->GetMethodID(clazz, "onStartIndCallback", "([B)V");
     method_onSuspendIndCallback =
                   env->GetMethodID(clazz, "onSuspendIndCallback", "([B)V");
+    method_onIsSuspendNeededCallback =
+                  env->GetMethodID(clazz, "onIsSuspendNeededCallback", "([B)Z");
     ALOGI("%s: succeeds", __FUNCTION__);
 }
 
