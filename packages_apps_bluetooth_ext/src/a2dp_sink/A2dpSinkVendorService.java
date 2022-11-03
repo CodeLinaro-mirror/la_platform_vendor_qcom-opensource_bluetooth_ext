@@ -96,6 +96,16 @@ final class A2dpSinkVendorService {
         }
     }
 
+    private boolean onIsSuspendNeededCallback(byte[] address) {
+        A2dpSinkService service = A2dpSinkService.getA2dpSinkService();
+        if (service != null) {
+            return service.onIsSuspendNeededCallback(address);
+        } else {
+            Log.d(TAG,"FATAL: Stack sent event while service is not available: ");
+        }
+        return false;
+    }
+
     private native void initNative();
     private native static void classInitNative();
     private native void cleanupNative();
