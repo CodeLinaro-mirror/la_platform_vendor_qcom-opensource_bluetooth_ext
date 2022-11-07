@@ -2374,7 +2374,8 @@ public final class Avrcp_ext {
                      deviceFeatures[i].isActiveDevice) {
                     addr = getByteAddress(deviceFeatures[i].mCurrentDevice);
                     index = getIndexForDevice(deviceFeatures[i].mCurrentDevice);
-                    Log.v(TAG,"updateCurrentMediaState: addr: " + addr);
+                    String address = Utils.getAddressStringFromByte(addr);
+                    Log.v(TAG,"updateCurrentMediaState: addr: " + address);
                     break;
                 }
             }
