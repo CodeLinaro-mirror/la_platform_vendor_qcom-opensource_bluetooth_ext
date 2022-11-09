@@ -771,12 +771,16 @@ std::vector<btif_lpm_ble_conn_t>::iterator
                      lpm_fetch_ble_conn_by_connid(uint16_t conn_id){
   BTIF_TRACE_DEBUG(" %s: conn_id: %u ", __FUNCTION__, conn_id);
   auto it = btif_lpm_cb.ble_conns.begin();
+  it->is_found = false;
   for (; it!=btif_lpm_cb.ble_conns.end(); it++) {
     auto find_connid = std::find(it->conn_id_list.begin(), it->conn_id_list.end(), conn_id);
-    if (find_connid != it->conn_id_list.end())
-        break;
+    if (find_connid != it->conn_id_list.end()) {
+      //indicate that match is found with the given conn id
+      it->is_found = true;
+      break;
+    }
     else
-        BTIF_TRACE_DEBUG(" %s: conn_id not found ", __FUNCTION__);
+      BTIF_TRACE_DEBUG(" %s: conn_id not found ", __FUNCTION__);
   }
   return it;
 }
@@ -821,7 +825,21 @@ bool lpm_update_ble_conn_mtu(RawAddress& addr, uint16_t mtu){
  *
  ******************************************************************************/
 void btif_lpm_ble_conn_srvc_db(int conn_id, btgatt_db_element_t* db, int count){
-  btif_lpm_ble_conn_t& conn = *lpm_fetch_ble_conn_by_connid((uint16_t)conn_id);
+  auto it = lpm_fetch_ble_conn_by_connid((uint16_t)conn_id);
+  BTIF_TRACE_DEBUG(" %s: conn id : %d count: %d ", __FUNCTION__, conn_id, count);
+
+  if(it == btif_lpm_cb.ble_conns.end()) {
+    BTIF_TRACE_ERROR(" %s: invalid conn id", __FUNCTION__);
+    return;
+  }
+
+  btif_lpm_ble_conn_t conn = *it;
+
+  if(conn.is_found == false) {
+    // couldn't find requested conn id
+    BTIF_TRACE_ERROR(" %s: unknow conn id", __FUNCTION__);
+    return;
+  }
   BTIF_TRACE_DEBUG(" %s: conn id : %d count: %d ", __FUNCTION__, conn_id, count);
   btgatt_db_element_t* curr_db = db;
   conn.gatt_srvc.clear();
