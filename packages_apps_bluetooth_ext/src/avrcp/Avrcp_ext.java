@@ -2486,7 +2486,7 @@ public final class Avrcp_ext {
     }
 
     private void getRcFeaturesRequestFromNative(byte[] address, int features) {
-        if (DEBUG) Log.v(TAG, "getRcFeaturesRequestFromNative: address=" + address.toString());
+        if (DEBUG) Log.v(TAG, "getRcFeaturesRequestFromNative: address= " + Utils.getAddressStringFromByte(address));
         Message msg = mHandler.obtainMessage(MSG_NATIVE_REQ_GET_RC_FEATURES, features, 0,
                 Utils.getAddressStringFromByte(address));
         mHandler.sendMessage(msg);
