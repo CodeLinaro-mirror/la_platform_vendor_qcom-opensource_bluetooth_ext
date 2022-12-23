@@ -46,6 +46,8 @@
 
 #include <hardware/bt_av_vendor.h>
 #include "btif_api.h"
+#include "btif_av.h"
+#include "bta_av_api.h"
 
 btav_sink_vendor_callbacks_t *bt_vendor_av_sink_callbacks = NULL;
 
@@ -77,9 +79,14 @@ static void cleanup(void)
         bt_vendor_av_sink_callbacks = NULL;
 }
 
-bt_status_t start_ind_rsp(const RawAddress& bd_addr, bool accepted) {
-  LOG_INFO(LOG_TAG,"%s: %d", __func__, accepted);
-  return BT_STATUS_SUCCESS;
+bt_status_t start_ind_rsp(const RawAddress& bd_addr, bool accepted)
+{
+    LOG_INFO(LOG_TAG,"%s: %d", __func__, accepted);
+    tBTA_AV_SINK_START_RSP start_rsp;
+    start_rsp.peer_addr = bd_addr;
+    start_rsp.accepted = accepted;
+    btif_dispatch_sm_event(BTIF_AV_SINK_START_IND_RSP, &start_rsp, sizeof(start_rsp));
+    return BT_STATUS_SUCCESS;
 }
 
 bt_status_t suspend_ind_rsp(const RawAddress& bd_addr, bool accepted) {
