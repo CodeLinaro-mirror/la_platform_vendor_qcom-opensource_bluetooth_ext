@@ -1151,6 +1151,7 @@ static bt_callbacks_t bt_callbacks = {
     ssp_request_cb, /* ssp_request_cb  */
     bond_state_changed_cb, /*bond_state_changed_cb */
     NULL, /* address_consolidate_cb */
+    NULL, /* le_address_associate_cb */
     acl_state_changed, /* acl_state_changed_cb */
     NULL, /* thread_evt_cb */
     dut_mode_recv, /*dut_mode_recv_cb */
