@@ -73,6 +73,8 @@ static jmethodID method_adapterPropertyChangedCallback;
 static jmethodID method_ssrCleanupCallback;
 static jmethodID method_whitelistedPlayersChangedCallback;
 static jmethodID method_leHighPriorityModeCallback;
+static jmethodID method_afhMapCallback;
+static jmethodID method_afhMapStatusCallback;
 
 
 static btvendor_interface_t *sBluetoothVendorInterface = NULL;
@@ -353,6 +355,38 @@ static void le_high_priority_mode_callback(uint8_t status,
                                (jboolean)mode );
 }
 
+static void get_afh_map_callback(std::vector<uint8_t> afh_map_data,
+                                 uint16_t length, uint8_t afh_mode) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  ALOGE("%s Length: %d", __FUNCTION__, length);
+
+  ScopedLocalRef<jbyteArray> afh_map(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(afh_map_data.size()));
+  if (!afh_map.get()) {
+    ALOGE("Error while allocation byte array for bqr raw data in %s", __func__);
+    return;
+  }
+  sCallbackEnv->SetByteArrayRegion(afh_map.get(), 0, afh_map_data.size(),
+      (jbyte*)afh_map_data.data());
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj,
+                               method_afhMapCallback, afh_map.get(),
+                               (jint)length, (jint)afh_mode);
+
+}
+
+static void set_afh_map_callback(uint8_t status, uint8_t transport) {
+
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  ALOGE("%s status: %d Transport: %d", __FUNCTION__, status, transport);
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj,
+                               method_afhMapStatusCallback,(jint)status,
+                               (jint)transport);
+}
+
 static btvendor_callbacks_t sBluetoothVendorCallbacks = {
     sizeof(sBluetoothVendorCallbacks),
     bredr_cleanup_callback,
@@ -363,7 +397,9 @@ static btvendor_callbacks_t sBluetoothVendorCallbacks = {
     adapter_vendor_properties_callback,
     ssr_cleanup_callback,
     whitelisted_players_properties_callback,
-    le_high_priority_mode_callback
+    le_high_priority_mode_callback,
+    get_afh_map_callback,
+    set_afh_map_callback
 };
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
@@ -381,6 +417,10 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       clazz, "whitelistedPlayersChangedCallback", "([I[[B)V");
     method_leHighPriorityModeCallback = env->GetMethodID(
       clazz, "leHighPriorityModeCallback", "([BIZ)V");
+    method_afhMapCallback = env->GetMethodID(
+      clazz, "afhMapCallback", "([BII)V");
+    method_afhMapStatusCallback = env->GetMethodID(
+      clazz, "afhMapStatusCallback", "(II)V");
     ALOGI("%s: succeeds", __FUNCTION__);
 }
 
@@ -917,6 +957,58 @@ static int setLeHighPriorityModeNative(JNIEnv* env, jclass clazz,
       &bdaddr, (enable == JNI_TRUE));
 }
 
+static jboolean setAfhChannelMapNative(JNIEnv* env, jclass clazz, jint transport,
+                                       jint len, jbyteArray afhMap) {
+  ALOGV("%s", __func__);
+
+  std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
+
+  if (!sBluetoothVendorInterface) {
+    ALOGW("%s: sBluetoothVendorInterface is null.", __func__);
+    return JNI_FALSE;
+  }
+
+  jbyte* afh = env->GetByteArrayElements(afhMap, NULL);
+  if(afh == NULL) {
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+  env->ReleaseByteArrayElements(afhMap, afh, 0);
+  bool ret = sBluetoothVendorInterface->set_afh_map((afh_map*)afh, transport);
+
+  return (ret == true) ? JNI_TRUE : JNI_FALSE;
+}
+
+static jboolean getAfhChannelMapNative(JNIEnv* env, jclass clazz, jstring address,
+                                       jint transport) {
+  ALOGV("%s", __func__);
+
+  std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
+
+  if (!sBluetoothVendorInterface) {
+    ALOGW("%s: sBluetoothVendorInterface is null.", __func__);
+    return JNI_FALSE;
+  }
+
+  const char* tmp_addr = env->GetStringUTFChars(address, NULL);
+  if (!tmp_addr) {
+    ALOGW("%s: address is null.", __func__);
+    return JNI_FALSE;
+  }
+  RawAddress bdaddr;
+  bool success = RawAddress::FromString(tmp_addr, bdaddr);
+
+  env->ReleaseStringUTFChars(address, tmp_addr);
+
+  if (!success) {
+    ALOGW("%s: address is invalid.", __func__);
+    return JNI_FALSE;
+  }
+  bool ret = sBluetoothVendorInterface->get_afh_map(&bdaddr, transport);
+
+  return (ret == true) ? JNI_TRUE : JNI_FALSE;
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void *) classInitNative},
     {"initNative", "()V", (void *) initNative},
@@ -954,6 +1046,10 @@ static JNINativeMethod sMethods[] = {
         (void*) setLeHighPriorityModeNative},
     {"isLeHighPriorityModeSetNative", "(Ljava/lang/String;)Z",
         (void*) isLeHighPriorityModeSetNative},
+    {"setAfhChannelMapNative", "(II[B)Z",
+        (void*) setAfhChannelMapNative},
+    {"getAfhChannelMapNative", "(Ljava/lang/String;I)Z",
+        (void*) getAfhChannelMapNative},
 };
 
 #if 0
