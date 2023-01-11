@@ -389,6 +389,11 @@ final class Vendor {
         Vendor.interopDatabaseAddRemoveNameNative(false, feature.name(), name);
     }
 
+    public void fetchRemoteLeUuids(BluetoothDevice device, int transport) {
+        getRemoteLeServicesNative(Utils.getBytesFromAddress(device.getAddress()),
+                                          transport);
+    }
+
     private native void bredrcleanupNative();
     private native void bredrstartupNative();
     private native void initNative();
@@ -418,4 +423,5 @@ final class Vendor {
             String feature_name, String address, int length);
     private native static void interopDatabaseAddRemoveNameNative(boolean do_add,
             String feature_name, String name);
+    private native boolean getRemoteLeServicesNative(byte[] address, int transport);
 }
