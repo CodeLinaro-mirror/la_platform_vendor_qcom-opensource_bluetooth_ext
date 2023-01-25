@@ -264,10 +264,22 @@ final class Vendor {
             Log.d(TAG,"afhMapCallback :"+String.format("%x", afhMap[i]));
         }
         Log.d(TAG,"afhMapCallback Afh Mode: "+ afhMode+" status: " +status);
+        Intent intent = new Intent(BluetoothDevice.ACTION_AFH_MAP);
+        intent.putExtra(BluetoothDevice.EXTRA_STATUS, status);
+        intent.putExtra(BluetoothDevice.EXTRA_AFH_MAP, afhMap);
+        intent.putExtra(BluetoothDevice.EXTRA_TRANSPORT, transport);
+        if (transport == BluetoothDevice.TRANSPORT_BREDR) {
+            intent.putExtra(BluetoothDevice.EXTRA_AFH_MODE, afhMode);
+        }
+        mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
     }
 
     private void afhMapStatusCallback(int status, int transport) {
         Log.d(TAG ,"afhMapStatusCallback status:  " +status+ " transport: "+transport);
+        Intent intent = new Intent(BluetoothDevice.ACTION_AFH_MAP_STATUS);
+        intent.putExtra(BluetoothDevice.EXTRA_TRANSPORT, transport);
+        intent.putExtra(BluetoothDevice.EXTRA_STATUS, status);
+        mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
     }
 
     private void bqrDeliver(byte[] remoteAddr,
