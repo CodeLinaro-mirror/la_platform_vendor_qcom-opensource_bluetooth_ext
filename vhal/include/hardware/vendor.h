@@ -164,7 +164,8 @@ typedef void (* whitelisted_players_vendor_prop_callback)(bt_status_t status,
 /** Callback to notify the LE high priority mode changed event. */
 typedef void (* le_high_priority_mode_changed_callback)(uint8_t status,
                           RawAddress *bd_addr, bool mode);
-typedef void (*get_afh_map_callback)(std::vector<uint8_t> afh_map_data, uint16_t length, uint8_t afh_mode);
+typedef void (*get_afh_map_callback)(std::vector<uint8_t> afh_map_data, uint16_t length,
+                          uint8_t afh_mode, uint8_t status);
 typedef void (*set_afh_map_callback)(uint8_t status, uint8_t transport);
 
 /** BT-Vendor callback structure. */

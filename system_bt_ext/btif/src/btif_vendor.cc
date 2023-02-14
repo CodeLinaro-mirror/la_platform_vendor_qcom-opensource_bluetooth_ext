@@ -455,6 +455,7 @@ static void hciclose(void)
         length = p_data->param_len;
         event_code = p_data->event_code;
         if(event_code == HCI_COMMAND_COMPLETE_EVT) {
+            uint8_t status = p_data->p_param_buf[3];
             uint8_t afh_mode = p_data->p_param_buf[6];
             uint16_t opcode = p_data->p_param_buf[1]|p_data->p_param_buf[2] << 8;
             BTIF_TRACE_DEBUG("%s opcode %x", __FUNCTION__, opcode);
@@ -467,11 +468,12 @@ static void hciclose(void)
                 do_in_jni_thread(
                     FROM_HERE,
                     base::Bind(
-                        [](std::vector<uint8_t> afh_map, uint16_t afh_map_len, uint8_t afh_mode) {
+                        [](std::vector<uint8_t> afh_map, uint16_t afh_map_len, uint8_t afh_mode,
+                            uint8_t status) {
                             HAL_CBACK(bt_vendor_callbacks, afh_map_cb, std::move(afh_map),
-                                                                  afh_map_len, afh_mode);
+                                                            afh_map_len, afh_mode, status);
                         },
-                        std::move(afh_map), afh_map_len, afh_mode));
+                        std::move(afh_map), afh_map_len, afh_mode, status));
 
             } else if (opcode == HCI_LE_READ_AFH_CHANNEL_MAP) {
                 afh_map_len = HCI_BTLE_AFH_CHANNEL_MAP_LEN ;
@@ -481,11 +483,12 @@ static void hciclose(void)
                 do_in_jni_thread(
                     FROM_HERE,
                     base::Bind(
-                        [](std::vector<uint8_t> afh_map, uint16_t afh_map_len) {
+                        [](std::vector<uint8_t> afh_map, uint16_t afh_map_len, uint8_t afh_mode,
+                            uint8_t status) {
                             HAL_CBACK(bt_vendor_callbacks, afh_map_cb, std::move(afh_map),
-                                                                  afh_map_len, -1);
+                                                                  afh_map_len, -1, status);
                         },
-                        std::move(afh_map), afh_map_len));
+                        std::move(afh_map), afh_map_len, afh_mode, status));
             } else if (opcode == HCI_SET_AFH_HOST_CHANNEL) {
                 uint8_t afh_status = p_data->p_param_buf[3];
                 uint8_t afh_transport = BT_TRANSPORT_BR_EDR;

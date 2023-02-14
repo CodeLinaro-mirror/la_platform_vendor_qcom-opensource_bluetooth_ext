@@ -219,7 +219,7 @@ final class Vendor {
                                             int status, boolean mode) {
     }
 
-    private void afhMapCallback(byte[] afhMap, int length, int afhMode) {
+    private void afhMapCallback(byte[] afhMap, int length, int afhMode, int status) {
         int transport = 0;
 
         if (length == 10) {
@@ -231,7 +231,7 @@ final class Vendor {
         for (int i =0; i<afhMap.length ;i++) {
             Log.d(TAG,"afhMapCallback :"+String.format("%x", afhMap[i]));
         }
-        Log.d(TAG,"afhMapCallback Afh Mode: "+ afhMode);
+        Log.d(TAG,"afhMapCallback Afh Mode: "+ afhMode+" status: " +status);
     }
 
     private void afhMapStatusCallback(int status, int transport) {
