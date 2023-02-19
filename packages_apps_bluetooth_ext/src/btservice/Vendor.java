@@ -49,6 +49,12 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 package com.android.bluetooth.btservice;
 
 import android.util.Log;
@@ -79,7 +85,7 @@ final class Vendor {
     private boolean isSwbEnabled = true;
     // SWB-PM will be enabled by default
     private boolean isSwbPmEnabled = true;
-
+    private static final int REPORT_ID_VENDOR_SPECIFIC = 0x10;
     static {
         classInitNative();
     }
@@ -270,7 +276,7 @@ final class Vendor {
     }
 
     private void bqrDeliver(byte[] remoteAddr,
-            int lmpVer, int lmpSubVer, int manufacturerId, byte[] bqrRawData) {
+            int lmpVer, int lmpSubVer, int manufacturerId, byte[] bqrRawData, boolean isBqr5Supported) {
         String remoteName = "";
         int remoteCoD = 0;
         String addr = Utils.getAddressStringFromByte(remoteAddr);
@@ -289,9 +295,16 @@ final class Vendor {
             return;
         }
         Log.d(TAG, "" + bqr);
-        Intent intent = new Intent(BluetoothDevice.ACTION_REMOTE_ISSUE_OCCURRED);
-        intent.putExtra(BluetoothDevice.EXTRA_BQR, bqr);
-        mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+        int qualityReportId = bqr.getQualityReportId();
+        if(isBqr5Supported == true && qualityReportId == REPORT_ID_VENDOR_SPECIFIC) {
+            Intent intent = new Intent(BluetoothDevice.ACTION_REMOTE_ISSUE_OCCURRED);
+            intent.putExtra(BluetoothDevice.EXTRA_BQR, bqr);
+            mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+        } else {
+            Intent intent = new Intent(BluetoothDevice.ACTION_REMOTE_ISSUE_OCCURRED);
+            intent.putExtra(BluetoothDevice.EXTRA_BQR, bqr);
+            mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+        }
     }
 
     void ssr_cleanup_callback() {
