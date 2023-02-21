@@ -2374,7 +2374,8 @@ public final class Avrcp_ext {
                      deviceFeatures[i].isActiveDevice) {
                     addr = getByteAddress(deviceFeatures[i].mCurrentDevice);
                     index = getIndexForDevice(deviceFeatures[i].mCurrentDevice);
-                    Log.v(TAG,"updateCurrentMediaState: addr: " + addr);
+                    String address = Utils.getAddressStringFromByte(addr);
+                    Log.v(TAG,"updateCurrentMediaState: addr: " + address);
                     break;
                 }
             }
@@ -2486,7 +2487,7 @@ public final class Avrcp_ext {
     }
 
     private void getRcFeaturesRequestFromNative(byte[] address, int features) {
-        if (DEBUG) Log.v(TAG, "getRcFeaturesRequestFromNative: address=" + address.toString());
+        if (DEBUG) Log.v(TAG, "getRcFeaturesRequestFromNative: address= " + Utils.getAddressStringFromByte(address));
         Message msg = mHandler.obtainMessage(MSG_NATIVE_REQ_GET_RC_FEATURES, features, 0,
                 Utils.getAddressStringFromByte(address));
         mHandler.sendMessage(msg);
