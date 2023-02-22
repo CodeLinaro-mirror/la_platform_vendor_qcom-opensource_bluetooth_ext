@@ -1812,8 +1812,8 @@ static bool bta_avk_co_audio_codec_cfg_matches_caps(uint8_t codec_id, const uint
                ((p_src_sbc_caps->block_len)&(p_local_sbc_caps->block_len))&&
                ((p_src_sbc_caps->num_subbands)&(p_local_sbc_caps->num_subbands))&&
                ((p_src_sbc_caps->alloc_mthd)&(p_local_sbc_caps->alloc_mthd)));
-    }
         break;
+    }
 #if defined(AAC_DECODER_INCLUDED) && (AAC_DECODER_INCLUDED == TRUE)
         /* in case of Sink we have to match if Src Cap is a subset of ours */
     case BTA_AVK_CODEC_M24:
@@ -1833,8 +1833,9 @@ static bool bta_avk_co_audio_codec_cfg_matches_caps(uint8_t codec_id, const uint
         return (((p_src_aac_caps->object_type)&(p_local_aac_caps->object_type))&&
                ((p_src_aac_caps->samp_freq)&(p_local_aac_caps->samp_freq))&&
                ((p_src_aac_caps->channels)&(p_local_aac_caps->channels)));
-    }
+
         break;
+    }
 #endif
 #if defined(MP3_DECODER_INCLUDED) && (MP3_DECODER_INCLUDED == TRUE)
         /* in case of Sink we have to match if Src Cap is a subset of ours */
@@ -1858,11 +1859,12 @@ static bool bta_avk_co_audio_codec_cfg_matches_caps(uint8_t codec_id, const uint
                ((p_src_mp3_caps->samp_freq)&(p_local_mp3_caps->samp_freq))&&
                ((p_src_mp3_caps->mpf) == (p_local_mp3_caps->mpf)) &&
                ((p_src_mp3_caps->channels)&(p_local_mp3_caps->channels)));
-    }
         break;
+    }
 #endif
         /* in case of Sink we have to match if Src Cap is a subset of ours */
     case A2D_NON_A2DP_MEDIA_CT:
+    {
     tA2D_APTX_CIE  *p_src_aptx_caps = (tA2D_APTX_CIE*)p_src_caps;
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
     if ((p_src_aptx_caps->vendorId == A2D_APTX_VENDOR_ID) &&
@@ -1928,7 +1930,7 @@ static bool bta_avk_co_audio_codec_cfg_matches_caps(uint8_t codec_id, const uint
     }
 #endif
         break;
-
+    }
     default:
         APPL_TRACE_ERROR("bta_avk_co_audio_codec_cfg_matches_caps: unsupported codec id %d", codec_id);
         return FALSE;
