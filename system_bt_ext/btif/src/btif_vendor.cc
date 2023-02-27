@@ -927,7 +927,7 @@ static uint8_t measure_good_channels(uint8_t* afh_map, uint8_t length) {
     if(length == HCI_AFH_CHANNEL_MAP_LEN) {
         afh_map[length - 1] &= 0x7F;
     } else if(length == HCI_BTLE_AFH_CHANNEL_MAP_LEN) {
-        afh_map[0] &= 0x1F;
+        afh_map[length - 1] &= 0x1F;
     }
     uint8_t total_good_chl = 0;
     for(uint8_t i=0; i < length; i++) {
