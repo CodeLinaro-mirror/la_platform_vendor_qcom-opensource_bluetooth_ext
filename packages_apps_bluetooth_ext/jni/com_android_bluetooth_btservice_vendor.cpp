@@ -815,6 +815,23 @@ static void interopDatabaseAddRemoveNameNative(JNIEnv* env, jclass clazz,
   env->ReleaseStringUTFChars(name, name_str);
 }
 
+static jboolean getRemoteLeServicesNative(JNIEnv* env, jobject obj,
+                                        jbyteArray address, jint transport) {
+  ALOGV("%s", __func__);
+
+  if (!sBluetoothVendorInterface) return JNI_FALSE;
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (addr == NULL) {
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+
+  sBluetoothVendorInterface->get_remote_le_services((RawAddress*)addr, transport);
+  env->ReleaseByteArrayElements(address, addr, 0);
+  return JNI_TRUE;
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void *) classInitNative},
     {"initNative", "()V", (void *) initNative},
@@ -847,6 +864,7 @@ static JNINativeMethod sMethods[] = {
         (void*)interopDatabaseAddRemoveAddrNative},
     {"interopDatabaseAddRemoveNameNative", "(ZLjava/lang/String;Ljava/lang/String;)V",
         (void*)interopDatabaseAddRemoveNameNative},
+    {"getRemoteLeServicesNative", "([BI)Z", (void*)getRemoteLeServicesNative},
 };
 
 int load_bt_configstore_lib() {

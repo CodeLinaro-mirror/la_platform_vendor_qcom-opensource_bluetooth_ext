@@ -255,6 +255,8 @@ typedef struct {
     void (*interop_database_add_remove_name)(bool do_add,
         const char* feature_name, const char* name);
 
+    void (*get_remote_le_services)(RawAddress *remote_addr, int transport);
+
 } btvendor_interface_t;
 
 __END_DECLS
