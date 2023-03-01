@@ -161,9 +161,10 @@ public class AvrcpBipRspObexServer extends ServerRequestHandler {
         try {
             request = op.getReceivedHeader();
             type = (String)request.getHeader(HeaderSet.TYPE);
-            imgHandle = request.getHeader(IMG_HANDLE).toString();
+            if (D) Log.d(TAG, "OnGet type :" + type);
+            imgHandle = (String)request.getHeader(IMG_HANDLE);
             if (V) logHeader(request);
-            if (D) Log.d(TAG, "OnGet type :" + type + " imgHandle :" + imgHandle);
+            if (D) Log.d(TAG, "OnGet imgHandle :" + imgHandle);
             if ( TextUtils.isEmpty(type) || TextUtils.isEmpty(imgHandle)) {
                 Log.w(TAG, "type or IMG_HANDLE is null, returning OBEX_HTTP_BAD_REQUEST");
                 responseCode = ResponseCodes.OBEX_HTTP_BAD_REQUEST;

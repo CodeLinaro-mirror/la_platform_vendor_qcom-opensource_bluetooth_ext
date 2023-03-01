@@ -783,6 +783,7 @@ static const btvendor_interface_t btvendorInterface = {
     vendor_interop_match_addr_or_name,
     vendor_interop_database_add_remove_addr,
     vendor_interop_database_add_remove_name,
+    btif_dm_get_le_services,
 };
 
 /*******************************************************************************
