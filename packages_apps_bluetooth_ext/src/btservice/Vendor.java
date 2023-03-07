@@ -301,7 +301,7 @@ final class Vendor {
         BluetoothQualityReport bqr;
         try {
             bqr = new BluetoothQualityReport(addr, lmpVer, lmpSubVer,
-                    manufacturerId, remoteName, remoteCoD, bqrRawData);
+                    manufacturerId, remoteName, remoteCoD, bqrRawData, isBqr5Supported);
         } catch (Exception e) {
             Log.e(TAG, "bqrDeliver: failed to create bqr", e);
             return;
@@ -309,8 +309,8 @@ final class Vendor {
         Log.d(TAG, "" + bqr);
         int qualityReportId = bqr.getQualityReportId();
         if(isBqr5Supported == true && qualityReportId == REPORT_ID_VENDOR_SPECIFIC) {
-            Intent intent = new Intent(BluetoothDevice.ACTION_REMOTE_ISSUE_OCCURRED);
-            intent.putExtra(BluetoothDevice.EXTRA_BQR, bqr);
+            Intent intent = new Intent(BluetoothAdapter.ACTION_REMOTE_ISSUE_OCCURRED);
+            intent.putExtra(BluetoothAdapter.EXTRA_BQR, bqr);
             mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
         } else {
             Intent intent = new Intent(BluetoothDevice.ACTION_REMOTE_ISSUE_OCCURRED);
