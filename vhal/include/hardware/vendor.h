@@ -49,6 +49,12 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef ANDROID_INCLUDE_BT_VENDOR_H
 #define ANDROID_INCLUDE_BT_VENDOR_H
 
@@ -133,7 +139,7 @@ typedef void (*  btvendor_iot_device_broadcast_callback)(RawAddress* remote_bd_a
                         uint16_t glitch_count );
 typedef void (* btvendor_bqr_delivery_callback)(RawAddress* remote_bd_addr,
                         uint8_t lmp_ver, uint16_t lmp_subver, uint16_t manufacturer_id,
-                        std::vector<uint8_t> bqr_raw_data);
+                        std::vector<uint8_t> bqr_raw_data, bool qc_bqr5_supported);
 typedef void (* btvendor_bredr_cleanup_callback)(bool status);
 
 /** Callback to notify the remote device vendor properties.
