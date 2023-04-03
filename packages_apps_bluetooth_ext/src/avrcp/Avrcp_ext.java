@@ -4051,8 +4051,16 @@ public final class Avrcp_ext {
                 updateCurrentMediaState(null);
 
                 if (mMediaPlayerInfoList.size() > 0) {
-                    // Set the first one as the Addressed Player
-                    updateCurrentController(mMediaPlayerInfoList.firstKey(), -1);
+                    String packageName = mMediaSessionManager.getMediaKeyEventSessionPackageName();
+                    Log.i(TAG, "getMediaKeyEventSessionPackageName" + packageName);
+                    if(!TextUtils.isEmpty(packageName) &&  mMediaPlayerIds.containsKey(packageName)){
+                        Log.i(TAG,"Set MediaKeyEventSessionPackage as Addressed Player");
+                        updateCurrentController(mMediaPlayerIds.get(packageName) , -1);
+                    } else {
+                        // Set the first one as the Addressed Player
+                        Log.i(TAG,"Set the first one as the Addressed Player");
+                        updateCurrentController(mMediaPlayerInfoList.firstKey(), -1);
+                    }
                 }
             }
         }
