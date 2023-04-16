@@ -16,6 +16,10 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  ******************************************************************************/
 
 #define LOG_TAG "bt_device_interop"
@@ -302,6 +306,7 @@ static const char* interop_feature_string_(const interop_feature_t feature)
     CASE_RETURN_STR(INTEROP_DISABLE_ROLE_SWITCH_DURING_CONNECTION)
     CASE_RETURN_STR(INTEROP_L2CAP_DISCONNECT_ACL_DIRECTLY)
     CASE_RETURN_STR(INTEROP_SKIP_ROBUST_CACHING_READ)
+    CASE_RETURN_STR(INTEROP_DISABLE_ROBUST_CACHING)
     CASE_RETURN_STR(INTEROP_SEND_BONDED_INTENT_AFTER_SDP_TIMEOUT)
   }
   return UNKNOWN_INTEROP_FEATURE;
