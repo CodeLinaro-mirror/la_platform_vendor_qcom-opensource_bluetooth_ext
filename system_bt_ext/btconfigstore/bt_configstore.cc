@@ -86,6 +86,7 @@ android::sp<IBTConfigStore_V2_0> btConfigStoreHal_2_0 = nullptr;
 
 char gPlatformName[16] = {'\0'};
 int gPlatformNameSize = 0;
+uint8_t log_level = SS_BT_TRACE_LEVEL_WARNING;
 
 static bool getControllerAddOnFeatures(controller_add_on_features_list_t *features_list);
 static bool getHostAddOnFeatures(host_add_on_features_list_t *features_list);
