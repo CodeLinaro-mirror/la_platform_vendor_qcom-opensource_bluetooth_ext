@@ -162,8 +162,8 @@ final class AvrcpConstants_ext {
     static final byte NUM_ATTR_ALL = (byte) 0x00;
     static final byte NUM_ATTR_NONE = (byte) 0xFF;
 
-    static final int KEY_STATE_PRESS = 1;
-    static final int KEY_STATE_RELEASE = 0;
+    static final int KEY_STATE_PRESS = 0;
+    static final int KEY_STATE_RELEASE = 1;
 
     static final int GET_ATTRIBUTE_IDS = 0;
     static final int GET_VALUE_IDS = 1;
