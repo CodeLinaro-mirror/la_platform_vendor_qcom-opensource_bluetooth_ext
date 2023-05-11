@@ -118,6 +118,7 @@ typedef enum {
 typedef enum {
     BTRC_NOTIFICATION_TYPE_INTERIM = 0,
     BTRC_NOTIFICATION_TYPE_CHANGED = 1,
+    BTRC_NOTIFICATION_TYPE_NOTIFY = 2,
 } btrc_notification_type_t;
 
 typedef enum {
