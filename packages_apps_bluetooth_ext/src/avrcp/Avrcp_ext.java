@@ -3189,16 +3189,21 @@ public final class Avrcp_ext {
     }
 
     private void notifyVolumeChanged(int volume, boolean isShowUI) {
+        Log.v(TAG, "notifyVolumeChanged: volume=" + volume + " isShowUI=" + isShowUI);
         AdapterService adapterService = AdapterService.getAdapterService();
+        /*
         if(adapterService.isAdvUnicastAudioFeatEnabled()) {
             VolumeManagerIntf mVolumeManager = VolumeManagerIntf.get();
             mVolumeManager.onVolumeChange(volume,
                 ApmConstIntf.AudioFeatures.MEDIA_AUDIO, isShowUI);
             return;
         }
+        */
         if (isShowUI) {
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume,
                     AudioManager.FLAG_SHOW_UI | AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
+            //Show Volume slider UI
+            mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_SAME, AudioManager.FLAG_SHOW_UI);
         } else {
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume,
                     AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
