@@ -49,6 +49,12 @@
  * limitations under the License.
  */
 
+ /*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "BluetoothVendorJni"
 
 #include "com_android_bluetooth.h"
@@ -169,7 +175,7 @@ static void iot_device_broadcast_callback(RawAddress* bd_addr, uint16_t error,
 }
 
 static void bqr_delivery_callback(RawAddress* bd_addr, uint8_t lmp_ver, uint16_t lmp_subver,
-        uint16_t manufacturer_id, std::vector<uint8_t> bqr_raw_data) {
+        uint16_t manufacturer_id, std::vector<uint8_t> bqr_raw_data, bool is_qc_bqr5_supported) {
   ALOGI("%s", __func__);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
@@ -193,7 +199,7 @@ static void bqr_delivery_callback(RawAddress* bd_addr, uint8_t lmp_ver, uint16_t
       (jbyte*)bqr_raw_data.data());
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_bqrDeliver, addr.get(),
-      (jint)lmp_ver, (jint)lmp_subver, (jint)manufacturer_id, raw_data.get());
+      (jint)lmp_ver, (jint)lmp_subver, (jint)manufacturer_id, raw_data.get(), (jboolean)is_qc_bqr5_supported);
 }
 
 static void adapter_vendor_properties_callback(bt_status_t status,
@@ -351,7 +357,7 @@ static void le_high_priority_mode_callback(uint8_t status,
 }
 
 static void get_afh_map_callback(std::vector<uint8_t> afh_map_data,
-                                 uint16_t length, uint8_t afh_mode) {
+                                 uint16_t length, uint8_t afh_mode, uint8_t status) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   ALOGE("%s Length: %d", __FUNCTION__, length);
@@ -367,7 +373,7 @@ static void get_afh_map_callback(std::vector<uint8_t> afh_map_data,
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj,
                                method_afhMapCallback, afh_map.get(),
-                               (jint)length, (jint)afh_mode);
+                               (jint)length, (jint)afh_mode, (jint)status);
 
 }
 
@@ -401,7 +407,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
     method_onBredrCleanup = env->GetMethodID(clazz, "onBredrCleanup", "(Z)V");
     method_iotDeviceBroadcast = env->GetMethodID(clazz, "iotDeviceBroadcast", "([BIIIIIIIIII)V");
-    method_bqrDeliver = env->GetMethodID(clazz, "bqrDeliver", "([BIII[B)V");
+    method_bqrDeliver = env->GetMethodID(clazz, "bqrDeliver", "([BIII[BZ)V");
     method_devicePropertyChangedCallback = env->GetMethodID(
       clazz, "devicePropertyChangedCallback", "([B[I[[B)V");
     method_adapterPropertyChangedCallback = env->GetMethodID(
@@ -413,7 +419,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
     method_leHighPriorityModeCallback = env->GetMethodID(
       clazz, "leHighPriorityModeCallback", "([BIZ)V");
     method_afhMapCallback = env->GetMethodID(
-      clazz, "afhMapCallback", "([BII)V");
+      clazz, "afhMapCallback", "([BIII)V");
     method_afhMapStatusCallback = env->GetMethodID(
       clazz, "afhMapStatusCallback", "(II)V");
     ALOGI("%s: succeeds", __FUNCTION__);

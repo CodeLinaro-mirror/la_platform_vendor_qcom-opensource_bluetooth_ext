@@ -50,6 +50,12 @@
  *
  ******************************************************************************/
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 /************************************************************************************
  *
  *  Filename:      btif_vendor.cc
@@ -88,6 +94,7 @@
 #include "stack/btm/btm_int_types.h"
 #include "stack/btm/btm_int.h"
 #include "hardware/vendor.h"
+#include "btif/include/btif_bqr.h"
 
 #if TEST_APP_INTERFACE == TRUE
 #include <bt_testapp.h>
@@ -143,6 +150,7 @@ btvendor_callbacks_t *bt_vendor_callbacks = NULL;
 static alarm_t *broadcast_cb_timer = NULL;
 static void btif_broadcast_timer_cb(UNUSED_ATTR void *data);
 BTIF_VND_IOT_INFO_CB_DATA broadcast_cb_data;
+static bool is_qc_bqr5_supported = false;
 
 #if TEST_APP_INTERFACE == TRUE
 extern const btl2cap_interface_t *btif_l2cap_get_interface(void);
@@ -224,6 +232,7 @@ void btif_vendor_update_add_on_features() {
         const bt_device_host_add_on_features_t* host_add_on_features =
             controller->get_host_add_on_features(&host_add_on_features_len);
 
+        is_qc_bqr5_supported = HCI_VENDOR_BQR5_SUPPORTED(soc_add_on_features->as_array);
         if (soc_add_on_features && soc_add_on_features_len > 0) {
             vnd_prop.len = soc_add_on_features_len;
             vnd_prop.type = BT_VENDOR_PROPERTY_SOC_ADD_ON_FEATURES;
@@ -244,6 +253,9 @@ void btif_vendor_update_add_on_features() {
     }
 }
 
+bool btif_vendor_is_qc_bqr5_supported() {
+    return is_qc_bqr5_supported;
+}
 
 void btif_vendor_update_whitelisted_media_players() {
     uint8_t num_wlplayers = 0;
@@ -411,11 +423,11 @@ void btif_vendor_bqr_delivery_event(const RawAddress* bd_addr, const uint8_t* bq
         FROM_HERE,
         base::Bind(
             [](RawAddress addr, uint8_t lmp_ver, uint16_t lmp_subver, uint16_t manufacturer_id,
-                std::vector<uint8_t> raw_data) {
+                std::vector<uint8_t> raw_data, bool is_qc_bqr5_supported) {
                 HAL_CBACK(bt_vendor_callbacks, bqr_delivery_cb, &addr,
-                    lmp_ver, lmp_subver, manufacturer_id, std::move(raw_data));
+                    lmp_ver, lmp_subver, manufacturer_id, std::move(raw_data), is_qc_bqr5_supported);
             },
-            *bd_addr, lmp_ver, lmp_subver, manufacturer_id, std::move(raw_data)));
+            *bd_addr, lmp_ver, lmp_subver, manufacturer_id, std::move(raw_data), is_qc_bqr5_supported));
 }
 
 static void bredrstartup(void)
@@ -450,6 +462,7 @@ static void btif_vendor_hci_cmd_cmpl_callback (tBTM_RAW_CMPL *p_data)
         length = p_data->param_len;
         event_code = p_data->event_code;
         if(event_code == HCI_COMMAND_COMPLETE_EVT) {
+            uint8_t status = p_data->p_param_buf[3];
             uint8_t afh_mode = p_data->p_param_buf[6];
             uint16_t opcode = p_data->p_param_buf[1]|p_data->p_param_buf[2] << 8;
             BTIF_TRACE_DEBUG("%s opcode %x", __FUNCTION__, opcode);
@@ -462,11 +475,12 @@ static void btif_vendor_hci_cmd_cmpl_callback (tBTM_RAW_CMPL *p_data)
                 do_in_jni_thread(
                     FROM_HERE,
                     base::Bind(
-                        [](std::vector<uint8_t> afh_map, uint16_t afh_map_len, uint8_t afh_mode) {
+                        [](std::vector<uint8_t> afh_map, uint16_t afh_map_len, uint8_t afh_mode,
+                            uint8_t status) {
                             HAL_CBACK(bt_vendor_callbacks, afh_map_cb, std::move(afh_map),
-                                                                  afh_map_len, afh_mode);
+                                                            afh_map_len, afh_mode, status);
                         },
-                        std::move(afh_map), afh_map_len, afh_mode));
+                        std::move(afh_map), afh_map_len, afh_mode, status));
 
             } else if (opcode == HCI_LE_READ_AFH_CHANNEL_MAP) {
                 afh_map_len = HCI_BTLE_AFH_CHANNEL_MAP_LEN ;
@@ -476,11 +490,12 @@ static void btif_vendor_hci_cmd_cmpl_callback (tBTM_RAW_CMPL *p_data)
                 do_in_jni_thread(
                     FROM_HERE,
                     base::Bind(
-                        [](std::vector<uint8_t> afh_map, uint16_t afh_map_len) {
+                        [](std::vector<uint8_t> afh_map, uint16_t afh_map_len, uint8_t afh_mode,
+                            uint8_t status) {
                             HAL_CBACK(bt_vendor_callbacks, afh_map_cb, std::move(afh_map),
-                                                                  afh_map_len, -1);
+                                                                  afh_map_len, -1, status);
                         },
-                        std::move(afh_map), afh_map_len));
+                        std::move(afh_map), afh_map_len, afh_mode, status));
             } else if (opcode == HCI_SET_AFH_HOST_CHANNEL) {
                 uint8_t afh_status = p_data->p_param_buf[3];
                 uint8_t afh_transport = BT_TRANSPORT_BR_EDR;
@@ -918,7 +933,7 @@ static uint8_t measure_good_channels(uint8_t* afh_map, uint8_t length) {
     if(length == HCI_AFH_CHANNEL_MAP_LEN) {
         afh_map[length - 1] &= 0x7F;
     } else if(length == HCI_BTLE_AFH_CHANNEL_MAP_LEN) {
-        afh_map[0] &= 0x1F;
+        afh_map[length - 1] &= 0x1F;
     }
     uint8_t total_good_chl = 0;
     for(uint8_t i=0; i < length; i++) {
