@@ -98,10 +98,12 @@ tBTA_TWS_PLUS_STATUS BTA_TwsPlusEnable(tBTA_TWS_PLUS_DM_CBACK* p_cback) {
     if (p_cback) {
       tBTA_TWS_PLUS_API_ENABLE* p_buf =
           (tBTA_TWS_PLUS_API_ENABLE*)osi_malloc(sizeof(tBTA_TWS_PLUS_API_ENABLE));
-      p_buf->hdr.event = BTA_TWS_PLUS_API_ENABLE_EVT;
-      p_buf->p_cback = p_cback;
-      bta_sys_sendmsg(p_buf);
-      status = BTA_TWS_PLUS_SUCCESS;
+      if(p_buf) {
+        p_buf->hdr.event = BTA_TWS_PLUS_API_ENABLE_EVT;
+        p_buf->p_cback = p_cback;
+        bta_sys_sendmsg(p_buf);
+        status = BTA_TWS_PLUS_SUCCESS;
+      }
     }
   }
   return status;
@@ -157,7 +159,7 @@ tBTA_TWS_PLUS_STATUS BTA_TwsPlusSdpSearch(RawAddress bd_addr) {
       (tBTA_TWS_PLUS_API_SDP_SEARCH*)osi_malloc(sizeof(tBTA_TWS_PLUS_API_SDP_SEARCH));
 
   APPL_TRACE_API("%s", __func__);
-
+  if(p_msg == NULL) return BTA_TWS_PLUS_FAILURE;
   p_msg->hdr.event = BTA_TWS_PLUS_API_SDP_SEARCH_EVT;
   p_msg->bd_addr = bd_addr;
   bta_sys_sendmsg(p_msg);
@@ -184,6 +186,7 @@ tBTA_TWS_PLUS_STATUS BTA_TwsPlusDeriveLinkKey(RawAddress eb_addr,
       (tBTA_TWS_PLUS_API_DERIVE_LINKKEY*)osi_malloc(sizeof(tBTA_TWS_PLUS_API_DERIVE_LINKKEY));
 
   APPL_TRACE_API("%s", __func__);
+  if(p_msg == NULL) return BTA_TWS_PLUS_FAILURE;
 
   p_msg->hdr.event = BTA_TWS_PLUS_API_DERIVE_LINK_KEY_EVT;
   p_msg->peer_eb_addr =  peer_eb_addr;
@@ -215,6 +218,7 @@ tBTA_TWS_PLUS_STATUS BTA_TwsPlusUpdatePeerEbAddr(RawAddress eb_addr,
 
   APPL_TRACE_API("%s", __func__);
 
+  if(p_msg == NULL) return BTA_TWS_PLUS_FAILURE;
   p_msg->hdr.event = BTA_TWS_PLUS_API_UPDATE_PEER_EB_ADDR_EVT;
   p_msg->peer_eb_addr = peer_eb_addr;
   p_msg->bd_addr = eb_addr;
