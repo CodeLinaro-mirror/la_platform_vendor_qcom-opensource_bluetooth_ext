@@ -504,7 +504,7 @@ public final class Avrcp_ext {
 
             /* Fetch list of WhiteListed Browsable Players as per our interop config DB */
             mBrowsePlayerListConfWLDB =
-                  new ArrayList<String>(Arrays.asList(adapterService.getWhitelistedMediaPlayers()));
+                  new ArrayList<String>(Arrays.asList("com.google.android.apps.youtube.music"));
             Log.w(TAG,"List of Players in WhiteListDB Conf file are: " + mBrowsePlayerListConfWLDB);
         }
         boolean isCoverArtEnabled =
@@ -1029,7 +1029,7 @@ public final class Avrcp_ext {
                 int position;
 
                 String address = Utils.getAddressStringFromByte((byte[]) msg.obj);
-                Log.v(TAG, "Event for device address " + address);
+                Log.v(TAG, "MSG_NATIVE_REQ_GET_PLAY_STATUS Event for device address " + address);
 
                 device = mAdapter.getRemoteDevice(address);
                 deviceIndex = getIndexForDevice(device);
@@ -1873,6 +1873,160 @@ public final class Avrcp_ext {
         }
     }
 
+    private void handleAvrcpMessage(Message msg) {
+        int deviceIndex = INVALID_DEVICE_INDEX;
+        if (DEBUG) Log.v(TAG, "handleAvrcpMessage: received message=" + msg.what);
+        switch(msg.what) {
+            case MSG_NATIVE_REQ_GET_PLAY_STATUS:
+            {
+                BluetoothDevice device;
+                int playState = PLAYSTATUS_ERROR;
+                int current_playState = PLAYSTATUS_ERROR;
+                int position;
+
+                String address = Utils.getAddressStringFromByte((byte[]) msg.obj);
+                Log.v(TAG, "MSG_NATIVE_REQ_GET_PLAY_STATUS Event for device address " + address);
+
+                device = mAdapter.getRemoteDevice(address);
+                deviceIndex = getIndexForDevice(device);
+                if (deviceIndex == INVALID_DEVICE_INDEX) {
+                    Log.e(TAG,"Invalid device index for play status");
+                    break;
+                }
+                playState = getBluetoothPlayState(deviceFeatures[deviceIndex].mCurrentPlayState);
+                current_playState = playState;
+                if (mFastforward) {
+                    playState = PLAYSTATUS_FWD_SEEK;
+                }
+                if (mRewind) {
+                    playState = PLAYSTATUS_REV_SEEK;
+                }
+                position = (int)getPlayPosition(device);
+                // TO-DO: To check if below block can be removed
+                if(avrcp_playstatus_blacklist)
+                {
+                    if ((deviceFeatures[deviceIndex].mCurrentDevice != null) &&
+                        isPlayerStateUpdateBlackListed(
+                            deviceFeatures[deviceIndex].mCurrentDevice.getAddress()) &&
+                            ((playState == PLAYSTATUS_PAUSED) ||
+                            (playState == PLAYSTATUS_STOPPED))) {
+                        if (mA2dpService.getConnectedDevices().size() > 0) {
+                            if (mA2dpService.isA2dpPlaying(
+                                deviceFeatures[deviceIndex].mCurrentDevice)) {
+                                 Log.w(TAG, "A2dp playing, update playstatus to Carkit as PLAYING: " +
+                                     deviceFeatures[deviceIndex].mCurrentDevice.getAddress() +
+                                     " playState " + playState);
+                                 playState = PLAYSTATUS_PLAYING;
+                            }
+                        } else {
+                            if (mAudioManager.isMusicActive()) {
+                                Log.w(TAG, "A2dp not connected, but Music active," +
+                                     " update playstatus to Carkit as PLAYING: " +
+                                     deviceFeatures[deviceIndex].mCurrentDevice.getAddress() +
+                                     " playState " + playState);
+                                playState = PLAYSTATUS_PLAYING;
+                            }
+                        }
+                    }
+                }
+                if (position == -1) {
+                    Log.v(TAG, "Force play postion to 0, for getPlayStatus Rsp");
+                    position = 0;
+                }
+                if (avrcp_playstatus_blacklist && (playState == PLAYSTATUS_PLAYING) &&
+                     ((current_playState == PLAYSTATUS_PAUSED) ||
+                     (current_playState == PLAYSTATUS_STOPPED))) {
+                    Log.v(TAG, "Send play status for avrcp blacklist device");
+                } else {
+                    if (deviceFeatures[deviceIndex].isPlayStatusTimeOut) {
+                        Log.v(TAG, "Sending play status after timeout");
+                        playState = getBluetoothPlayState(mCurrentPlayerState);
+                    } else {
+                 /* IOT fix as some remote device just depends on playback state in CHANGED response
+                  * to update its playback status and trigger avrcp play/pause command. Somietimes,
+                  * after foward or backward, DUT update PAUSED to remote in CHANGED response, then
+                  * update PLAYING in get play status or playback INTERIM response, so that carkit
+                  * display incorrect playback status or trigger incorrect PLAY/PAUSE command.
+                  */
+                        if (deviceFeatures[deviceIndex].mLastRspPlayStatus != playState &&
+                              deviceFeatures[deviceIndex].mLastRspPlayStatus != -1) {
+                            Log.w(TAG,"playback status has changed from last playback CHANGED response, " +
+                                      "repsonse last CHANGED play status");
+                            playState = deviceFeatures[deviceIndex].mLastRspPlayStatus;
+                        }
+                    }
+                }
+                if (DEBUG)
+                    Log.v(TAG, "Play Status for : " + device.getName() +
+                          " state: " + playState + " position: " + position);
+                getPlayStatusRspNative(getByteAddress(device), playState, (int)mSongLengthMs, position);
+                break;
+            }
+            case MSG_NATIVE_REQ_GET_ELEM_ATTRS:
+            {
+                String[] textArray;
+                AvrcpCmd_ext.ElementAttrCmd elem = (AvrcpCmd_ext.ElementAttrCmd) msg.obj;
+                byte numAttr = elem.mNumAttr;
+                int[] attrIds = elem.mAttrIDs;
+                byte[] remoteAddr = elem.mAddress;
+                boolean blacklistAttr = false;
+                if (DEBUG) Log.v(TAG, "MSG_NATIVE_REQ_GET_ELEM_ATTRS:numAttr=" + numAttr);
+                textArray = new String[numAttr];
+                for(int j=0;j< BlacklistDeviceAddrToMediaAttr.length;j++) {
+                    String addr = BlacklistDeviceAddrToMediaAttr[j];
+                    String device_addr = Utils.byteArrayToString(elem.mAddress);
+                    device_addr = device_addr.replaceAll(" ", ":");
+                    if(device_addr.toLowerCase().startsWith(addr.toLowerCase())) {
+                        Log.d(TAG,"Blacklisted for set attribute as empty string");
+                        blacklistAttr = true;
+                        break;
+                    }
+                }
+                StringBuilder responseDebug = new StringBuilder();
+                responseDebug.append("getElementAttr response: ");
+                BluetoothDevice device = null;
+                if (mAvrcpBipRsp != null) {
+                    device = mAvrcpBipRsp.getBluetoothDevice(remoteAddr);
+                }
+                for (int i = 0; i < numAttr; ++i) {
+                    textArray[i] = mMediaAttributes.getString(device, attrIds[i]);
+                    if(blacklistAttr) {
+                        if(attrIds[i] == MediaAttributes.ATTR_MEDIA_NUMBER
+                           && textArray[i].equals("0"))
+                            textArray[i]= new String();
+                        else if(attrIds[i] == MediaAttributes.ATTR_MEDIA_TOTAL_NUMBER
+                                && textArray[i].equals("0"))
+                            textArray[i]= new String();
+                    }
+                    responseDebug.append("[" + attrIds[i] + "=");
+                    if (attrIds[i] == AvrcpConstants_ext.ATTRID_TITLE
+                            || attrIds[i] == AvrcpConstants_ext.ATTRID_ARTIST
+                            || attrIds[i] == AvrcpConstants_ext.ATTRID_ALBUM) {
+                        responseDebug.append(Utils.ellipsize(textArray[i]) + "] ");
+                    } else {
+                        responseDebug.append(textArray[i] + "] ");
+                    }
+                }
+                Log.v(TAG, responseDebug.toString());
+                byte[] bdaddr = elem.mAddress;
+                getElementAttrRspNative(bdaddr, numAttr, attrIds, textArray);
+                break;
+            }
+            case MSG_NATIVE_REQ_REGISTER_NOTIFICATION:
+            {
+            if (DEBUG) Log.v(TAG, "MSG_NATIVE_REQ_REGISTER_NOTIFICATION:event=" + msg.arg1 +
+                    " param=" + msg.arg2);
+            processRegisterNotification((byte[]) msg.obj, msg.arg1, msg.arg2);
+            break;
+            }
+            default:
+            {
+            Log.e(TAG, "handleAvrcpMessage unknown message! msg.what=" + msg.what);
+            break;
+            }
+        }
+    }
+
     private void process_cached_play(int index) {
         Log.d(TAG,"process_cached_play");
         deviceFeatures[index].cache_play_cmd = false;
@@ -2574,7 +2728,8 @@ public final class Avrcp_ext {
         if (DEBUG) Log.v(TAG, "getPlayStatusRequestFromNative: address" + address.toString());
         Message msg = mHandler.obtainMessage(MSG_NATIVE_REQ_GET_PLAY_STATUS);
         msg.obj = address;
-        mHandler.sendMessage(msg);
+        //mHandler.sendMessage(msg);
+        handleAvrcpMessage(msg);
         Log.v(TAG, "Exit getPlayStatusRequestFromNative");
     }
 
@@ -2584,7 +2739,8 @@ public final class Avrcp_ext {
         AvrcpCmd_ext.ElementAttrCmd elemAttr = avrcpCmdobj.new ElementAttrCmd(address, numAttr, attrs);
         Message msg = mHandler.obtainMessage(MSG_NATIVE_REQ_GET_ELEM_ATTRS);
         msg.obj = elemAttr;
-        mHandler.sendMessage(msg);
+        //mHandler.sendMessage(msg);
+        handleAvrcpMessage(msg);
         Log.v(TAG, "Exit getElementAttrRequestFromNative");
     }
 
@@ -2592,7 +2748,8 @@ public final class Avrcp_ext {
         if (DEBUG) Log.v(TAG, "registerNotificationRequestFromNative: eventId=" + eventId);
         Message msg = mHandler.obtainMessage(MSG_NATIVE_REQ_REGISTER_NOTIFICATION, eventId, param);
         msg.obj = address;
-        mHandler.sendMessage(msg);
+        //mHandler.sendMessage(msg);
+        handleAvrcpMessage(msg);
         Log.v(TAG, "Exit registerNotificationRequestFromNative");
     }
 
@@ -6019,16 +6176,16 @@ public final class Avrcp_ext {
     // match up with btrc_event_id_t enum of bt_rc.h
     final static int EVT_PLAY_STATUS_CHANGED = 1;
     final static int EVT_TRACK_CHANGED = 2;
-    final static int EVT_TRACK_REACHED_END = 3;
-    final static int EVT_TRACK_REACHED_START = 4;
-    final static int EVT_PLAY_POS_CHANGED = 5;
+    final static int EVT_TRACK_REACHED_END = 4;
+    final static int EVT_TRACK_REACHED_START = 8;
+    final static int EVT_PLAY_POS_CHANGED = 16;
     final static int EVT_BATT_STATUS_CHANGED = 6;
     final static int EVT_SYSTEM_STATUS_CHANGED = 7;
-    final static int EVT_APP_SETTINGS_CHANGED = 8;
-    final static int EVENT_NOW_PLAYING_CONTENT_CHANGED = 9;
-    final static int EVT_AVBL_PLAYERS_CHANGED = 0xa;
-    final static int EVT_ADDR_PLAYER_CHANGED = 0xb;
-    final static int EVENT_UIDS_CHANGED = 0x0c;
+    final static int EVT_APP_SETTINGS_CHANGED = 32;
+    final static int EVENT_NOW_PLAYING_CONTENT_CHANGED = 64;
+    final static int EVT_AVBL_PLAYERS_CHANGED = 128;
+    final static int EVT_ADDR_PLAYER_CHANGED = 256;
+    final static int EVENT_UIDS_CHANGED = 512;
 
     private native static void classInitNative();
     private native void initNative(int maxConnections);
