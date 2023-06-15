@@ -132,7 +132,7 @@ public class AvrcpPlayerAppSettings {
         mPendingSetAttributes = null;
         mPlayerSettingCmds = null;
         mPlayerAppSettingsCmdDelay =
-                SystemProperties.getLong(AVRCP_PLAYERAPP_SETTINGS_PROPERTY, 100L);
+                SystemProperties.getLong(AVRCP_PLAYERAPP_SETTINGS_PROPERTY, 1500L);
         mContext = context;
         mAvrcpPlayerAppSettingsRspInterface = playerAppSettings;
     }
