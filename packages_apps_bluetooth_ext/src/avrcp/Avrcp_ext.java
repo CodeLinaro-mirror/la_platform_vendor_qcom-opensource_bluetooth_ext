@@ -1877,6 +1877,140 @@ public final class Avrcp_ext {
         int deviceIndex = INVALID_DEVICE_INDEX;
         if (DEBUG) Log.v(TAG, "handleAvrcpMessage: received message=" + msg.what);
         switch(msg.what) {
+            case MSG_NATIVE_REQ_GET_RC_FEATURES:
+            {
+                String address = (String) msg.obj;
+                if (DEBUG)
+                    Log.v(TAG, "MSG_GET_RC_FEATURES: address = " + address +
+                            ", features = " + msg.arg1);
+                BluetoothDevice device = mAdapter.getRemoteDevice(address);
+                deviceIndex = getIndexForDevice(device);
+                if (deviceIndex == INVALID_DEVICE_INDEX) {
+                    Log.v(TAG,"device entry not present, bailing out");
+                    return;
+                }
+                BluetoothDevice mDevice = mA2dpService.getActiveDevice();
+                deviceFeatures[deviceIndex].mFeatures = msg.arg1;
+                deviceFeatures[deviceIndex].mFeatures =
+                    modifyRcFeatureFromBlacklist(deviceFeatures[deviceIndex].mFeatures,
+                    address);
+                Log.d(TAG, "avrcpct-passthrough pts_test = " + pts_test);
+                if (pts_test) {
+                    Log.v(TAG,"fake BTRC_FEAT_ABSOLUTE_VOLUME remote feat support for pts test");
+                    deviceFeatures[deviceIndex].mFeatures =
+                                 deviceFeatures[deviceIndex].mFeatures | BTRC_FEAT_ABSOLUTE_VOLUME;
+                }
+                deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice =
+                        ((deviceFeatures[deviceIndex].mFeatures &
+                        BTRC_FEAT_ABSOLUTE_VOLUME) != 0);
+                //store Absolute volume support
+                Log.d(TAG, "absolute volume support device is present "
+                        + mDeviceAbsVolMap.containsKey(deviceFeatures[deviceIndex].mCurrentDevice));
+                if (!mDeviceAbsVolMap.containsKey(deviceFeatures[deviceIndex].mCurrentDevice) ||
+                    (mDeviceAbsVolMap.containsKey(deviceFeatures[deviceIndex].mCurrentDevice) &&
+                   mDeviceAbsVolMap.get(deviceFeatures[deviceIndex].mCurrentDevice) !=
+                   deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice)) {
+                   SharedPreferences.Editor absVolumeMapEditor = getAbsVolumeMap().edit();
+                   mDeviceAbsVolMap.put(deviceFeatures[deviceIndex].mCurrentDevice,
+                           (boolean)deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice);
+                   absVolumeMapEditor.putBoolean(
+                           deviceFeatures[deviceIndex].mCurrentDevice.getAddress(),
+                           deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice);
+                   // Always use apply() since it is asynchronous, otherwise the call can hang waiting for
+                   // storage to be written.
+                   absVolumeMapEditor.apply();
+                   Log.d(TAG,"absolute volume support data saved");
+                }
+                BATService mBatService = BATService.getBATService();
+                if ((mBatService != null) && mBatService.isBATActive()) {
+                    Log.d(TAG,"MSG_NATIVE_REQ_GET_RC_FEATURES BA Active, update absvol support as true  ");
+                    updateAbsVolumeSupport(device, true);
+                } else if (device.isTwsPlusDevice()) {
+                    if (twsShoEnabled) {
+                        //SHO is enabled, check if TWS+ device is active
+                        int index = -1;
+                        if (mDevice != null) index = getIndexForDevice(mDevice);
+                        if (mDevice == null || (mDevice != null && (mDevice.isTwsPlusDevice() ||
+                            (index != INVALID_DEVICE_INDEX && isAbsoluteVolumeSupported(index))))) {
+                            Log.v(TAG,"TWS+ device, update abs vol as true in RC FEATURE handle");
+                            updateAbsVolumeSupport(device, true);
+                            if (updateAbsVolume) updateAbsVolume = false;
+                        } else {
+                            updateAbsVolume = true;
+                            Log.d(TAG,"TWS+ is not active, set absVolume flag later");
+                        }
+                    } else {
+                        if (mBroadcastService == null) {
+                            AdapterService adapterService = AdapterService.getAdapterService();
+                            mBroadcastService = adapterService.getBroadcastService();
+                            mBroadcastIsActive = adapterService.getBroadcastActive();
+                        }
+                        if (mBroadcastService != null && mBroadcastIsActive != null) {
+                            boolean is_active = false;
+                            try {
+                                is_active = (boolean) mBroadcastIsActive.invoke(mBroadcastService);
+                            } catch(IllegalAccessException e) {
+                                Log.e(TAG, "Broadcast:IsActive IllegalAccessException");
+                            } catch (InvocationTargetException e) {
+                                Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
+                            }
+                            if (!is_active) {
+                               updateAbsVolumeSupport(device, true);
+                            }
+                        } else {
+                            updateAbsVolumeSupport(device, true);
+                        }
+                    }
+                } else if (mDevice != null && Objects.equals(mDevice, device)) {
+                    updateAbsVolumeSupport(device, isAbsoluteVolumeSupported(deviceIndex));
+                    Log.v(TAG,"update audio manager for abs vol state = "
+                            + isAbsoluteVolumeSupported(deviceIndex));
+                }
+                deviceFeatures[deviceIndex].mLastPassthroughcmd = KeyEvent.KEYCODE_UNKNOWN;
+
+                if ((deviceFeatures[deviceIndex].mFeatures &
+                        BTRC_FEAT_AVRC_UI_UPDATE) != 0)
+                {
+                    int NOTIFICATION_ID = android.R.drawable.stat_sys_data_bluetooth;
+                    //Notification.Builder (Context context) constructor was deprecated in API level 26.
+                    //use Notification.Builder (Context context,String channelId) instead.
+                    Notification notification = new Notification.Builder(mContext, AVRCP_NOTIFICATION_ID)
+                        .setContentTitle(mContext.getString(R.string.bluetooth_rc_feat_title))
+                        .setContentText(mContext.getString(R.string.bluetooth_rc_feat_content))
+                        .setSubText(mContext.getString(R.string.bluetooth_rc_feat_subtext))
+                        .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+                        .setChannelId(AVRCP_NOTIFICATION_ID)
+                        .build();
+
+                    if (mNotificationManager != null )
+                        mNotificationManager.notify(NOTIFICATION_ID, notification);
+                    else
+                        Log.e(TAG,"mNotificationManager is null");
+                    Log.v(TAG," update notification manager on remote repair request");
+                }
+                break;
+            }
+            case MSG_SET_AVRCP_CONNECTED_DEVICE:
+            {
+            BluetoothDevice device = (BluetoothDevice) msg.obj;
+            if (msg.arg1 == BluetoothProfile.STATE_CONNECTED) {
+                setAvrcpConnectedDevice(device);
+            } else {
+                if (DEBUG) Log.d(TAG," mAvrcpBipRsp :" + mAvrcpBipRsp);
+                if (mAvrcpBipRsp != null) {
+                    mAvrcpBipRsp.disconnect(device);
+                }
+                setAvrcpDisconnectedDevice(device);
+            }
+            AdapterService adapterService = AdapterService.getAdapterService();
+            if(adapterService.isAdvUnicastAudioFeatEnabled()) {
+                if (DEBUG) Log.d(TAG, "update Avrcp conn state to volumeManager");
+                VolumeManagerIntf mVolumeManager = VolumeManagerIntf.get();
+                mVolumeManager.onConnStateChange(device,
+                        msg.arg1, ApmConstIntf.AudioProfiles.AVRCP);
+            }
+            break;
+            }
             case MSG_NATIVE_REQ_GET_PLAY_STATUS:
             {
                 BluetoothDevice device;
@@ -2720,7 +2854,8 @@ public final class Avrcp_ext {
         if (DEBUG) Log.v(TAG, "getRcFeaturesRequestFromNative: address=" + address.toString());
         Message msg = mHandler.obtainMessage(MSG_NATIVE_REQ_GET_RC_FEATURES, features, 0,
                 Utils.getAddressStringFromByte(address));
-        mHandler.sendMessage(msg);
+        //mHandler.sendMessage(msg);
+        handleAvrcpMessage(msg);
         Log.v(TAG, "Exit getRcFeaturesRequestFromNative");
     }
 
@@ -4956,7 +5091,8 @@ public final class Avrcp_ext {
         int newState = (rc_connected ? BluetoothProfile.STATE_CONNECTED :
             BluetoothProfile.STATE_DISCONNECTED);
         Message msg = mHandler.obtainMessage(MSG_SET_AVRCP_CONNECTED_DEVICE, newState, 0, device);
-        mHandler.sendMessage(msg);
+        //mHandler.sendMessage(msg);
+        handleAvrcpMessage(msg);
         Log.v(TAG, "Exit onConnectionStateChanged");
     }
 
