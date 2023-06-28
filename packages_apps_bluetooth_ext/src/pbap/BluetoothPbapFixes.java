@@ -132,7 +132,7 @@ public class BluetoothPbapFixes {
         AdapterService adapterService = AdapterService.getAdapterService();
         if (adapterService != null) {
             isSupportedPbap12 = adapterService.getProfileInfo(AbstractionLayer.PBAP, AbstractionLayer.PBAP_0102_SUPPORT);
-            isSimSupported = adapterService.getProfileInfo(AbstractionLayer.PBAP, AbstractionLayer.USE_SIM_SUPPORT);
+            isSimSupported = SystemProperties.getBoolean("ro.vendor.bluetooth.pbap_sim.enabled", true);
             if (DEBUG) Log.d(TAG, "isSupportedPbap12: " + isSupportedPbap12);
             if (DEBUG) Log.d(TAG, "isSimSupported: " + isSimSupported);
         }
