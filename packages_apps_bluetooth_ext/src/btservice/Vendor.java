@@ -59,6 +59,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothQualityReport;
+import android.bluetooth.BluetoothStatusCodes;
 import com.android.bluetooth.btservice.InteropUtil.InteropFeature;
 import com.android.bluetooth.Utils;
 
@@ -192,27 +193,61 @@ final class Vendor {
 
     private void bqrDeliver(byte[] remoteAddr,
             int lmpVer, int lmpSubVer, int manufacturerId, byte[] bqrRawData) {
-        String remoteName = "";
-        int remoteCoD = 0;
-        String addr = Utils.getAddressStringFromByte(remoteAddr);
-        if (addr != null) {
-            BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(addr);
-            remoteName = mService.getRemoteName(device);
-            remoteCoD = mService.getRemoteClass(device);
+        BluetoothClass remoteBtClass = null;
+        BluetoothDevice device = null;
+        String remoteName = null;
+
+        String remoteAddress = Utils.getAddressStringFromByte(remoteAddr);
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+
+        if (remoteAddress != null && adapter != null) {
+            device = adapter.getRemoteDevice(remoteAddress);
+            if (device == null) {
+                Log.e(TAG, "bqrDeliver failed: device is null");
+                return;
+            }
+            remoteName = device.getName();
+            remoteBtClass = device.getBluetoothClass();
+            if (remoteBtClass == null) {
+                Log.e(TAG, "bqrDeliver failed: remoteBtClass is null");
+                return;
+            }
+        } else {
+            Log.e(TAG, "bqrDeliver failed: "
+                    + (remoteAddress == null ? "remoteAddress is null" : "adapter is null"));
+            return;
         }
 
         BluetoothQualityReport bqr;
         try {
-            bqr = new BluetoothQualityReport(addr, lmpVer, lmpSubVer,
-                    manufacturerId, remoteName, remoteCoD, bqrRawData);
+            bqr =
+                    new BluetoothQualityReport.Builder(bqrRawData)
+                            .setRemoteAddress(remoteAddress)
+                            .setLmpVersion(lmpVer)
+                            .setLmpSubVersion(lmpSubVer)
+                            .setManufacturerId(manufacturerId)
+                            .setRemoteName(remoteName)
+                            .setBluetoothClass(remoteBtClass)
+                            .build();
+            Log.i(TAG, bqr.toString());
         } catch (Exception e) {
-            Log.e(TAG, "bqrDeliver: failed to create bqr", e);
+            Log.e(TAG, "bqrDeliver failed: failed to create BluetotQualityReport", e);
             return;
         }
-        Log.d(TAG, "" + bqr);
-        Intent intent = new Intent(BluetoothDevice.ACTION_REMOTE_ISSUE_OCCURRED);
-        intent.putExtra(BluetoothDevice.EXTRA_BQR, bqr);
-        mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+
+        try {
+            if (mService == null) {
+                Log.e(TAG, "bqrDeliver failed: adapterService is null");
+                return;
+            }
+            int status = mService.bluetoothQualityReportReadyCallback(device, bqr);
+            if (status != BluetoothStatusCodes.SUCCESS) {
+                Log.e(TAG, "bluetoothQualityReportReadyCallback failed, status: " + status);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "bqrDeliver failed: bluetoothQualityReportReadyCallback error", e);
+            return;
+        }
     }
 
     void ssr_cleanup_callback() {
