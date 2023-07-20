@@ -151,6 +151,7 @@ void process_hci_cmds(uint16_t event) {
 
     BT_HDR* p_buf =
       (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+    if(p_buf == NULL) return;
     p_buf->event = event;
 
      bta_sys_sendmsg(p_buf);
@@ -574,6 +575,7 @@ void BTA_BAEnable()
 void BTA_BARegister() {
     BT_HDR* p_buf =
       (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+    if(p_buf == NULL) return;
 
     p_buf->event = BTA_BA_REGISTER_REQ;
     bta_sys_sendmsg(p_buf);
@@ -590,6 +592,7 @@ void BTA_PauseBA(bool start_sync_train, uint8_t* p_enc_key, uint8_t* p_div_key,
     APPL_TRACE_DEBUG(" %s start_sync_train =%d ", __func__, start_sync_train);
     BT_HDR* p_buf =
       (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+    if(p_buf == NULL) return;
 
     if (start_sync_train)
     {
@@ -610,6 +613,7 @@ void BTA_StreamBA()
     APPL_TRACE_DEBUG(" %s ", __func__);
     BT_HDR* p_buf =
       (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+    if(p_buf == NULL) return;
     p_buf->event = BTA_BA_STREAM_REQ;
     bta_sys_sendmsg(p_buf);
 }
@@ -619,6 +623,7 @@ void BTA_StopBA()
     APPL_TRACE_DEBUG(" %s ", __func__);
     BT_HDR* p_buf =
       (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+    if(p_buf == NULL) return;
     p_buf->event = BTA_BA_STOP_REQ;
     bta_sys_sendmsg(p_buf);
 }
@@ -628,6 +633,7 @@ void BTA_SetVol(uint8_t curr_vol_level)
     APPL_TRACE_DEBUG(" %s ", __func__);
     BT_HDR* p_buf =
       (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+    if(p_buf == NULL) return;
     p_buf->event = BTA_BA_SET_VOL_REQ;
     bta_ba_cb.curr_vol_level = curr_vol_level;
     bta_sys_sendmsg(p_buf);
@@ -638,6 +644,7 @@ void BTA_SetEncKey(uint8_t* enc_key)
     APPL_TRACE_DEBUG(" %s ", __func__);
     BT_HDR* p_buf =
       (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+    if(p_buf == NULL) return;
     p_buf->event = BTA_BA_SET_ENC_KEY;
     memcpy(bta_ba_cb.enc_key, enc_key, ENCRYPTION_KEY_LEN);
     bta_sys_sendmsg(p_buf);
@@ -654,6 +661,7 @@ void BTA_SetEncKey(uint8_t* enc_key)
  ******************************************************************************/
 void BTA_BADeregister() {
     BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+    if(p_buf == NULL) return;
     p_buf->event = BTA_BA_DEREGISTER_REQ;
     bta_sys_sendmsg(p_buf);
 }

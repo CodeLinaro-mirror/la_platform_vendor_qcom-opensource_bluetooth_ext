@@ -283,6 +283,7 @@ void bta_tws_plus_sdp_search(tBTA_TWS_PLUS_MSG* p_data) {
   bta_tws_plus_cb.remote_addr = p_data->sdp_search.bd_addr;
   /* set the uuid used in the search */
   bluetooth::Uuid *bta_tws_plus_search_uuid =  (bluetooth::Uuid *)osi_malloc(sizeof(bluetooth::Uuid));
+  if(bta_tws_plus_search_uuid == NULL) return;
   *bta_tws_plus_search_uuid = bluetooth::Uuid::From128BitBE(UUID_TWS_PLUS_SINK);
 
   /* initialize the search for the uuid */
