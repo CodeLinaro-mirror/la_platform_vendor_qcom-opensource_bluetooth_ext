@@ -1913,6 +1913,7 @@ static bool bta_avk_co_audio_codec_cfg_matches_caps(uint8_t codec_id, const uint
 #endif
         /* in case of Sink we have to match if Src Cap is a subset of ours */
     case A2D_NON_A2DP_MEDIA_CT:
+    {
     tA2D_APTX_CIE  *p_src_aptx_caps = (tA2D_APTX_CIE*)p_src_caps;
 #if defined(APTX_CLASSIC_DECODER_INCLUDED) && (APTX_CLASSIC_DECODER_INCLUDED == TRUE)
     if ((p_src_aptx_caps->vendorId == A2D_APTX_VENDOR_ID) &&
@@ -1978,7 +1979,7 @@ static bool bta_avk_co_audio_codec_cfg_matches_caps(uint8_t codec_id, const uint
     }
 #endif
         break;
-
+    }
     default:
         APPL_TRACE_ERROR("bta_avk_co_audio_codec_cfg_matches_caps: unsupported codec id %d", codec_id);
         return FALSE;

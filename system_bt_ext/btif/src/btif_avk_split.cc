@@ -2290,11 +2290,13 @@ static void btif_avk_handle_event(uint16_t event, char* p_param)
             index = btif_avk_idx_by_bdaddr(&(req.peer_bd));
             break;
         case BTA_AVK_MEDIA_SINK_CFG_EVT:
+        {
             tBTA_AVK_MEDIA *bta_avk_media = (tBTA_AVK_MEDIA *)p_param;
             BTIF_TRACE_IMP("%s event:BTA_AVK_MEDIA_SINK_CFG_EVT addr:%s",__FUNCTION__,
                               bta_avk_media->avk_config.bd_addr.ToString().c_str());
             send_codec_config_report(bta_avk_media, bta_avk_media->avk_config.bd_addr);
             break;
+        }
         default:
             BTIF_TRACE_ERROR(" %s Unhandled AVK event = %d",__FUNCTION__ ,event);
             break;
