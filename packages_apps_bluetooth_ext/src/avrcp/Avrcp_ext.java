@@ -238,6 +238,7 @@ public final class Avrcp_ext {
     private static final int MSG_INIT_MEDIA_PLAYER_LIST = 37;
     private static final int MSG_UPDATE_CURRENT_MEDIA_STATE = 38;
     private static final int MSG_UPDATE_MEDIA_PLAYER_LIST = 39;
+    private static final int MSG_PACKAGE_MODIFIED = 40;
 
     private static final int LONG_PRESS_PT_CMD_TIMEOUT_DELAY = 600;
     private static final int CMD_TIMEOUT_DELAY = 2000;
@@ -246,6 +247,8 @@ public final class Avrcp_ext {
     private static final int AVRCP_BASE_VOLUME_STEP = 1;
     public static final int AVRC_ID_VOL_UP = 0x41;
     public static final int AVRC_ID_VOL_DOWN = 0x42;
+    private static final int ARG_PACKAGE_REMOVED = 1;
+    private static final int ARG_PACKAGE_ADDED = 2;
 
     Object mBroadcastService = null;
     Method mBroadcastIsActive = null;
@@ -1864,6 +1867,9 @@ public final class Avrcp_ext {
             case MSG_UPDATE_MEDIA_PLAYER_LIST:
                 Log.d(TAG, "MSG_UPDATE_MEDIA_PLAYER_LIST");
                 buildBrowsablePlayerList();
+                break;
+            case MSG_PACKAGE_MODIFIED:
+                handlePackageModified((String) msg.obj, msg.arg1 == ARG_PACKAGE_REMOVED);
                 break;
             default:
                 Log.e(TAG, "unknown message! msg.what=" + msg.what);
@@ -3655,7 +3661,9 @@ public final class Avrcp_ext {
                     // a package is being removed, not replaced
                     String packageName = intent.getData().getSchemeSpecificPart();
                     if (packageName != null) {
-                        handlePackageModified(packageName, true);
+                        Message msg = mHandler.obtainMessage(MSG_PACKAGE_MODIFIED,
+                                ARG_PACKAGE_REMOVED, 0, packageName);
+                        mHandler.sendMessage(msg);
                     }
                 }
             } else if (action.equals(Intent.ACTION_PACKAGE_ADDED)
@@ -3664,7 +3672,9 @@ public final class Avrcp_ext {
                 if (DEBUG) Log.d(TAG,"AvrcpServiceBroadcastReceiver-> packageName: "
                         + packageName);
                 if (packageName != null) {
-                    handlePackageModified(packageName, false);
+                    Message msg = mHandler.obtainMessage(MSG_PACKAGE_MODIFIED,
+                            ARG_PACKAGE_ADDED, 0, packageName);
+                    mHandler.sendMessage(msg);
                 }
             }
         }
