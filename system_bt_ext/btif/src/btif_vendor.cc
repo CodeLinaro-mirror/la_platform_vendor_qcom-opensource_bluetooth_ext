@@ -90,7 +90,7 @@
 #include <bt_testapp.h>
 #endif
 
-#define BTA_SERVICE_ID_TO_SERVICE_MASK(id)  ((tBTA_SERVICE_MASK)1 << (id))
+//#define BTA_SERVICE_ID_TO_SERVICE_MASK(id)  ((tBTA_SERVICE_MASK)1 << (id))
 #define CALLBACK_TIMER_PERIOD_MS      (60000)
 #define BTIF_VENDOR_BREDR_CLEANUP 1
 #define BTIF_VENDOR_HCI_CLOSE 2
@@ -158,7 +158,7 @@ static bt_status_t init( btvendor_callbacks_t* callbacks)
 
 static void btif_vendor_bredr_cleanup_event(uint16_t event, char *p_param)
 {
-    tBTA_SERVICE_MASK service_mask;
+    /*tBTA_SERVICE_MASK service_mask;
     uint32_t i;
     service_mask = btif_get_enabled_services_mask();
     for (i = 0; i <= BTA_MAX_SERVICE_ID; i++)
@@ -172,7 +172,7 @@ static void btif_vendor_bredr_cleanup_event(uint16_t event, char *p_param)
     }
     btif_queue_release();
     btif_dm_bredr_disable();
-    BTA_DmBredrCleanup();
+    BTA_DmBredrCleanup();*/
     HAL_CBACK(bt_vendor_callbacks, bredr_cleanup_cb, true);
 }
 
@@ -408,7 +408,7 @@ void btif_vendor_bqr_delivery_event(const RawAddress* bd_addr, const uint8_t* bq
 static void bredrstartup(void)
 {
     LOG_INFO(LOG_TAG,"bredrstartup");
-    BTA_DmBredrStartup();
+    //BTA_DmBredrStartup();
 }
 
 static void bredrcleanup(void)
@@ -428,7 +428,7 @@ static void hciclose(void)
 
 #if HCI_RAW_CMD_INCLUDED == TRUE
 // Callback invoked on receiving HCI event
-static void btif_vendor_hci_event_callback ( tBTM_RAW_CMPL *p)
+/*static void btif_vendor_hci_event_callback ( tBTM_RAW_CMPL *p)
 {
   if((p != NULL) && (bt_vendor_callbacks!= NULL)
       && (bt_vendor_callbacks->hci_event_recv_cb != NULL)) {
@@ -437,25 +437,26 @@ static void btif_vendor_hci_event_callback ( tBTM_RAW_CMPL *p)
     HAL_CBACK(bt_vendor_callbacks, hci_event_recv_cb, p->event_code, p->p_param_buf,
                                                                 p->param_len);
   }
-}
+}*/
 #endif
 
 int hci_cmd_send(uint16_t opcode, uint8_t* buf, uint8_t len)
 {
     BTIF_TRACE_DEBUG("hci_cmd_send");
-    return BTA_DmHciRawCommand(opcode, len, buf, btif_vendor_hci_event_callback);
+    //return BTA_DmHciRawCommand(opcode, len, buf, btif_vendor_hci_event_callback);
+    return 0;
 }
 
 static void set_wifi_state(bool status)
 {
     LOG_INFO(LOG_TAG,"setWifiState :%d", status);
-    BTA_DmSetWifiState(status);
+    //BTA_DmSetWifiState(status);
 }
 
 static void set_Power_back_off_state(bool status)
 {
     LOG_INFO(LOG_TAG,"setPowerBackOffState :%d ", status);
-    BTA_DmPowerBackOff(status);
+    //BTA_DmPowerBackOff(status);
 }
 
 static bool get_profile_info(profile_t profile, profile_info_t feature_name)
@@ -520,8 +521,8 @@ bt_status_t voip_network_type_wifi(bthf_voip_state_t isVoipStarted,
     *p_cursor++ = isVoipStarted;
     *p_cursor++ = isNetworkWifi;
 
-    BTM_VendorSpecificCommand(HCI_VSC_VOIP_NETWORK_WIFI_OCF, sizeof(cmd),
-            cmd, set_voip_network_type_wifi_hci_cmd_complete);
+    //BTM_VendorSpecificCommand(HCI_VSC_VOIP_NETWORK_WIFI_OCF, sizeof(cmd),
+    //        cmd, set_voip_network_type_wifi_hci_cmd_complete);
     return BT_STATUS_SUCCESS;
 }
 
@@ -609,7 +610,7 @@ static bool set_clock_sync_config(bool enable, int mode, int adv_interval,
     ptr += 2;
     cmdlen += 2;
 
-    BTM_VendorSpecificCommand(opcode, cmdlen, cmdbuf, clock_sync_cback);
+    //BTM_VendorSpecificCommand(opcode, cmdlen, cmdbuf, clock_sync_cback);
     return true;
 }
 
@@ -628,7 +629,7 @@ static void start_clock_sync(void)
     uint8_t cmdbuf[] = {0x01}; // subcode
 
     BTIF_TRACE_DEBUG("%s", __func__);
-    BTM_VendorSpecificCommand(opcode, 1, cmdbuf, clock_sync_cback);
+    //BTM_VendorSpecificCommand(opcode, 1, cmdbuf, clock_sync_cback);
 }
 
 static bool vendor_interop_match_addr(const char* feature_name,
@@ -728,9 +729,11 @@ static void vendor_interop_database_add_remove_name(bool do_add,
 ** Returns          btvendor_interface_t
 **
 *******************************************************************************/
+
 #if TEST_APP_INTERFACE == TRUE
 static const void* get_testapp_interface(int test_app_profile)
 {
+#if 0
     if (interface_ready() == FALSE) {
         return NULL;
     }
@@ -749,6 +752,7 @@ static const void* get_testapp_interface(int test_app_profile)
         default:
             return NULL;
     }
+#endif
     return NULL;
 }
 #endif
@@ -773,11 +777,11 @@ static const btvendor_interface_t btvendorInterface = {
     hciclose,
     set_clock_sync_config,
     start_clock_sync,
-#ifdef ADV_AUDIO_FEATURE
-    btif_register_uuid_srvc_disc,
-#else
-    nullptr,
-#endif
+//#ifdef ADV_AUDIO_FEATURE
+//    btif_register_uuid_srvc_disc,
+//#else
+//    nullptr,
+//#endif
     vendor_interop_match_addr,
     vendor_interop_match_name,
     vendor_interop_match_addr_or_name,

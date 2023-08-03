@@ -390,10 +390,10 @@ final class Vendor {
         informTimeoutToHidlNative();
     }
 
-    public void registerUuidSrvcDisc(UUID uuid) {
+    /*public void registerUuidSrvcDisc(UUID uuid) {
         registerUuidSrvcDiscNative(uuid.getLeastSignificantBits(),
             uuid.getMostSignificantBits());
-    }
+    }*/
 
     static boolean interopMatchAddr(InteropFeature feature, String address) {
         return interopMatchAddrNative(feature.name(), address);
@@ -449,7 +449,7 @@ final class Vendor {
         int channel, int jitter, int offset);
     private native boolean startClockSyncNative();
     private native void informTimeoutToHidlNative();
-    private native void registerUuidSrvcDiscNative(long uuid_lsb, long uuid_msb);
+    //private native void registerUuidSrvcDiscNative(long uuid_lsb, long uuid_msb);
 
     private native static boolean interopMatchAddrNative(String feature_name, String address);
     private native static boolean interopMatchNameNative(String feature_name, String name);

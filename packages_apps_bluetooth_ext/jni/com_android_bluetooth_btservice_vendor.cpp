@@ -624,7 +624,7 @@ static bluetooth::Uuid from_java_uuid(jlong uuid_msb, jlong uuid_lsb) {
   return bluetooth::Uuid::From128BitBE(uu);
 }
 
-static void registerUuidSrvcDiscNative(JNIEnv* env, jobject obj,
+/*static void registerUuidSrvcDiscNative(JNIEnv* env, jobject obj,
                                         jlong uuid_lsb,
                                         jlong uuid_msb) {
   ALOGV("%s", __func__);
@@ -632,7 +632,7 @@ static void registerUuidSrvcDiscNative(JNIEnv* env, jobject obj,
   bluetooth::Uuid uuid = from_java_uuid(uuid_msb, uuid_lsb);
 
   sBluetoothVendorInterface->register_uuid_srvc_disc(uuid);
-}
+}*/
 
 static jboolean interopMatchAddrNative(JNIEnv* env, jclass clazz,
       jstring feature_name, jstring address) {
@@ -853,7 +853,7 @@ static JNINativeMethod sMethods[] = {
     {"setClockSyncConfigNative", "(ZIIIII)Z", (void*) setClockSyncConfigNative},
     {"startClockSyncNative", "()Z", (void*) startClockSyncNative},
     {"informTimeoutToHidlNative", "()V", (void*) informTimeoutToHidlNative},
-    {"registerUuidSrvcDiscNative", "(JJ)V", (void*)registerUuidSrvcDiscNative},
+    //{"registerUuidSrvcDiscNative", "(JJ)V", (void*)registerUuidSrvcDiscNative},
     {"interopMatchAddrNative", "(Ljava/lang/String;Ljava/lang/String;)Z",
         (void*)interopMatchAddrNative},
     {"interopMatchNameNative", "(Ljava/lang/String;Ljava/lang/String;)Z",

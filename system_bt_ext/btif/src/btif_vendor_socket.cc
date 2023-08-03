@@ -88,6 +88,7 @@ static bt_status_t btsock_get_sockopt(btsock_type_t type, int channel,
     }
 
     bt_status_t status = BT_STATUS_FAIL;
+#if 0
     switch(type)
     {
         case BTSOCK_RFCOMM:
@@ -106,6 +107,7 @@ static bt_status_t btsock_get_sockopt(btsock_type_t type, int channel,
             status = BT_STATUS_UNSUPPORTED;
             break;
     }
+#endif
     return status;
 }
 
@@ -120,6 +122,7 @@ static bt_status_t btsock_set_sockopt(btsock_type_t type, int channel,
     }
 
     bt_status_t status = BT_STATUS_FAIL;
+#if 0
     switch(type)
     {
         case BTSOCK_RFCOMM:
@@ -138,6 +141,7 @@ static bt_status_t btsock_set_sockopt(btsock_type_t type, int channel,
             status = BT_STATUS_UNSUPPORTED;
             break;
     }
+#endif
     return status;
 }
 

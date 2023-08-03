@@ -44,18 +44,18 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
     ],
     srcs: [
-        "src/btif_l2cap.cc",
-        "src/btif_rfcomm.cc",
+        //"src/btif_l2cap.cc",
+        //"src/btif_rfcomm.cc",
         "src/btif_vendor.cc",
         "src/btif_vendor_socket.cc",
-        "src/btif_gap.cc",
-        "src/btif_gatt_qual.cc",
-        "src/btif_smp.cc",
-        "src/btif_tws_plus.cc",
-        "src/btif_ba.cc",
-        "src/btif_twsp_hf.cc",
-        "src/btif_iot_config.cc",
-        "src/btif_vendor_hf.cc",
+        //"src/btif_gap.cc",
+        //"src/btif_gatt_qual.cc",
+        //"src/btif_smp.cc",
+        //"src/btif_tws_plus.cc",
+        //"src/btif_ba.cc",
+        //"src/btif_twsp_hf.cc",
+        //"src/btif_iot_config.cc",
+        //"src/btif_vendor_hf.cc",
     ],
     shared_libs: [
         "libcutils",
@@ -72,6 +72,10 @@ cc_library_static {
     cflags: [
         "-DBUILDCFG",
         "-DHAS_NO_BDROID_BUILDCFG",
+        "-Wno-unused-parameter",
+        "-Wno-unused-variable",
+        "-Wno-unused-function",
+        "-Wno-unused-private-field"
     ],
 
 }
