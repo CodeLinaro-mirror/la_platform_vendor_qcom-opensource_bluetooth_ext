@@ -27,6 +27,8 @@
 
 typedef uint16_t UINT16;
 
+typedef struct config_legacy_t config_legacy_t;
+
 // API's for adding entries to dynamic interop database
 void interop_database_add_addr(const uint16_t feature, const RawAddress *addr, size_t length);
 void interop_database_add_name(const uint16_t feature, const char *name);

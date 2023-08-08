@@ -461,23 +461,26 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
     close(fd);
   }
 
-  config_t* config = config_new(BT_CONFIG_STORE_PATH);
+  std::unique_ptr<config_t> config = config_new(BT_CONFIG_STORE_PATH);
   if (!config) {
     LOG_ERROR(LOG_TAG, "%s unable to load bt configstore '%s'.", __func__, BT_CONFIG_STORE_PATH);
     return status;
   }
 
   for (int i = 1; i <= MAX_PLATFORM_PROP_RECORD; ++i) {
-    char section_name[16] = {0};
-    snprintf(section_name, sizeof(section_name), "platform%d", i);
+   // char sec_name[16] = {0};
+   // snprintf(sec_name, sizeof(sec_name), "platform%d", i);
 
-    if (!config_has_section(config, section_name)) {
+    const std::unique_ptr<char[]> sec_name( new char[ 16 ] );
+    std::snprintf(sec_name.get(), sizeof(sec_name.get()), "platform%d", i);
+    const std::string* section_name = new std::string(sec_name.get());
+    if (!config_has_section(*config, *section_name)) {
       LOG_INFO(LOG_TAG, "%s no section named %s.", __func__, section_name);
       break;
     }
-
+    std::string empty = "";
     strlcpy(tempPlatformName,
-            config_get_string(config, section_name, "platformName", ""),
+            config_get_string(*config, *section_name, "platformName", &empty)->c_str(),
             sizeof(tempPlatformName));
 
     //platform name includes null terminted string,only compare till gPlatformNameSize-1
@@ -494,7 +497,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
       case BT_PROP_ALL:
         vProp.type = BT_PROP_SOC_TYPE;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "socName", "null"),
+                config_get_string(*config, *section_name, "socName", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -502,7 +505,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
 
         vProp.type = BT_PROP_A2DP_OFFLOAD_CAP;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "a2dpOffloadCapability", "null"),
+                config_get_string(*config, *section_name, "a2dpOffloadCapability", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -510,7 +513,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
 
         vProp.type = BT_PROP_SPILT_A2DP;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "spiltA2dpSupported", "null"),
+                config_get_string(*config, *section_name, "spiltA2dpSupported", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -518,7 +521,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
 
         vProp.type = BT_PROP_AAC_FRAME_CTL;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "aacFrameCtlEnabled", "null"),
+                config_get_string(*config, *section_name, "aacFrameCtlEnabled", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                   convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -526,7 +529,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
 
         vProp.type = BT_PROP_WIPOWER;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "wiPowerSupported", "null"),
+                config_get_string(*config, *section_name, "wiPowerSupported", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -534,7 +537,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
 
         vProp.type = BT_PROP_A2DP_MCAST_TEST;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "a2dpMcastSupported", "null"),
+                config_get_string(*config, *section_name, "a2dpMcastSupported", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -542,7 +545,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
 
         vProp.type = BT_PROP_TWSP_STATE;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "twspStateSupported", "null"),
+                config_get_string(*config, *section_name, "twspStateSupported", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -552,7 +555,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
       case BT_PROP_SOC_TYPE:
         vProp.type = BT_PROP_SOC_TYPE;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "socName", "null"),
+                config_get_string(*config, *section_name, "socName", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -562,7 +565,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
       case BT_PROP_A2DP_OFFLOAD_CAP:
         vProp.type = BT_PROP_A2DP_OFFLOAD_CAP;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "a2dpOffloadCapability", "null"),
+                config_get_string(*config, *section_name, "a2dpOffloadCapability", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -572,7 +575,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
       case BT_PROP_SPILT_A2DP:
         vProp.type = BT_PROP_SPILT_A2DP;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "spiltA2dpSupported", "null"),
+                config_get_string(*config, *section_name, "spiltA2dpSupported", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -582,7 +585,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
       case BT_PROP_AAC_FRAME_CTL:
         vProp.type = BT_PROP_AAC_FRAME_CTL;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "aacFrameCtlEnabled", "null"),
+                config_get_string(*config, *section_name, "aacFrameCtlEnabled", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                   convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -592,7 +595,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
       case BT_PROP_WIPOWER:
         vProp.type = BT_PROP_WIPOWER;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "wiPowerSupported", "null"),
+                config_get_string(*config, *section_name, "wiPowerSupported", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -601,7 +604,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
       case BT_PROP_A2DP_MCAST_TEST:
         vProp.type = BT_PROP_A2DP_MCAST_TEST;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "a2dpMcastSupported", "null"),
+                config_get_string(*config, *section_name, "a2dpMcastSupported", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -611,7 +614,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
       case BT_PROP_TWSP_STATE:
         vProp.type = BT_PROP_TWSP_STATE;
         strlcpy(vProp.value,
-                config_get_string(config, section_name, "twspStateSupported", "null"),
+                config_get_string(*config, *section_name, "twspStateSupported", &empty)->c_str(),
                 sizeof(vProp.value));
         LOG_INFO(LOG_TAG, "%s:: prop type: %s, prop value: %s", __func__,
                 convertPropTypeToStringFormat(vProp.type), vProp.value);
@@ -620,7 +623,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
 
       default:
         LOG_INFO(LOG_TAG, "%s:: prop type not handled %d", __func__, vPropType);
-        config_free(config);
+        config.reset();
         return status;
     }
 
@@ -628,7 +631,7 @@ static bool btConfigStoreLoadProperties(uint32_t vPropType,
     break;
   }
 
-  config_free(config);
+  config.reset();
   return status;
 }
 

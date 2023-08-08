@@ -1116,11 +1116,6 @@ static void request_write_cb(int conn_id, int trans_id, const RawAddress& bda,
             printf("%s:: Invalid attribute value length for long char/desc \n", __FUNCTION__);
             exec_write_status = invalid_attribute_value_len;
         }
-        if((offset > len_long_char) || ((curr_char_val_len > 0) && (offset > curr_char_val_len)))
-        {
-            printf("%s:: Invalid offset for long char/desc \n", __FUNCTION__);
-            exec_write_status = invalid_offset;
-        }
     }
     else
     {
@@ -1760,7 +1755,8 @@ const t_cmd console_cmd_list[] =
     { "start_adv_set", do_start_adv_set, ":: adv_evt_properties(hex eg:13 for connectable and scannable legacy adv), "
             "\n interval(1-interval low, 2-interval medium, 3-interval high),"
             "\n primary phy(1 for LE 1M, 3 for LE Coded),"
-            "\n secondary phy (1 for LE 1M, 2 for LE 2M and 3 for LE Coded)", 0 },
+            "\n secondary phy (1 for LE 1M, 2 for LE 2M and 3 for LE Coded),"
+            "\n advertisement type (0 for PUBLIC TYPE, 1 for RANDOM TYPE)", 0 },
     { "unregister_advertiser", do_unregister_adv_set, ":: UnregisterAdvertiser", 0 },
 
      /* LE-L2CAP cmds */
@@ -2876,6 +2872,11 @@ void do_start_adv_set(char *p)
     params.secondary_advertising_phy = get_int(&p, -1);
     params.channel_map = 0x07;
     params.tx_power = -7;
+    params.own_address_type = get_int(&p, BLE_ADDR_RANDOM);
+
+    printf("%s:: own_address_type=%d, adv_phy=%d, second_adv_phy=%d\n", __FUNCTION__,
+                    params.own_address_type, params.primary_advertising_phy,
+                    params.secondary_advertising_phy);
 
     params.scan_request_notification_enable = false;
 

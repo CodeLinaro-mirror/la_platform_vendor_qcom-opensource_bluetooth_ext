@@ -305,19 +305,18 @@ bool btif_tws_plus_load_tws_devices(void) {
   RawAddress peer_bd_addr;
   char val[PROPERTY_VALUE_MAX] = "";
   int len = PROPERTY_VALUE_MAX;
-  for (const btif_config_section_iter_t* iter = btif_config_section_begin();
-       iter != btif_config_section_end();
-       iter = btif_config_section_next(iter)) {
-    const char* name = btif_config_section_name(iter);
+
+ for (auto& bd_addr : btif_config_get_paired_devices()) {
+    auto name = bd_addr.ToString();
     if (!RawAddress::IsValidAddress(name)) continue;
 
-    BTIF_TRACE_DEBUG(" %s Remote device:%s", __func__, name);
+    BTIF_TRACE_DEBUG("Remote device:%s", name.c_str());
     if (btif_config_get_str(name, BTIF_STORAGE_PATH_TWS_PLUS_PEER_ADDR,
                                   (char*) val, &len)) {
        BTIF_TRACE_DEBUG("%s() Bd addr  src %s  dst %s ", __func__,
-              name, val);
+               name.c_str(), val);
        RawAddress::FromString(val, peer_bd_addr);
-       RawAddress::FromString(name, bd_addr);
+       //RawAddress::FromString(name, bd_addr);
        btif_tws_plus_set_peer_eb_addr(&bd_addr, &peer_bd_addr);
     }
   }

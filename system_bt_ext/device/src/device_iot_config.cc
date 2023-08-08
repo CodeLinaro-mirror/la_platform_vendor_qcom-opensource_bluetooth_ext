@@ -44,7 +44,7 @@
 #include "osi/include/alarm.h"
 #include "osi/include/allocator.h"
 #include "osi/include/compat.h"
-#include "osi/include/config.h"
+#include "osi/include/config_legacy.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 
@@ -86,8 +86,8 @@ static const period_ms_t CONFIG_SETTLE_PERIOD_MS = 12000;
 
 static void timer_iot_config_save_cb(void* data);
 static void device_iot_config_write(uint16_t event, char* p_param);
-static config_t* device_iot_config_open(const char* filename);
-static int device_iot_config_get_device_num(config_t* config);
+static config_legacy_t* device_iot_config_open(const char* filename);
+static int device_iot_config_get_device_num(config_legacy_t* config);
 static void device_iot_config_save(void);
 static bool is_factory_reset(void);
 static void delete_iot_config_files(void);
@@ -104,7 +104,7 @@ static int device_iot_config_devices_loaded = -1;
 static char device_iot_config_time_created[TIME_STRING_LENGTH];
 
 static std::mutex config_lock;  // protects operations on |config|.
-static config_t* config;
+static config_legacy_t *config;
 static alarm_t* config_timer;
 static bool iot_logging_enabled = false;
 
@@ -139,7 +139,7 @@ static future_t* init(void) {
 
   if (!config) {
     LOG_ERROR(LOG_TAG, "%s unable to load bak file; creating empty config.", __func__);
-    config = config_new_empty();
+    config = config_legacy_new_empty();
     device_iot_config_source = NEW_FILE;
   }
 
@@ -151,12 +151,12 @@ static future_t* init(void) {
   int version;
   if (device_iot_config_source == NEW_FILE) {
     version = DEVICE_IOT_INFO_CURRENT_VERSION;
-    config_set_int(config, INFO_SECTION, VERSION_KEY, DEVICE_IOT_INFO_CURRENT_VERSION);
+    config_legacy_set_int(config, INFO_SECTION, VERSION_KEY, DEVICE_IOT_INFO_CURRENT_VERSION);
   } else {
-    version = config_get_int(config, INFO_SECTION, VERSION_KEY, -1);
+    version = config_legacy_get_int(config, INFO_SECTION, VERSION_KEY, -1);
     if (version == -1) {
       version = DEVICE_IOT_INFO_FIRST_VERSION;
-      config_set_int(config, INFO_SECTION, VERSION_KEY, DEVICE_IOT_INFO_FIRST_VERSION);
+      config_legacy_set_int(config, INFO_SECTION, VERSION_KEY, DEVICE_IOT_INFO_FIRST_VERSION);
     }
   }
 
@@ -165,13 +165,13 @@ static future_t* init(void) {
         version, DEVICE_IOT_INFO_CURRENT_VERSION);
     remove(IOT_CONFIG_FILE_PATH);
     remove(IOT_CONFIG_BACKUP_PATH);
-    config_free(config);
-    config = config_new_empty();
+    config_legacy_free(config);
+    config = config_legacy_new_empty();
     if (!config) {
       LOG_ERROR(LOG_TAG, "%s unable to allocate a config object.", __func__);
       goto error;
     }
-    config_set_int(config, INFO_SECTION, VERSION_KEY, DEVICE_IOT_INFO_CURRENT_VERSION);
+    config_legacy_set_int(config, INFO_SECTION, VERSION_KEY, DEVICE_IOT_INFO_CURRENT_VERSION);
     device_iot_config_source = NEW_FILE;
   }
 
@@ -179,7 +179,7 @@ static future_t* init(void) {
 
   // Read or set config file creation timestamp
   const char* time_str;
-  time_str = config_get_string(config, INFO_SECTION, FILE_CREATED_TIMESTAMP, NULL);
+  time_str = config_legacy_get_string(config, INFO_SECTION, FILE_CREATED_TIMESTAMP, NULL);
   if (time_str != NULL) {
     strlcpy(device_iot_config_time_created, time_str, TIME_STRING_LENGTH);
   } else {
@@ -188,7 +188,7 @@ static future_t* init(void) {
     if (time_created) {
       strftime(device_iot_config_time_created, TIME_STRING_LENGTH,
               TIME_STRING_FORMAT, time_created);
-      config_set_string(config, INFO_SECTION, FILE_CREATED_TIMESTAMP,
+      config_legacy_set_string(config, INFO_SECTION, FILE_CREATED_TIMESTAMP,
               device_iot_config_time_created);
     }
   }
@@ -208,15 +208,15 @@ static future_t* init(void) {
 
 error:
   alarm_free(config_timer);
-  config_free(config);
+  config_legacy_free(config);
   config_timer = NULL;
   config = NULL;
   device_iot_config_source = NOT_LOADED;
   return future_new_immediate(FUTURE_FAIL);
 }
 
-static config_t* device_iot_config_open(const char* filename) {
-  config_t* config = config_new(filename);
+static config_legacy_t* device_iot_config_open(const char* filename) {
+  config_legacy_t* config = config_legacy_new(filename);
   if (!config)
     return NULL;
 
@@ -250,7 +250,7 @@ static future_t* clean_up(void) {
   config_timer = NULL;
 
   std::unique_lock<std::mutex> lock(config_lock);
-  config_free(config);
+  config_legacy_free(config);
   config = NULL;
   return future_new_immediate(FUTURE_SUCCESS);
 }
@@ -270,7 +270,7 @@ bool device_iot_config_has_section(const char* section) {
   CHECK(section != NULL);
 
   std::unique_lock<std::mutex> lock(config_lock);
-  return config_has_section(config, section);
+  return config_legacy_has_section(config, section);
 }
 
 bool device_iot_config_exist(const char* section, const char* key) {
@@ -281,7 +281,7 @@ bool device_iot_config_exist(const char* section, const char* key) {
   CHECK(key != NULL);
 
   std::unique_lock<std::mutex> lock(config_lock);
-  return config_has_key(config, section, key);
+  return config_legacy_has_key(config, section, key);
 }
 
 static bool device_iot_config_has_key_value(const char* section, const char* key, const char* value_str) {
@@ -290,7 +290,7 @@ static bool device_iot_config_has_key_value(const char* section, const char* key
   CHECK(key != NULL);
   CHECK(value_str != NULL);
 
-  const char* stored_value = config_get_string(config, section, key, NULL);
+  const char* stored_value = config_legacy_get_string(config, section, key, NULL);
 
   if (!stored_value || strcmp(value_str, stored_value) != 0)
     return false;
@@ -307,9 +307,9 @@ bool device_iot_config_get_int(const char* section, const char* key, int* value)
   CHECK(value != NULL);
 
   std::unique_lock<std::mutex> lock(config_lock);
-  bool ret = config_has_key(config, section, key);
+  bool ret = config_legacy_has_key(config, section, key);
   if (ret)
-    *value = config_get_int(config, section, key, *value);
+    *value = config_legacy_get_int(config, section, key, *value);
 
   return ret;
 }
@@ -336,7 +336,7 @@ bool device_iot_config_set_int(const char* section, const char* key, int value) 
   if (device_iot_config_has_key_value(section, key, value_str))
     return true;
 
-  config_set_string(config, section, key, value_str);
+  config_legacy_set_string(config, section, key, value_str);
   device_iot_config_save();
 
   return true;
@@ -360,13 +360,13 @@ bool device_iot_config_int_add_one(const char* section, const char* key) {
   LOG_VERBOSE(LOG_TAG, "%s: sec=%s, key=%s", __func__, section, key);
   int result = 0;
   std::unique_lock<std::mutex> lock(config_lock);
-  result = config_get_int(config, section, key, result);
+  result = config_legacy_get_int(config, section, key, result);
   if (result >= 0) {
     result += 1;
   } else {
     result = 0;
   }
-  config_set_int(config, section, key, result);
+  config_legacy_set_int(config, section, key, result);
   device_iot_config_save();
 
   return true;
@@ -390,7 +390,7 @@ bool device_iot_config_get_hex(const char* section, const char* key, int* value)
 
   int sscanf_ret, result = 0;
   std::unique_lock<std::mutex> lock(config_lock);
-  const char* stored_value = config_get_string(config, section, key, NULL);
+  const char* stored_value = config_legacy_get_string(config, section, key, NULL);
   if (!stored_value)
     return false;
 
@@ -432,7 +432,7 @@ bool device_iot_config_set_hex(const char* section, const char* key, int value, 
   if (device_iot_config_has_key_value(section, key, value_str))
     return true;
 
-  config_set_string(config, section, key, value_str);
+  config_legacy_set_string(config, section, key, value_str);
   device_iot_config_save();
 
   return true;
@@ -469,7 +469,7 @@ bool device_iot_config_get_str(const char* section, const char* key, char* value
   CHECK(size_bytes != NULL);
 
   std::unique_lock<std::mutex> lock(config_lock);
-  const char* stored_value = config_get_string(config, section, key, NULL);
+  const char* stored_value = config_legacy_get_string(config, section, key, NULL);
 
   if (!stored_value)
     return false;
@@ -493,7 +493,7 @@ bool device_iot_config_set_str(const char* section, const char* key, const char*
   if (device_iot_config_has_key_value(section, key, value))
     return true;
 
-  config_set_string(config, section, key, value);
+  config_legacy_set_string(config, section, key, value);
   device_iot_config_save();
 
   return true;
@@ -519,7 +519,7 @@ bool device_iot_config_get_bin(const char* section, const char* key,
   CHECK(length != NULL);
 
   std::unique_lock<std::mutex> lock(config_lock);
-  const char* value_str = config_get_string(config, section, key, NULL);
+  const char* value_str = config_legacy_get_string(config, section, key, NULL);
 
   if (!value_str)
     return false;
@@ -546,7 +546,7 @@ size_t device_iot_config_get_bin_length(const char* section, const char* key) {
   CHECK(key != NULL);
 
   std::unique_lock<std::mutex> lock(config_lock);
-  const char* value_str = config_get_string(config, section, key, NULL);
+  const char* value_str = config_legacy_get_string(config, section, key, NULL);
 
   if (!value_str)
     return 0;
@@ -584,7 +584,7 @@ bool device_iot_config_set_bin(const char* section, const char* key,
   if (device_iot_config_has_key_value(section, key, str))
     return true;
 
-  config_set_string(config, section, key, str);
+  config_legacy_set_string(config, section, key, str);
   device_iot_config_save();
 
   osi_free(str);
@@ -604,14 +604,14 @@ const device_iot_config_section_iter_t* device_iot_config_section_begin(void) {
   CHECK_LOGGING_ENABLED(NULL);
 
   CHECK(config != NULL);
-  return (const device_iot_config_section_iter_t* )config_section_begin(config);
+  return (const device_iot_config_section_iter_t* )config_legacy_section_begin(config);
 }
 
 const device_iot_config_section_iter_t* device_iot_config_section_end(void) {
   CHECK_LOGGING_ENABLED(NULL);
 
   CHECK(config != NULL);
-  return (const device_iot_config_section_iter_t* )config_section_end(config);
+  return (const device_iot_config_section_iter_t* )config_legacy_section_end(config);
 }
 
 const device_iot_config_section_iter_t* device_iot_config_section_next(const
@@ -620,7 +620,7 @@ const device_iot_config_section_iter_t* device_iot_config_section_next(const
 
   CHECK(config != NULL);
   CHECK(section != NULL);
-  return (const device_iot_config_section_iter_t* )config_section_next((const
+  return (const device_iot_config_section_iter_t* )config_legacy_section_next((const
           config_section_node_t* )section);
 }
 
@@ -629,7 +629,7 @@ const char* device_iot_config_section_name(const device_iot_config_section_iter_
 
   CHECK(config != NULL);
   CHECK(section != NULL);
-  return config_section_name((const config_section_node_t* )section);
+  return config_legacy_section_name((const config_section_node_t* )section);
 }
 
 bool device_iot_config_remove(const char* section, const char* key) {
@@ -640,7 +640,7 @@ bool device_iot_config_remove(const char* section, const char* key) {
   CHECK(key != NULL);
 
   std::unique_lock<std::mutex> lock(config_lock);
-  return config_remove_key(config, section, key);
+  return config_legacy_remove_key(config, section, key);
 }
 
 static void device_iot_config_save(void) {
@@ -676,14 +676,14 @@ bool device_iot_config_clear(void) {
   alarm_cancel(config_timer);
 
   std::unique_lock<std::mutex> lock(config_lock);
-  config_free(config);
+  config_legacy_free(config);
 
-  config = config_new_empty();
+  config = config_legacy_new_empty();
   if (config == NULL) {
     return false;
   }
 
-  bool ret = config_save(config, IOT_CONFIG_FILE_PATH);
+  bool ret = config_legacy_save(config, IOT_CONFIG_FILE_PATH);
   device_iot_config_source = RESET;
   return ret;
 }
@@ -703,7 +703,7 @@ static void set_modified_time() {
   if (time_modified) {
     strftime(device_iot_config_time_modified, TIME_STRING_LENGTH,
             TIME_STRING_FORMAT, time_modified);
-    config_set_string(config, INFO_SECTION, FILE_MODIFIED_TIMESTAMP,
+    config_legacy_set_string(config, INFO_SECTION, FILE_MODIFIED_TIMESTAMP,
             device_iot_config_time_modified);
   }
 }
@@ -723,17 +723,17 @@ static void restrict_device_num() {
   LOG_INFO(LOG_TAG, "%s: curr_num=%d, need_remove_num=%d", __func__,
      curr_num, need_remove_devices_num);
 
-  const config_section_node_t* snode = config_section_begin(config);
-  while (snode != config_section_end(config)) {
-    const char* section = config_section_name(snode);
+  const config_section_node_t* snode = config_legacy_section_begin(config);
+  while (snode != config_legacy_section_end(config)) {
+    const char* section = config_legacy_section_name(snode);
     if (RawAddress::IsValidAddress(section)) {
-      snode = config_section_next(snode);
-      config_remove_section(config, section);
+      snode = config_legacy_section_next(snode);
+      config_legacy_remove_section(config, section);
       if (++removed_devices >= need_remove_devices_num) {
         break;
       }
     } else {
-      snode = config_section_next(snode);
+      snode = config_legacy_section_next(snode);
     }
   }
 }
@@ -763,23 +763,23 @@ static void device_iot_config_write(uint16_t event, UNUSED_ATTR char* p_param) {
 
   rename(IOT_CONFIG_FILE_PATH, IOT_CONFIG_BACKUP_PATH);
   restrict_device_num();
-  config_sections_sort_by_entry_key(config, compare_key);
-  config_save(config, IOT_CONFIG_FILE_PATH);
+  config_legacy_sections_sort_by_entry_key(config, compare_key);
+  config_legacy_save(config, IOT_CONFIG_FILE_PATH);
 }
 
-static int device_iot_config_get_device_num(config_t* conf) {
+static int device_iot_config_get_device_num(config_legacy_t* conf) {
   CHECK_LOGGING_ENABLED(0);
 
   CHECK(conf != NULL);
   int devices = 0;
 
-  const config_section_node_t* snode = config_section_begin(conf);
-  while (snode != config_section_end(conf)) {
-    const char* section = config_section_name(snode);
+  const config_section_node_t* snode = config_legacy_section_begin(conf);
+  while (snode != config_legacy_section_end(conf)) {
+    const char* section = config_legacy_section_name(snode);
     if (RawAddress::IsValidAddress(section)) {
       devices++;
     }
-    snode = config_section_next(snode);
+    snode = config_legacy_section_next(snode);
   }
   return devices;
 }

@@ -33,7 +33,7 @@
 #include <string.h>
 
 #include "bt_types.h"
-#include "osi/include/config.h"
+#include "osi/include/config_legacy.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "osi/include/compat.h"
@@ -51,7 +51,7 @@ static const char *PROFILE_CONF_FILE_PATH = "/data/misc/bluedroid/bt_profile.con
 
 list_t *profile_conf_list = NULL;
 bool profile_db_is_initialized = false;
-static config_t *config;
+static config_legacy_t *config;
 
 #define CASE_RETURN_STR(const) case const: return #const;
 
@@ -59,9 +59,7 @@ static config_t *config;
 #define KEY_MAX_LENGTH      (249)
 #define VALUE_MAX_LENGTH    (6)
 #define BT_DEFAULT_POWER    (0x80)
-struct config_t {
-  list_t *sections;
-};
+
 
 typedef struct {
   char *key;
@@ -204,19 +202,19 @@ static int profile_config_init(void)
   struct stat sts;
 
   if (!stat(PROFILE_CONF_FILE_PATH, &sts) && sts.st_size) {
-    if(!(config = config_new(PROFILE_CONF_FILE_PATH))) {
+    if(!(config = config_legacy_new(PROFILE_CONF_FILE_PATH))) {
       LOG_WARN(LOG_TAG, "%s unable to load config file for : %s",
          __func__, PROFILE_CONF_FILE_PATH);
     }
   } else if (!stat(PROFILE_CONF_BASE_FILE_PATH, &sts) && sts.st_size) {
-    if(!(config = config_new(PROFILE_CONF_BASE_FILE_PATH))) {
+    if(!(config = config_legacy_new(PROFILE_CONF_BASE_FILE_PATH))) {
       LOG_WARN(LOG_TAG, "%s unable to load config file for : %s",
          __func__, PROFILE_CONF_BASE_FILE_PATH);
     }else {
-        config_save(config, PROFILE_CONF_FILE_PATH);
+        config_legacy_save(config, PROFILE_CONF_FILE_PATH);
     }
   }
-  if(!config  && !(config = config_new_empty())) {
+  if(!config  && !(config = config_legacy_new_empty())) {
     goto error;
   }
 
@@ -225,7 +223,7 @@ static int profile_config_init(void)
   return 0;
 
 error:
-  config_free(config);
+  config_legacy_free(config);
   config = NULL;
   return -1;
 }
@@ -770,6 +768,6 @@ static void load_config()
 
 static void profile_config_cleanup(void)
 {
-  config_free(config);
+  config_legacy_free(config);
   config = NULL;
 }

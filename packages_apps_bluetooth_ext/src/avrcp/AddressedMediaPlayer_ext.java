@@ -105,7 +105,8 @@ public class AddressedMediaPlayer_ext {
 
         // NOTE: this is out-of-spec (AVRCP 1.6.1 sec 6.10.4.3, p90) but we answer it anyway
         // because some CTs ask for it.
-        if (Arrays.equals(itemAttr.mUid, AvrcpConstants_ext.TRACK_IS_SELECTED)) {
+        if (Arrays.equals(itemAttr.mUid, AvrcpConstants_ext.TRACK_IS_SELECTED) ||
+            mediaId == mLastTrackIdSent) {
             mediaId = getActiveQueueItemId(mediaController);
             if (DEBUG) {
                 Log.d(TAG, "getItemAttr: Remote requests for now playing contents, sending UID: "
@@ -122,7 +123,28 @@ public class AddressedMediaPlayer_ext {
                 return;
             }
         }
+        mediaId = ByteBuffer.wrap(itemAttr.mUid).getLong();
+        if (mediaId == mLastTrackIdSent) {
+            MediaMetadata metadata = mediaController.getMetadata();
+            if (metadata != null) {
+                 Log.d(TAG, "Send current playing metadata");
+                 MediaDescription.Builder bob = new MediaDescription.Builder();
+                 MediaDescription desc = metadata.getDescription();
 
+                 // set the simple ones that MediaMetadata builds for us
+                 bob.setMediaId(desc.getMediaId());
+                 bob.setTitle(desc.getTitle());
+                 bob.setSubtitle(desc.getSubtitle());
+                 bob.setDescription(desc.getDescription());
+                 // fill the ones that we use later
+                 bob.setExtras(fillBundle(metadata, desc.getExtras()));
+
+                // build queue item with the new metadata
+                MediaSession.QueueItem current = new QueueItem(bob.build(), SINGLE_QID);
+                getItemAttrFilterAttr(bdaddr, itemAttr, current, mediaController);
+                return;
+            }
+        }
         // Couldn't find it, so the id is invalid
         mMediaInterface.getItemAttrRsp(bdaddr, AvrcpConstants_ext.RSP_INV_ITEM, null);
     }

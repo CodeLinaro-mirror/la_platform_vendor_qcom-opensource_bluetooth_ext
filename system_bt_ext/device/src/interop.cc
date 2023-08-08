@@ -16,6 +16,10 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  ******************************************************************************/
 
 #define LOG_TAG "bt_device_interop"
@@ -34,7 +38,7 @@
 #include <utility>
 
 #include "bt_types.h"
-#include "osi/include/config.h"
+#include "osi/include/config_legacy.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "osi/include/compat.h"
@@ -60,8 +64,8 @@ pthread_mutex_t interop_list_lock;
 
 // protects operations on |config|
 static pthread_mutex_t file_lock;
-static config_t *config_static;
-static config_t *config_dynamic;
+static config_legacy_t *config_static;
+static config_legacy_t *config_dynamic;
 
 static const char* UNKNOWN_INTEROP_FEATURE = "UNKNOWN";
 // map from feature name to feature id
@@ -88,9 +92,6 @@ static std::map<std::string, int> feature_name_id_map;
 #define VERSION_BASED   "Version_Based"
 #define LMP_VERSION_BASED   "LMP_Version_Based"
 
-struct config_t {
-  list_t *sections;
-};
 
 typedef struct {
   char *key;
@@ -297,12 +298,15 @@ static const char* interop_feature_string_(const interop_feature_t feature)
     CASE_RETURN_STR(INTEROP_RETRY_SCO_AFTER_REMOTE_REJECT_SCO)
     CASE_RETURN_STR(INTEROP_DELAY_SCO_FOR_MO_CALL)
     CASE_RETURN_STR(INTEROP_CHANGE_HID_VID_PID)
+    CASE_RETURN_STR(INTEROP_A2DP_DELAY_DISCONNECT)
     CASE_RETURN_STR(END_OF_INTEROP_LIST)
     CASE_RETURN_STR(INTEROP_HFP_1_8_BLACKLIST)
     CASE_RETURN_STR(INTEROP_DISABLE_ROLE_SWITCH_DURING_CONNECTION)
     CASE_RETURN_STR(INTEROP_L2CAP_DISCONNECT_ACL_DIRECTLY)
     CASE_RETURN_STR(INTEROP_SKIP_ROBUST_CACHING_READ)
+    CASE_RETURN_STR(INTEROP_DISABLE_ROBUST_CACHING)
     CASE_RETURN_STR(INTEROP_SEND_BONDED_INTENT_AFTER_SDP_TIMEOUT)
+    CASE_RETURN_STR(INTEROP_HFP_SEND_OK_FOR_CLCC_AFTER_VOIP_CALL_END)
   }
   return UNKNOWN_INTEROP_FEATURE;
 }
@@ -394,30 +398,30 @@ static int interop_config_init(void)
   pthread_mutex_lock(&file_lock);
 
   if (!stat(INTEROP_STATIC_FILE_PATH, &sts) && sts.st_size) {
-    if(!(config_static = config_new(INTEROP_STATIC_FILE_PATH))) {
+    if(!(config_static = config_legacy_new(INTEROP_STATIC_FILE_PATH))) {
       LOG_WARN(LOG_TAG, "%s unable to load static config file for : %s",
          __func__, INTEROP_STATIC_FILE_PATH);
     }
   }
-  if(!config_static  && !(config_static = config_new_empty())) {
+  if(!config_static  && !(config_static = config_legacy_new_empty())) {
     goto error;
   }
 
   if (!stat(INTEROP_DYNAMIC_FILE_PATH, &sts) && sts.st_size) {
-    if(!(config_dynamic = config_new(INTEROP_DYNAMIC_FILE_PATH))) {
+    if(!(config_dynamic = config_legacy_new(INTEROP_DYNAMIC_FILE_PATH))) {
       LOG_WARN(LOG_TAG, "%s unable to load dynamic config file for : %s",
          __func__, INTEROP_DYNAMIC_FILE_PATH);
     }
   }
-  if(!config_dynamic  && !(config_dynamic = config_new_empty())) {
+  if(!config_dynamic  && !(config_dynamic = config_legacy_new_empty())) {
     goto error;
   }
   pthread_mutex_unlock(&file_lock);
   return 0;
 
 error:
-  config_free(config_static);
-  config_free(config_dynamic);
+  config_legacy_free(config_static);
+  config_legacy_free(config_dynamic);
   pthread_mutex_unlock(&file_lock);
   pthread_mutex_destroy(&file_lock);
   config_static = NULL;
@@ -438,7 +442,7 @@ static bool interop_config_remove(const char *section, const char *key)
   assert(key != NULL);
 
   pthread_mutex_lock(&file_lock);
-  bool ret = config_remove_key(config_dynamic, section, key);
+  bool ret = config_legacy_remove_key(config_dynamic, section, key);
   pthread_mutex_unlock(&file_lock);
 
   return ret;
@@ -450,7 +454,7 @@ static bool interop_config_remove_section(const char *section)
   assert(section != NULL);
 
   pthread_mutex_lock(&file_lock);
-  bool ret = config_remove_section(config_dynamic, section);
+  bool ret = config_legacy_remove_section(config_dynamic, section);
   pthread_mutex_unlock(&file_lock);
 
   return ret;
@@ -465,7 +469,7 @@ static bool interop_config_set_str(const char *section, const char *key,
   assert(value != NULL);
 
   pthread_mutex_lock(&file_lock);
-  config_set_string(config_dynamic, section, key, value);
+  config_legacy_set_string(config_dynamic, section, key, value);
   pthread_mutex_unlock(&file_lock);
 
   return true;
@@ -1263,7 +1267,7 @@ static void interop_config_write(UNUSED_ATTR UINT16 event, UNUSED_ATTR char *p_p
   assert(config_dynamic != NULL);
 
   pthread_mutex_lock(&file_lock);
-  config_save(config_dynamic, INTEROP_DYNAMIC_FILE_PATH);
+  config_legacy_save(config_dynamic, INTEROP_DYNAMIC_FILE_PATH);
   // sync the file as well
   int fd = open (INTEROP_DYNAMIC_FILE_PATH, O_WRONLY | O_APPEND); // gghai : removed mode argument
   if (fd != -1) {
@@ -1278,9 +1282,9 @@ static void interop_config_cleanup(void)
   interop_config_flush();
 
   pthread_mutex_lock(&file_lock);
-  config_free(config_static);
+  config_legacy_free(config_static);
   config_static = NULL;
-  config_free(config_dynamic);
+  config_legacy_free(config_dynamic);
   config_dynamic = NULL;
   pthread_mutex_unlock(&file_lock);
   pthread_mutex_destroy(&file_lock);
