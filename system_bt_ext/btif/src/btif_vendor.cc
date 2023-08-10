@@ -232,8 +232,8 @@ void btif_vendor_update_add_on_features() {
         const bt_device_host_add_on_features_t* host_add_on_features =
             controller->get_host_add_on_features(&host_add_on_features_len);
 
-        is_qc_bqr5_supported = HCI_VENDOR_BQR5_SUPPORTED(soc_add_on_features->as_array);
         if (soc_add_on_features && soc_add_on_features_len > 0) {
+            is_qc_bqr5_supported = HCI_VENDOR_BQR5_SUPPORTED(soc_add_on_features->as_array);
             vnd_prop.len = soc_add_on_features_len;
             vnd_prop.type = BT_VENDOR_PROPERTY_SOC_ADD_ON_FEATURES;
             vnd_prop.val = (void*)s_buf;
@@ -277,20 +277,22 @@ void btif_vendor_update_whitelisted_media_players() {
                  buf_len += (strlen((char *)list_node(node)) + 1);
             }
             char *players_list = (char*)osi_malloc(buf_len);
-            for (list_node_t* node = list_begin(wl_players);
-                     node != list_end(wl_players); node = list_next(node)) {
-                char * name ;
-                name = (char *)list_node(node);
-                memcpy(&players_list[i], list_node(node), strlen(name) + 1);
-                i +=  (strlen(name) + 1);
-            }
-            wlplayers_prop.type = BT_VENDOR_PROPERTY_WL_MEDIA_PLAYERS_LIST;
-            wlplayers_prop.len = buf_len;
-            wlplayers_prop.val =  players_list;
+            if(players_list!= NULL) {
+                for (list_node_t* node = list_begin(wl_players);
+                         node != list_end(wl_players); node = list_next(node)) {
+                    char * name ;
+                    name = (char *)list_node(node);
+                    memcpy(&players_list[i], list_node(node), strlen(name) + 1);
+                    i +=  (strlen(name) + 1);
+                }
+                wlplayers_prop.type = BT_VENDOR_PROPERTY_WL_MEDIA_PLAYERS_LIST;
+                wlplayers_prop.len = buf_len;
+                wlplayers_prop.val =  players_list;
 
-            HAL_CBACK(bt_vendor_callbacks,  wl_players_prop_cb,
-                                       BT_STATUS_SUCCESS, 1, &wlplayers_prop);
-            osi_free(players_list);
+                HAL_CBACK(bt_vendor_callbacks,  wl_players_prop_cb,
+                                           BT_STATUS_SUCCESS, 1, &wlplayers_prop);
+                osi_free(players_list);
+            }
         }
    } else {
         LOG_DEBUG(LOG_TAG,"%s: Whitelisted media players not found", __func__);

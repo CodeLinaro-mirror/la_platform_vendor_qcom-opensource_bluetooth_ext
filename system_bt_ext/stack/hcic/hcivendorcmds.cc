@@ -41,6 +41,7 @@
 /* Connectionless Broadcast */
 void btsnd_hcic_set_reserved_lt_addr(uint8_t lt_addr) {
   BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);
+  if(p == NULL) return;
   uint8_t* pp = (uint8_t*)(p + 1);
 
   p->len = HCIC_PREAMBLE_SIZE + 1;
@@ -56,6 +57,7 @@ void btsnd_hcic_set_reserved_lt_addr(uint8_t lt_addr) {
 
 void btsnd_hcic_delete_reserved_lt_addr(uint8_t lt_addr) {
   BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);
+  if(p == NULL) return;
   uint8_t* pp = (uint8_t*)(p + 1);
 
   p->len = HCIC_PREAMBLE_SIZE + 1;
@@ -71,6 +73,7 @@ void btsnd_hcic_delete_reserved_lt_addr(uint8_t lt_addr) {
 
 void btsnd_hcic_start_synch_train() {
   BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);
+  if(p == NULL) return;
   uint8_t* pp = (uint8_t*)(p + 1);
 
   p->len = HCIC_PREAMBLE_SIZE;
@@ -86,6 +89,7 @@ void btsnd_hcic_set_csb(uint8_t enable, uint8_t lt_addr, uint8_t lpo_allowed,
                         uint16_t pkt_type, int16_t min_interval,
                         uint16_t max_interval, uint16_t csb_supvisnto) {
   BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);
+  if(p == NULL) return;
   uint8_t* pp = (uint8_t*)(p + 1);
 
   p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_SET_CSB;
@@ -108,6 +112,7 @@ void btsnd_hcic_set_csb(uint8_t enable, uint8_t lt_addr, uint8_t lpo_allowed,
 void btsnd_hcic_set_csb_data(uint8_t lt_addr, uint8_t fragment,
                              uint8_t data_len, uint8_t* data) {
   BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);
+  if(p == NULL) return;
   uint8_t* pp = (uint8_t*)(p + 1);
 
   p->len = HCIC_PREAMBLE_SIZE + 3 + data_len;
@@ -127,6 +132,7 @@ void btsnd_hcic_set_csb_data(uint8_t lt_addr, uint8_t fragment,
 void btsnd_hcic_write_sync_train_param(uint16_t min_interval, uint16_t max_interval,
                              uint32_t sync_train, uint8_t data) {
   BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);
+  if(p == NULL) return;
   uint8_t* pp = (uint8_t*)(p + 1);
 
   p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_SYNC_TRAIN;
