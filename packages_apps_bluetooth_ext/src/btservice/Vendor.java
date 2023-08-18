@@ -241,7 +241,7 @@ final class Vendor {
         intent.putExtra(BluetoothDevice.EXTRA_RSSI, rssi);
         intent.putExtra(BluetoothDevice.EXTRA_LINK_QUALITY, linkQuality);
         intent.putExtra(BluetoothDevice.EXTRA_GLITCH_COUNT, glitchCount);
-        mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+        mService.sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
     }
 
     private void leHighPriorityModeCallback(byte[] remoteAddr,
@@ -311,11 +311,11 @@ final class Vendor {
         if(isBqr5Supported == true && qualityReportId == REPORT_ID_VENDOR_SPECIFIC) {
             Intent intent = new Intent(BluetoothAdapter.ACTION_REMOTE_ISSUE_OCCURRED);
             intent.putExtra(BluetoothAdapter.EXTRA_BQR, bqr);
-            mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+            mService.sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
         } else {
             Intent intent = new Intent(BluetoothDevice.ACTION_REMOTE_ISSUE_OCCURRED);
             intent.putExtra(BluetoothDevice.EXTRA_BQR, bqr);
-            mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+            mService.sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
         }
     }
 
