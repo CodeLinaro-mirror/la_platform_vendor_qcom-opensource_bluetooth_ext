@@ -62,8 +62,9 @@
 #include <shared_mutex>
 
 namespace android {
+#if 0
 int load_bt_configstore_lib();
-
+#endif
 static jmethodID method_onBredrCleanup;
 static jmethodID method_iotDeviceBroadcast;
 static jmethodID method_bqrDeliver;
@@ -364,7 +365,7 @@ static void initNative(JNIEnv *env, jobject object) {
     bt_status_t status;
 
     std::unique_lock<std::shared_timed_mutex> interface_lock(interface_mutex);
-
+#if 0
     load_bt_configstore_lib();
 
     if (bt_configstore_intf != NULL) {
@@ -399,7 +400,7 @@ static void initNative(JNIEnv *env, jobject object) {
           }
        }
     }
-
+#endif
     if ( (btInf = getBluetoothInterface()) == NULL) {
         ALOGE("Bluetooth module is not loaded");
         return;
@@ -431,13 +432,13 @@ static void cleanupNative(JNIEnv *env, jobject object) {
     const bt_interface_t* btInf;
 
     std::unique_lock<std::shared_timed_mutex> interface_lock(interface_mutex);
-
+#if 0
     if (bt_configstore_lib_handle) {
       dlclose(bt_configstore_lib_handle);
       bt_configstore_lib_handle = NULL;
       bt_configstore_intf = NULL;
     }
-
+#endif
     if ( (btInf = getBluetoothInterface()) == NULL) {
         ALOGE("Bluetooth module is not loaded");
         return;
@@ -460,7 +461,7 @@ static void cleanupNative(JNIEnv *env, jobject object) {
 static bool informTimeoutToHidlNative(JNIEnv *env, jobject obj) {
 
     ALOGI("%s", __FUNCTION__);
-
+#if 0
     if ((bt_configstore_lib_handle && bt_configstore_intf) ||
         !load_bt_configstore_lib()) {
       bt_configstore_intf->set_vendor_property(BT_PROP_STACK_TIMEOUT, "true");
@@ -470,7 +471,7 @@ static bool informTimeoutToHidlNative(JNIEnv *env, jobject obj) {
     } else {
       ALOGE("%s: Failed to inform to HIDL about timeout", __FUNCTION__);
     }
-
+#endif
     return JNI_TRUE;
 }
 
@@ -479,13 +480,13 @@ static bool bredrcleanupNative(JNIEnv *env, jobject obj) {
     ALOGI("%s", __FUNCTION__);
 
     jboolean result = JNI_FALSE;
-
+#if 0
     if (bt_configstore_lib_handle) {
       dlclose(bt_configstore_lib_handle);
       bt_configstore_lib_handle = NULL;
       bt_configstore_intf = NULL;
     }
-
+#endif
     if (!sBluetoothVendorInterface) return result;
 
     sBluetoothVendorInterface->bredrcleanup();
@@ -867,6 +868,7 @@ static JNINativeMethod sMethods[] = {
     {"getRemoteLeServicesNative", "([BI)Z", (void*)getRemoteLeServicesNative},
 };
 
+#if 0
 int load_bt_configstore_lib() {
     const char* sym = BT_CONFIG_STORE_INTERFACE_STRING;
     const char* err = "error unknown";
@@ -902,6 +904,7 @@ int load_bt_configstore_lib() {
 
     return -EINVAL;
 }
+#endif
 
 int register_com_android_bluetooth_btservice_vendor(JNIEnv* env)
 {
