@@ -2120,7 +2120,7 @@ public final class Avrcp_ext {
                 responseDebug.append("getElementAttr response: ");
                 BluetoothDevice device = null;
                 if (mAvrcpBipRsp != null) {
-                    device = mAvrcpBipRsp.getBluetoothDevice(remoteAddr);
+                    device = mAdapter.getRemoteDevice(remoteAddr);
                 }
                 for (int i = 0; i < numAttr; ++i) {
                     textArray[i] = mMediaAttributes.getString(device, attrIds[i]);
