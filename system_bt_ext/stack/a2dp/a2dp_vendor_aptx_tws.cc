@@ -573,6 +573,10 @@ static bool select_audio_sample_rate(
         return true;
       }
       break;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_8000:
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_16000:
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_32000:
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_24000:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_88200:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_96000:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_176400:
@@ -720,6 +724,10 @@ bool A2dpCodecConfigAptxTWS::setCodecConfig(const uint8_t* p_peer_codec_info,
         codec_config_.sample_rate = codec_user_config_.sample_rate;
       }
       break;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_8000:
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_16000:
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_32000:
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_24000:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_88200:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_96000:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_176400:

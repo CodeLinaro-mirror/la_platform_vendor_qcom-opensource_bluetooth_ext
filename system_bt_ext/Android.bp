@@ -61,10 +61,12 @@ cc_library_headers {
 	    "btif/include",
 		"bta/include",
 		"bta/lpm",
+		"device/include",
 		"stack/include",
 		"stack/lpm",
 		"stack/btm",
 		"btconfigstore",
+		"include",
 		".",
 	],
 }
