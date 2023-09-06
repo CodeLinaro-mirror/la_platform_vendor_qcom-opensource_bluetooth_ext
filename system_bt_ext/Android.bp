@@ -57,5 +57,14 @@ subdirs = [
 cc_library_headers {
    name: "opensource_commonsys_bt_ext_all_inc",
    vendor_available: true,
-   export_include_dirs: [".", "btif/include/", "bta/include/", "stack/include/", "stack/btm/",],
+   export_include_dirs: [
+	    "btif/include",
+		"bta/include",
+		"bta/lpm",
+		"stack/include",
+		"stack/lpm",
+		"stack/btm",
+		"btconfigstore",
+		".",
+	],
 }
