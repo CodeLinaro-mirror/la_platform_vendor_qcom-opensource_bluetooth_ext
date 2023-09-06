@@ -2,7 +2,7 @@
 // ========================================================
 
 soong_config_module_type_import {
-    from: "device/qcom/qssi/Android.bp",
+    from: "frameworks/base/Android.bp",
     module_types: [
          "aosp_vs_qva_cc_defaults",
     ],
