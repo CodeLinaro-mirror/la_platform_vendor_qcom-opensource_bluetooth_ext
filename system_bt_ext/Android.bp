@@ -4,7 +4,7 @@ soong_config_module_type {
     config_namespace: "bredr_vs_btadva",
     variables: ["bredr_or_btadva"],
     // Properties can be extended to other properties as well
-    properties: ["cflags", "include_dirs", "static_libs", "whole_static_libs", "srcs"],
+    properties: ["cflags", "include_dirs", "static_libs", "whole_static_libs", "srcs", "header_libs"],
 }
 
 soong_config_string_variable {
@@ -53,3 +53,9 @@ subdirs = [
     "bta",
     "btconfigstore",
 ]
+
+cc_library_headers {
+   name: "opensource_commonsys_bt_ext_all_inc",
+   vendor_available: true,
+   export_include_dirs: [".", "btif/include/", "bta/include/", "stack/include/", "stack/btm/",],
+}

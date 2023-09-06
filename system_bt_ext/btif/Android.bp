@@ -79,3 +79,9 @@ cc_library_static {
     ],
 
 }
+
+cc_library_headers {
+   name: "opensource_commonsys_bt_ext_btif_inc",
+   vendor_available: true,
+   export_include_dirs: ["include/"],
+}
