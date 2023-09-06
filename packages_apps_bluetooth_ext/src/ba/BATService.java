@@ -670,8 +670,8 @@ public class BATService extends ProfileService {
         if((mPrevStackBATState == BA_STACK_STATE_PENDING) &&
                 (mCurrStackBATState == BA_STACK_STATE_PAUSED)) {
             Log.d(TAG," updating AudioManager: Connected for BA ");
-            mAudioManager.handleBluetoothA2dpActiveDeviceChange(
-                mBADevice, BluetoothProfile.STATE_CONNECTED,BluetoothProfile.A2DP, true, -1);
+            //mAudioManager.handleBluetoothA2dpActiveDeviceChange(
+              //  mBADevice, BluetoothProfile.STATE_CONNECTED,BluetoothProfile.A2DP, true, -1);
             //BA audio works on the principal of absVol
             //Currently mm-audio tracks value of last updated absVol support,
             //and does not use address.Even if avrcp has updated support as true,
@@ -690,15 +690,17 @@ public class BATService extends ProfileService {
                 // as a2dp has to be updated as well. Switching should happen to
                 // A2DP in this case.
                 Log.d(TAG," updating AudioManager: Connected for A2DP ");
-                mAudioManager.handleBluetoothA2dpActiveDeviceChange(
-                    a2dpActiveDevice, BluetoothProfile.STATE_CONNECTED,BluetoothProfile.A2DP,
-                    true, -1);
+                //mAudioManager.handleBluetoothA2dpActiveDeviceChange(
+                //    a2dpActiveDevice, BluetoothProfile.STATE_CONNECTED,BluetoothProfile.A2DP,
+                //    true, -1);
             } else {// a2dp active device is null.
                 // inform BA device as disconnected. we have to send noisy intent
                 // because BA seems to be last device.
-                mAudioManager.handleBluetoothA2dpActiveDeviceChange(
-                        mBADevice, BluetoothProfile.STATE_DISCONNECTED,BluetoothProfile.A2DP,
-                        false, -1);
+		 Log.d(TAG," updating AudioManager: Connected for A2DP-else ");
+               // mAudioManager.handleBluetoothA2dpActiveDeviceChange(
+                 //       mBADevice, BluetoothProfile.STATE_DISCONNECTED,BluetoothProfile.A2DP,
+                 //
+		 //false, -1);
             }
             if (!checkAbsVolSupport()) {
                 //Abs vol not supported by AVRCP, we should update false from BA.

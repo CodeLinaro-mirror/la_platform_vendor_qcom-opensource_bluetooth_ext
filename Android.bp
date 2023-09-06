@@ -1,5 +1,5 @@
 // Pick up Android.bp in next directory level
 
-optional_subdirs = [
+subdirs = [
     "*",
 ]
