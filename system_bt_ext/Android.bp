@@ -41,7 +41,7 @@ soong_config_module_type {
     config_namespace: "aosp_vs_qva",
     variables: ["aosp_or_qva"],
     // Properties can be extended to other properties as well
-    properties: ["libs", "static_libs"],
+    properties: ["libs", "static_libs", "srcs"],
 }
 
 subdirs = [
@@ -60,10 +60,10 @@ cc_library_headers {
    export_include_dirs: [
 	    "btif/include",
 		"bta/include",
-		"bta/lpm",
+		//"bta/lpm",
 		"device/include",
 		"stack/include",
-		"stack/lpm",
+		//"stack/lpm",
 		"stack/btm",
 		"btconfigstore",
 		"include",
