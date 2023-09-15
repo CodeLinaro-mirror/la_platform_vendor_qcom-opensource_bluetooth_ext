@@ -141,6 +141,9 @@ static void register_server_cb(int status, int server_if, const Uuid& app_uuid);
 
 static unsigned char main_done = 0;
 static int status;
+
+bool sr_gaw_bi_09 = false;
+bool sr_gar_bi_13 = false;
 typedef struct
 {
     uint16_t      result;                 /* Only used in confirm messages */
@@ -291,6 +294,7 @@ int len_short_char = 2;
 
 int curr_char_val_len =0;
 int curr_handle = 0;
+int long_char_max_len_for_sr_gar_bi_13 = 100;
 
 std::map<RawAddress, std::vector<uint8_t>> cccd_value_map;
 
@@ -1087,6 +1091,13 @@ static void request_read_cb(int conn_id, int trans_id, const RawAddress& bda,
         memcpy(gatt_resp.attr_value.value, attr_value, 300);
     }
 
+    if(sr_gar_bi_13)
+    {
+      if(offset > long_char_max_len_for_sr_gar_bi_13) {
+        printf("%s:: Invalid offset for long char/desc \n", __FUNCTION__);
+        status = invalid_offset;
+      }
+    }
     g_conn_id = conn_id;
     Ret = sGattIfaceScan->server->send_response(conn_id, trans_id, status, gatt_resp);
 }
@@ -1115,6 +1126,14 @@ static void request_write_cb(int conn_id, int trans_id, const RawAddress& bda,
         {
             printf("%s:: Invalid attribute value length for long char/desc \n", __FUNCTION__);
             exec_write_status = invalid_attribute_value_len;
+        }
+
+        if(sr_gaw_bi_09)
+        {
+          if((offset + value_count) > len_short_char) {
+            printf("%s:: Invalid offset for short char/desc \n", __FUNCTION__);
+            exec_write_status = invalid_offset;
+          }
         }
     }
     else
@@ -3146,6 +3165,16 @@ void do_le_sr_register(int idx, bool eatt_support)
         case 5:
             uuid = Uuid::FromString("4422A00C-0000-0000-0123-456789ABCDEF", &is_valid);//4422A00C-0000-0000-0123-456789ABCDEF
             bt_uuid = Uuid::FromString("4422A00C-0000-0000-0123-456789ABCDEF", &is_valid);//4422A00C-0000-0000-0123-456789ABCDEF*/
+            break;
+        case 6:
+            uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid);//0000A00C-0000-0000-0123-456789ABCDEF
+            bt_uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid); //0000A00C-0000-0000-0123-456789ABCDEF
+            sr_gaw_bi_09 = true;
+            break;
+        case 7:
+            uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid);//0000A00C-0000-0000-0123-456789ABCDEF
+            bt_uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid); //0000A00C-0000-0000-0123-456789ABCDEF
+            sr_gar_bi_13 = true;
             break;
         default:
             printf("%s:: ERROR: no matching uuid \n", __FUNCTION__);
