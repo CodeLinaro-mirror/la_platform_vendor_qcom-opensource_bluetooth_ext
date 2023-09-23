@@ -8,7 +8,7 @@ cc_defaults {
         "libandroid_runtime",
         "libbtconfigstore",
     ],
-	include_dirs: ["vendor/qcom/opensource/commonsys/packages/apps/Bluetooth/jni/"],
+	include_dirs: ["vendor/qcom/opensource/monaco/commonsys/packages/apps/Bluetooth/jni/"],
 }
 
 // BTA static library for target
