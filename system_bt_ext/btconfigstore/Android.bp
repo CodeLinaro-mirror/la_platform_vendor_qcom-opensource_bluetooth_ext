@@ -20,7 +20,7 @@ cc_library_shared {
     export_header_lib_headers: ["libbluetooth_headers_qti"],
     system_ext_specific: true,
     srcs: [
-        "bt_configstore.cc"
+    //    "bt_configstore.cc"
     ],
     shared_libs: [
          "libdl",
