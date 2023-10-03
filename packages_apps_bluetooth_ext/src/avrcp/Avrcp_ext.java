@@ -5375,7 +5375,7 @@ public final class Avrcp_ext {
         boolean ret = mA2dpService.startSHO(device);
         if(!ret) {
             isShoActive = false;
-            if (device.isTwsPlusDevice()) {
+            if (device != null && device.isTwsPlusDevice()) {
                 resetShoFlag = false;
                 BluetoothDevice activeDevice = mA2dpService.getActiveDevice();
                 if (activeDevice != null &&
