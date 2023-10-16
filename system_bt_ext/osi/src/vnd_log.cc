@@ -114,8 +114,12 @@ static bool is_logging_enable()
 
 void start_bt_logger()
 {
-  if(is_logging_enable())
-    osi_property_set("vendor.bluetooth.startbtlogger", "true");
+  if(!is_logging_enable()) {
+    // Enable bt snoop log by default
+    osi_property_set(BTLOGGER_ENABLE_PROPERTY, "true");
+    bt_logger_enabled = true;
+  }
+  osi_property_set("vendor.bluetooth.startbtlogger", "true");
 }
 
 int local_snoop_socket_create(void) {
