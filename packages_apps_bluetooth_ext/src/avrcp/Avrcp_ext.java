@@ -5928,6 +5928,10 @@ public final class Avrcp_ext {
             Log.d(TAG, "Ignore passthrough, Broadcast is active");
             return;
         }
+        if ((mA2dpService != null) && !Objects.equals(a2dp_active_device, device)) {
+            Log.d(TAG, "Ignore passthrough from inactive device");
+            return;
+        }
         if (a2dp_active_device == null &&
             code == KeyEvent.KEYCODE_MEDIA_PLAY) {
             if (action == KeyEvent.ACTION_DOWN && !rc_only_device) {
