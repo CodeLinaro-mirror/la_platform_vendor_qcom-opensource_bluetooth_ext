@@ -121,7 +121,31 @@ final class Vendor {
     public int setLeHighPriorityMode(String address, boolean enable) {
         Log.d(TAG,"setLeHighPriorityMode to: " + enable);
         int stack_status = setLeHighPriorityModeNative(address, enable);
-        return stack_status;
+        int status;
+        switch(stack_status) {
+            case BT_STATUS_SUCCESS:
+                status = BluetoothDevice.LE_HIGH_PRIOTY_MODE_SUCCESS;
+                break;
+            case BT_STATUS_FAIL:
+                status = BluetoothDevice.LE_HIGH_PRIOTY_MODE_FAIL;
+                break;
+            case BT_STATUS_BUSY:
+                status = BluetoothDevice.LE_HIGH_PRIOTY_MODE_PENDING;
+                break;
+            case BT_STATUS_DONE:
+                status = BluetoothDevice.LE_HIGH_PRIOTY_MODE_ALREADY_SET;
+                break;
+            case BT_STATUS_UNSUPPORTED:
+                status = BluetoothDevice.LE_HIGH_PRIOTY_MODE_NOT_ALLOWED;
+                break;
+            case BT_STATUS_RMT_DEV_DOWN:
+                status = BluetoothDevice.LE_HIGH_PRIOTY_MODE_REMOTE_DEV_DOWN;
+                break;
+            default:
+                status = BluetoothDevice.LE_HIGH_PRIOTY_MODE_FAIL;
+                break;
+        }
+        return status;
     }
 
     public boolean isLeHighPriorityModeSet(String address) {
@@ -217,6 +241,14 @@ final class Vendor {
 
     private void leHighPriorityModeCallback(byte[] remoteAddr,
                                             int status, boolean mode) {
+        String mRemoteAddr = Utils.getAddressStringFromByte(remoteAddr);
+        BluetoothDevice mBluetoothDevice = BluetoothAdapter.getDefaultAdapter().
+                                                   getRemoteDevice(mRemoteAddr);
+        Intent intent = new Intent(BluetoothDevice.ACTION_LE_HIGH_PRIORITY_MODE_STATUS);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mBluetoothDevice);
+        intent.putExtra(BluetoothDevice.EXTRA_STATUS, status);
+        intent.putExtra(BluetoothDevice.EXTRA_MODE, mode);
+        mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
     }
 
     private void afhMapCallback(byte[] afhMap, int length, int afhMode, int status) {
