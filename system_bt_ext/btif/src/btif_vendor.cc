@@ -862,11 +862,11 @@ static bool is_le_high_priority_mode_set(const RawAddress* addr)
 
     std::unique_lock<std::mutex> guard(le_high_priority_mutex_);
 
-    tACL_CONN* acl = btm_bda_to_acl(*addr, BT_TRANSPORT_LE);
-    if(acl == nullptr) {
-       LOG_INFO(LOG_TAG,"no BLE ACL found return");
-       return false;
-    }
+//    tACL_CONN* acl = btm_bda_to_acl(*addr, BT_TRANSPORT_LE);
+//    if(acl == nullptr) {
+//       LOG_INFO(LOG_TAG,"no BLE ACL found return");
+//       return false;
+//    }
 
     if(*addr == le_high_priority_bd_addr){
         return true;
@@ -885,13 +885,13 @@ static bt_status_t set_le_high_priority_mode(const RawAddress* addr, bool enable
 
     UINT8_TO_STREAM(p, HCI_VSC_LE_HIGH_PRIORITY_MODE_OCF);
 
-    tACL_CONN* acl = btm_bda_to_acl(*addr, BT_TRANSPORT_LE);
-    if(acl == nullptr) {
-        LOG_INFO(LOG_TAG,"no BLE ACL found return");
-        return BT_STATUS_RMT_DEV_DOWN;
-    }
-    UINT16_TO_STREAM(p, acl->hci_handle);
-    UINT8_TO_STREAM(p, enable ? 0x01 : 0x00);
+//    tACL_CONN* acl = btm_bda_to_acl(*addr, BT_TRANSPORT_LE);
+//    if(acl == nullptr) {
+//        LOG_INFO(LOG_TAG,"no BLE ACL found return");
+//        return BT_STATUS_RMT_DEV_DOWN;
+//    }
+//    UINT16_TO_STREAM(p, acl->hci_handle);
+//    UINT8_TO_STREAM(p, enable ? 0x01 : 0x00);
 
     uint16_t param_len = sizeof(uint8_t) + sizeof(uint16_t) + sizeof(enable);
 
@@ -918,8 +918,8 @@ static bt_status_t set_le_high_priority_mode(const RawAddress* addr, bool enable
         le_pending_mode = LE_HIGH_PRIORITY_MODE_DISABLED;
     }
 
-    BTM_VendorSpecificCommand(HCI_VSC_LE_HIGH_PRIORITY_MODE, param_len,
-            param, set_le_high_priority_mode_complete);
+    //BTM_VendorSpecificCommand(HCI_VSC_LE_HIGH_PRIORITY_MODE, param_len,
+    //        param, set_le_high_priority_mode_complete);
     return BT_STATUS_SUCCESS;
 }
 
@@ -977,6 +977,7 @@ static bool set_afh_map(afh_map* map, int transport) {
 
 static bool get_afh_map(const RawAddress* addr , int transport) {
     int bta_status = -1;
+#if 0
     uint8_t param[20], *p;
     p = param;
     memset(param, 0, 20);
@@ -1002,6 +1003,7 @@ static bool get_afh_map(const RawAddress* addr , int transport) {
 //        bta_status = BTA_DmHciRawCommand(HCI_BLE_READ_CHNL_MAP ,HCI_AFH_CONNECTION_HANDLE_LEN,
 //                                          param, btif_vendor_hci_cmd_cmpl_callback );
     }
+#endif
     return(bta_status == BTA_SUCCESS) ? true : false;
 }
 
