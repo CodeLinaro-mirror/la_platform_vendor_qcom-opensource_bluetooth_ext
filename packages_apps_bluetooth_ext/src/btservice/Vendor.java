@@ -118,6 +118,30 @@ final class Vendor {
         setWifiStateNative(status);
     }
 
+    public int setLeHighPriorityMode(String address, boolean enable) {
+        Log.d(TAG,"setLeHighPriorityMode to: " + enable);
+        int stack_status = setLeHighPriorityModeNative(address, enable);
+        return stack_status;
+    }
+
+    public boolean isLeHighPriorityModeSet(String address) {
+        Log.d(TAG,"isLeHighPriorityModeSet for current device");
+        boolean state = isLeHighPriorityModeSetNative(address);
+        return state;
+    }
+
+    public boolean setAfhChannelMap(int transport, int len, byte [] afhMap) {
+        Log.d(TAG,"set Afh Channel Map");
+        boolean status = setAfhChannelMapNative(transport, len, afhMap);
+        return status;
+    }
+
+    public boolean getAfhChannelMap(String address, int transport) {
+       Log.d(TAG,"get Afh Channel Map");
+       boolean status = getAfhChannelMapNative(address, transport);
+
+       return status;
+    }
    public void setPowerBackoff(boolean status) {
 
         if (getPowerBackoff() == status)
@@ -149,7 +173,7 @@ final class Vendor {
         cleanupNative();
     }
 
-   private void onBredrCleanup(boolean status) {
+    private void onBredrCleanup(boolean status) {
         Log.d(TAG,"BREDR cleanup done");
         mService.startBluetoothDisable();
     }
@@ -189,6 +213,29 @@ final class Vendor {
         intent.putExtra(BluetoothDevice.EXTRA_LINK_QUALITY, linkQuality);
         intent.putExtra(BluetoothDevice.EXTRA_GLITCH_COUNT, glitchCount);
         mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+    }
+
+    private void leHighPriorityModeCallback(byte[] remoteAddr,
+                                            int status, boolean mode) {
+    }
+
+    private void afhMapCallback(byte[] afhMap, int length, int afhMode, int status) {
+        int transport = 0;
+
+        if (length == 10) {
+            transport = BluetoothDevice.TRANSPORT_BREDR;
+        } else if(length == 5) {
+           transport = BluetoothDevice.TRANSPORT_LE;
+        }
+
+        for (int i =0; i<afhMap.length ;i++) {
+            Log.d(TAG,"afhMapCallback :"+String.format("%x", afhMap[i]));
+        }
+        Log.d(TAG,"afhMapCallback Afh Mode: "+ afhMode+" status: " +status);
+    }
+
+    private void afhMapStatusCallback(int status, int transport) {
+        Log.d(TAG ,"afhMapStatusCallback status:  " +status+ " transport: "+transport);
     }
 
     private void bqrDeliver(byte[] remoteAddr,
@@ -429,6 +476,14 @@ final class Vendor {
                                           transport);
     }
 
+    private final int BT_STATUS_SUCCESS = 0;
+    private final int BT_STATUS_FAIL = 1;
+    private final int BT_STATUS_BUSY = 4;
+    private final int BT_STATUS_DONE = 5;
+    private final int BT_STATUS_UNSUPPORTED = 6;
+    private final int BT_STATUS_RMT_DEV_DOWN = 10;
+
+
     private native void bredrcleanupNative();
     private native void bredrstartupNative();
     private native void initNative();
@@ -458,5 +513,10 @@ final class Vendor {
             String feature_name, String address, int length);
     private native static void interopDatabaseAddRemoveNameNative(boolean do_add,
             String feature_name, String name);
+
     private native boolean getRemoteLeServicesNative(byte[] address, int transport);
+    private native static int setLeHighPriorityModeNative(String address, boolean enable);
+    private native static boolean isLeHighPriorityModeSetNative(String address);
+    private native static boolean setAfhChannelMapNative(int transport, int len, byte [] afhMap);
+    private native static boolean getAfhChannelMapNative(String address, int transport);
 }

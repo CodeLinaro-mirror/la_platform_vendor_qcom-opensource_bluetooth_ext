@@ -143,6 +143,7 @@ static unsigned char main_done = 0;
 static int status;
 
 bool sr_gaw_bi_09 = false;
+bool sr_gar_bi_13 = false;
 typedef struct
 {
     uint16_t      result;                 /* Only used in confirm messages */
@@ -293,6 +294,7 @@ int len_short_char = 2;
 
 int curr_char_val_len =0;
 int curr_handle = 0;
+int long_char_max_len_for_sr_gar_bi_13 = 100;
 
 std::map<RawAddress, std::vector<uint8_t>> cccd_value_map;
 
@@ -1089,6 +1091,13 @@ static void request_read_cb(int conn_id, int trans_id, const RawAddress& bda,
         memcpy(gatt_resp.attr_value.value, attr_value, 300);
     }
 
+    if(sr_gar_bi_13)
+    {
+      if(offset > long_char_max_len_for_sr_gar_bi_13) {
+        printf("%s:: Invalid offset for long char/desc \n", __FUNCTION__);
+        status = invalid_offset;
+      }
+    }
     g_conn_id = conn_id;
     Ret = sGattIfaceScan->server->send_response(conn_id, trans_id, status, gatt_resp);
 }
@@ -3134,6 +3143,11 @@ void do_le_sr_register(int idx, bool eatt_support)
             uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid);//0000A00C-0000-0000-0123-456789ABCDEF
             bt_uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid); //0000A00C-0000-0000-0123-456789ABCDEF
             sr_gaw_bi_09 = true;
+            break;
+        case 7:
+            uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid);//0000A00C-0000-0000-0123-456789ABCDEF
+            bt_uuid = Uuid::FromString("0000A00C-0000-0000-0123-456789ABCDEF", &is_valid); //0000A00C-0000-0000-0123-456789ABCDEF
+            sr_gar_bi_13 = true;
             break;
         default:
             printf("%s:: ERROR: no matching uuid \n", __FUNCTION__);
