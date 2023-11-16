@@ -9,7 +9,7 @@ android_app {
     srcs: ["src/**/*.java"],
 
     aidl: {
-        include_dirs: ["packages/modules/Bluetooth/system/binder"],
+        include_dirs: ["packages/modules/Bluetooth/android/app/aidl"],
     },
 
     certificate: "platform",
