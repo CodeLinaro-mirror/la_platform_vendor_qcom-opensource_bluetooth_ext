@@ -88,6 +88,11 @@ typedef enum {
  END_OF_FEATURE_LIST
  } profile_info_t;
 
+/** */
+typedef struct {
+    uint8_t afhMap[10];
+} __attribute__((packed))afh_map;
+
 // Vendor Callbacks
 #define TWS_PLUS_DEV_TYPE_NONE      (0x00)
 #define TWS_PLUS_DEV_TYPE_PRIMARY   (0x01)
@@ -156,6 +161,13 @@ typedef void (* whitelisted_players_vendor_prop_callback)(bt_status_t status,
                           int num_properties,
                           bt_vendor_property_t *properties);
 
+/** Callback to notify the LE high priority mode changed event. */
+typedef void (* le_high_priority_mode_changed_callback)(uint8_t status,
+                          RawAddress *bd_addr, bool mode);
+typedef void (*get_afh_map_callback)(std::vector<uint8_t> afh_map_data, uint16_t length,
+                          uint8_t afh_mode, uint8_t status);
+typedef void (*set_afh_map_callback)(uint8_t status, uint8_t transport);
+
 /** BT-Vendor callback structure. */
 typedef struct {
     /** set to sizeof(BtVendorCallbacks) */
@@ -168,6 +180,9 @@ typedef struct {
     adapter_vendor_prop_callback     adapter_vendor_prop_cb;
     ssr_vendor_callback         ssr_vendor_cb;
     whitelisted_players_vendor_prop_callback    wl_players_prop_cb;
+    le_high_priority_mode_changed_callback le_high_priority_mode_cb;
+    get_afh_map_callback afh_map_cb;
+    set_afh_map_callback afh_map_status_cb;
 } btvendor_callbacks_t;
 
 typedef int (*property_set_callout)(const char* key, const char* value);
@@ -256,6 +271,15 @@ typedef struct {
         const char* feature_name, const char* name);
 
     void (*get_remote_le_services)(RawAddress *remote_addr, int transport);
+    /** set the BLE ACL priority over BREDR ACL */
+    bt_status_t (*set_le_high_priority_mode)(const RawAddress* addr, bool enable);
+
+    //**gets the status of BLE ACL Priority over BREDR ACL*/
+    bool (*is_le_high_priority_mode_set)(const RawAddress* addr);
+    //** sets the AFH map */
+    bool (*set_afh_map)(afh_map *afhMap, int transport);
+    //** get the AFH map */
+    bool (*get_afh_map)(const RawAddress* addr, int transport);
 
 } btvendor_interface_t;
 

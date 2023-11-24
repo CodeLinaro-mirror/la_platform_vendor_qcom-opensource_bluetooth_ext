@@ -85,6 +85,9 @@
 #include "device/include/controller.h"
 #include "device/include/interop.h"
 #include "interop_config.h"
+#include "stack/btm/btm_int_types.h"
+#include "stack/btm/btm_int.h"
+#include "hardware/vendor.h"
 
 #if TEST_APP_INTERFACE == TRUE
 #include <bt_testapp.h>
@@ -94,6 +97,11 @@
 #define CALLBACK_TIMER_PERIOD_MS      (60000)
 #define BTIF_VENDOR_BREDR_CLEANUP 1
 #define BTIF_VENDOR_HCI_CLOSE 2
+#define HCI_SET_AFH_HOST_CHANNEL 0x0c3f
+#define READ_AFH_CHANNEL_MAP 0x1406
+#define HCI_LE_SET_HOST_CHANNEL 0x2014
+#define HCI_LE_READ_AFH_CHANNEL_MAP 0x2015
+#define BR_EDR_MIN_GOOD_CHANNEL 20
 
 typedef struct {
   RawAddress bd_addr; /* BD address peer device. */
@@ -109,6 +117,16 @@ typedef struct {
   uint16_t manufacturer_id;
   bool is_valid;
 } BTIF_VND_IOT_INFO_CB_DATA;
+
+typedef enum {
+    LE_HIGH_PRIORITY_MODE_NONE = 0,
+    LE_HIGH_PRIORITY_MODE_ENABLED = 1,
+    LE_HIGH_PRIORITY_MODE_DISABLED = 2,
+} btle_high_priority_mode_t;
+
+static btle_high_priority_mode_t le_pending_mode = LE_HIGH_PRIORITY_MODE_NONE;
+static RawAddress le_high_priority_bd_addr = {};
+static std::mutex le_high_priority_mutex_;
 
 extern bt_status_t btif_in_execute_service_request(tBTA_SERVICE_ID service_id,
                                                bool b_enable);
@@ -428,22 +446,82 @@ static void hciclose(void)
 
 #if HCI_RAW_CMD_INCLUDED == TRUE
 // Callback invoked on receiving HCI event
-static void btif_vendor_hci_event_callback ( tBTM_RAW_CMPL *p)
+static void btif_vendor_hci_cmd_cmpl_callback (tBTM_RAW_CMPL *p_data)
 {
-  if((p != NULL) && (bt_vendor_callbacks!= NULL)
-      && (bt_vendor_callbacks->hci_event_recv_cb != NULL)) {
+    uint8_t *stream, event_code, length ,afh_map_len;
+    std::vector<uint8_t> afh_map;
 
-    BTIF_TRACE_DEBUG("%s", __FUNCTION__);
-    HAL_CBACK(bt_vendor_callbacks, hci_event_recv_cb, p->event_code, p->p_param_buf,
-                                                                p->param_len);
-  }
+    if ((p_data != NULL)&&(stream = (uint8_t*)p_data->p_param_buf)) {
+        length = p_data->param_len;
+        event_code = p_data->event_code;
+        if(event_code == HCI_COMMAND_COMPLETE_EVT) {
+            uint8_t status = p_data->p_param_buf[3];
+            uint8_t afh_mode = p_data->p_param_buf[6];
+            uint16_t opcode = p_data->p_param_buf[1]|p_data->p_param_buf[2] << 8;
+            BTIF_TRACE_DEBUG("%s opcode %x", __FUNCTION__, opcode);
+            if(opcode == READ_AFH_CHANNEL_MAP) {
+                afh_map_len = HCI_AFH_CHANNEL_MAP_LEN ;
+                for(int i = 7,j=0 ;i< length ;i++,j++){
+                    afh_map.insert(afh_map.begin()+j,p_data->p_param_buf[i]);
+                }
+
+                do_in_jni_thread(
+                    FROM_HERE,
+                    base::Bind(
+                        [](std::vector<uint8_t> afh_map, uint16_t afh_map_len, uint8_t afh_mode,
+                            uint8_t status) {
+                            HAL_CBACK(bt_vendor_callbacks, afh_map_cb, std::move(afh_map),
+                                                            afh_map_len, afh_mode, status);
+                        },
+                        std::move(afh_map), afh_map_len, afh_mode, status));
+
+            } else if (opcode == HCI_LE_READ_AFH_CHANNEL_MAP) {
+                afh_map_len = HCI_BTLE_AFH_CHANNEL_MAP_LEN ;
+                for(int i = 6,j=0 ;i< length ;i++,j++){
+                    afh_map.insert(afh_map.begin()+j,p_data->p_param_buf[i]);
+                }
+                do_in_jni_thread(
+                    FROM_HERE,
+                    base::Bind(
+                        [](std::vector<uint8_t> afh_map, uint16_t afh_map_len, uint8_t afh_mode,
+                            uint8_t status) {
+                            HAL_CBACK(bt_vendor_callbacks, afh_map_cb, std::move(afh_map),
+                                                                  afh_map_len, -1, status);
+                        },
+                        std::move(afh_map), afh_map_len, afh_mode, status));
+            } else if (opcode == HCI_SET_AFH_HOST_CHANNEL) {
+                uint8_t afh_status = p_data->p_param_buf[3];
+                uint8_t afh_transport = BT_TRANSPORT_BR_EDR;
+                do_in_jni_thread(
+                    FROM_HERE,
+                    base::Bind(
+                        [](uint8_t status, uint8_t transport) {
+                            HAL_CBACK(bt_vendor_callbacks, afh_map_status_cb, status,
+                                                                transport);
+                        },
+                        afh_status, afh_transport));
+            } else if(opcode == HCI_LE_SET_HOST_CHANNEL) {
+                uint8_t afh_status = p_data->p_param_buf[3];
+                uint8_t afh_transport = BT_TRANSPORT_LE;
+                do_in_jni_thread(
+                    FROM_HERE,
+                    base::Bind(
+                        [](uint8_t status, uint8_t transport) {
+                            HAL_CBACK(bt_vendor_callbacks, afh_map_status_cb, status,
+                                                                transport);
+                        },
+                        afh_status, afh_transport));
+
+            }
+        }
+    }
 }
 #endif
 
 int hci_cmd_send(uint16_t opcode, uint8_t* buf, uint8_t len)
 {
     BTIF_TRACE_DEBUG("hci_cmd_send");
-    return BTA_DmHciRawCommand(opcode, len, buf, btif_vendor_hci_event_callback);
+    return BTA_DmHciRawCommand(opcode, len, buf, btif_vendor_hci_cmd_cmpl_callback);
 }
 
 static void set_wifi_state(bool status)
@@ -719,6 +797,213 @@ static void vendor_interop_database_add_remove_name(bool do_add,
   }
 }
 
+void btif_vendor_le_acl_disconnected (RawAddress bd_addr) {
+    LOG_INFO(LOG_TAG,"In btif_vendor_le_acl_disconnected");
+    std::unique_lock<std::mutex> guard(le_high_priority_mutex_);
+    if(le_high_priority_bd_addr == bd_addr) {
+        le_high_priority_bd_addr = {};
+        LOG_INFO(LOG_TAG," reset LE high priority mode address");
+        HAL_CBACK(bt_vendor_callbacks, le_high_priority_mode_cb,
+                  0, &le_high_priority_bd_addr, false);
+        le_pending_mode = LE_HIGH_PRIORITY_MODE_NONE;
+    }
+}
+
+static void set_le_high_priority_mode_complete(tBTM_VSC_CMPL* p_data)
+{
+    LOG_INFO(LOG_TAG,"In set_le_high_priority_mode_complete");
+    uint8_t         *stream,  status, subcmd;
+    uint16_t        opcode, length;
+
+    std::unique_lock<std::mutex> guard(le_high_priority_mutex_);
+
+    if (p_data && (stream = (uint8_t*)p_data->p_param_buf))
+    {
+        opcode = p_data->opcode;
+        length = p_data->param_len;
+        STREAM_TO_UINT8(status, stream);
+        STREAM_TO_UINT8(subcmd, stream);
+        BTIF_TRACE_DEBUG("%s opcode = 0x%04X, length = %d, status = %d, subcmd = %d",
+                __FUNCTION__, opcode, length, status, subcmd);
+
+        if (status == HCI_SUCCESS)
+        {
+            BTIF_TRACE_DEBUG("set_le_high_priority_mode status success");
+        }
+
+        if(le_pending_mode == LE_HIGH_PRIORITY_MODE_ENABLED) {
+            do_in_jni_thread(
+                FROM_HERE,
+                base::Bind(
+                    [](RawAddress addr, uint8_t status, bool mode) {
+                        HAL_CBACK(bt_vendor_callbacks, le_high_priority_mode_cb, status,
+                                  &addr, mode);
+                    },
+                    le_high_priority_bd_addr, status, true));
+        } else if(le_pending_mode == LE_HIGH_PRIORITY_MODE_DISABLED) {
+
+            do_in_jni_thread(
+                FROM_HERE,
+                base::Bind(
+                    [](RawAddress addr, uint8_t status, bool mode) {
+                        HAL_CBACK(bt_vendor_callbacks, le_high_priority_mode_cb, status,
+                                  &addr, mode);
+                    },
+                    le_high_priority_bd_addr, status, false));
+            le_high_priority_bd_addr = {};
+        }
+        le_pending_mode = LE_HIGH_PRIORITY_MODE_NONE;
+    }
+}
+static bool is_le_high_priority_mode_set(const RawAddress* addr)
+{
+    LOG_INFO(LOG_TAG,"In is_le_high_priority_mode_set");
+
+    std::unique_lock<std::mutex> guard(le_high_priority_mutex_);
+
+    tACL_CONN* acl = btm_bda_to_acl(*addr, BT_TRANSPORT_LE);
+    if(acl == nullptr) {
+       LOG_INFO(LOG_TAG,"no BLE ACL found return");
+       return false;
+    }
+
+    if(*addr == le_high_priority_bd_addr){
+        return true;
+    }
+    return false;
+}
+
+static bt_status_t set_le_high_priority_mode(const RawAddress* addr, bool enable)
+{
+    LOG_INFO(LOG_TAG,"In set_le_high_priority_mode");
+    std::unique_lock<std::mutex> guard(le_high_priority_mutex_);
+
+    uint8_t param[20], *p;
+    p = param;
+    memset(param, 0, 20);
+
+    UINT8_TO_STREAM(p, HCI_VSC_LE_HIGH_PRIORITY_MODE_OCF);
+
+    tACL_CONN* acl = btm_bda_to_acl(*addr, BT_TRANSPORT_LE);
+    if(acl == nullptr) {
+        LOG_INFO(LOG_TAG,"no BLE ACL found return");
+        return BT_STATUS_RMT_DEV_DOWN;
+    }
+    UINT16_TO_STREAM(p, acl->hci_handle);
+    UINT8_TO_STREAM(p, enable ? 0x01 : 0x00);
+
+    uint16_t param_len = sizeof(uint8_t) + sizeof(uint16_t) + sizeof(enable);
+
+    if(enable) {
+        if (*addr == le_high_priority_bd_addr) {
+            return BT_STATUS_DONE;
+        } else if(le_pending_mode != LE_HIGH_PRIORITY_MODE_NONE) {
+            return BT_STATUS_BUSY;
+        } else if(!le_high_priority_bd_addr.IsEmpty()) {
+            // already other device is active
+            return BT_STATUS_UNSUPPORTED;
+        }
+        le_high_priority_bd_addr = *addr;
+        le_pending_mode = LE_HIGH_PRIORITY_MODE_ENABLED;
+    } else {
+        if (le_high_priority_bd_addr.IsEmpty()) {
+            return BT_STATUS_DONE;
+        } else if(le_pending_mode != LE_HIGH_PRIORITY_MODE_NONE) {
+            return BT_STATUS_BUSY;
+        } else if(le_high_priority_bd_addr != *addr) {
+            // can't disable for not active device
+            return BT_STATUS_UNSUPPORTED;
+        }
+        le_pending_mode = LE_HIGH_PRIORITY_MODE_DISABLED;
+    }
+
+    BTM_VendorSpecificCommand(HCI_VSC_LE_HIGH_PRIORITY_MODE, param_len,
+            param, set_le_high_priority_mode_complete);
+    return BT_STATUS_SUCCESS;
+}
+
+static uint8_t measure_good_channels(uint8_t* afh_map, uint8_t length) {
+    if(length == HCI_AFH_CHANNEL_MAP_LEN) {
+        afh_map[length - 1] &= 0x7F;
+    } else if(length == HCI_BTLE_AFH_CHANNEL_MAP_LEN) {
+        afh_map[length - 1] &= 0x1F;
+    }
+    uint8_t total_good_chl = 0;
+    for(uint8_t i=0; i < length; i++) {
+        uint8_t num = afh_map[i];
+        while (num) {
+            total_good_chl += num & 1;
+            num >>= 1;
+        }
+    }
+    BTIF_TRACE_DEBUG("%s count of good channels %d",__func__, total_good_chl);
+    return total_good_chl;
+}
+
+
+static bool set_afh_map(afh_map* map, int transport) {
+    int bta_status = -1;
+    if (map == NULL) {
+        return false;
+    }
+    if (transport == BT_TRANSPORT_BR_EDR &&
+            measure_good_channels(map->afhMap, HCI_AFH_CHANNEL_MAP_LEN)< BR_EDR_MIN_GOOD_CHANNEL) {
+        BTIF_TRACE_DEBUG("%s Insufficient good channels ",__func__);
+        return false;
+    } else if(transport == BT_TRANSPORT_LE &&
+            measure_good_channels(map->afhMap, HCI_BTLE_AFH_CHANNEL_MAP_LEN)< 1) {
+         //Minimum 1 good channel required for LE
+        BTIF_TRACE_DEBUG("%s Insufficient good channels ",__func__);
+        return false;
+    }
+
+    if(transport != BT_TRANSPORT_BR_EDR && transport != BT_TRANSPORT_LE) {
+        BTIF_TRACE_DEBUG("%s Invalid Transport %d",__func__ ,transport);
+        return false;
+    }
+    if (transport == BT_TRANSPORT_BR_EDR) {
+        BTIF_TRACE_DEBUG("%s set_afh_map for BR EDR",__func__);
+        bta_status = BTA_DmHciRawCommand(HCI_SET_AFH_CHANNELS, HCI_AFH_CHANNEL_MAP_LEN,
+                                            map->afhMap, btif_vendor_hci_cmd_cmpl_callback);
+    } else {
+        BTIF_TRACE_DEBUG("%s set_afh_map for BT LE",__func__);
+        bta_status = BTA_DmHciRawCommand(HCI_BLE_SET_AFH_CHANNELS,HCI_BTLE_AFH_CHANNEL_MAP_LEN,
+                                          map->afhMap, btif_vendor_hci_cmd_cmpl_callback);
+    }
+    return(bta_status == BTA_SUCCESS) ? true : false;
+
+}
+
+static bool get_afh_map(const RawAddress* addr , int transport) {
+    int bta_status = -1;
+    uint8_t param[20], *p;
+    p = param;
+    memset(param, 0, 20);
+
+    if(transport == BT_TRANSPORT_BR_EDR ) {
+        tACL_CONN* acl = btm_bda_to_acl(*addr, BT_TRANSPORT_BR_EDR);
+        if(acl == nullptr) {
+            LOG_INFO(LOG_TAG,"no BR EDR ACL found return");
+            return false;
+        }
+        UINT16_TO_STREAM(p, acl->hci_handle);
+        BTIF_TRACE_DEBUG("%s get_afh_map for BR EDR",__func__);
+        bta_status = BTA_DmHciRawCommand(HCI_READ_AFH_CH_MAP ,HCI_AFH_CONNECTION_HANDLE_LEN,
+                                          param, btif_vendor_hci_cmd_cmpl_callback);
+    } else if (transport == BT_TRANSPORT_LE){
+        tACL_CONN* acl = btm_bda_to_acl(*addr, BT_TRANSPORT_LE);
+        if(acl == nullptr) {
+            LOG_INFO(LOG_TAG,"no BLE ACL found return");
+            return false;
+        }
+        UINT16_TO_STREAM(p, acl->hci_handle);
+        BTIF_TRACE_DEBUG("%s get_afh_map for BLE",__func__);
+        bta_status = BTA_DmHciRawCommand(HCI_BLE_READ_CHNL_MAP ,HCI_AFH_CONNECTION_HANDLE_LEN,
+                                          param, btif_vendor_hci_cmd_cmpl_callback );
+    }
+    return(bta_status == BTA_SUCCESS) ? true : false;
+}
+
 /*******************************************************************************
 **
 ** Function         get_testapp_interface
@@ -784,6 +1069,11 @@ static const btvendor_interface_t btvendorInterface = {
     vendor_interop_database_add_remove_addr,
     vendor_interop_database_add_remove_name,
     btif_dm_get_le_services,
+    set_le_high_priority_mode,
+    is_le_high_priority_mode_set,
+    set_afh_map,
+    get_afh_map
+
 };
 
 /*******************************************************************************
