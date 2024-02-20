@@ -62,6 +62,8 @@ import android.bluetooth.BluetoothQualityReport;
 import android.bluetooth.BluetoothStatusCodes;
 import com.android.bluetooth.btservice.InteropUtil.InteropFeature;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
+import com.android.bluetooth.apm.ApmConstIntf;
 
 import android.content.Intent;
 import android.content.Context;
@@ -106,6 +108,15 @@ final class Vendor {
     }
 
     public void bredrCleanup() {
+        if(Utils.isDualModeAudioEnabled()) {
+            ActiveDeviceManagerServiceIntf mActiveDeviceManager =
+                ActiveDeviceManagerServiceIntf.get();
+
+            if(mActiveDeviceManager != null) {
+                BluetoothDevice device = mActiveDeviceManager.getActiveDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+                mActiveDeviceManager.handleInactiveProfileUpdate(device);
+            }
+        }
         bredrcleanupNative();
     }
 
