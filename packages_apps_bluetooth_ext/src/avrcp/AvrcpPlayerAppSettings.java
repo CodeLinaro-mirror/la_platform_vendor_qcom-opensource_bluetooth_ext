@@ -132,7 +132,7 @@ public class AvrcpPlayerAppSettings {
         mPendingSetAttributes = null;
         mPlayerSettingCmds = null;
         mPlayerAppSettingsCmdDelay =
-                SystemProperties.getLong(AVRCP_PLAYERAPP_SETTINGS_PROPERTY, 1500L);
+                SystemProperties.getLong(AVRCP_PLAYERAPP_SETTINGS_PROPERTY, 600L);
         mContext = context;
         mAvrcpPlayerAppSettingsRspInterface = playerAppSettings;
     }
@@ -390,6 +390,7 @@ public class AvrcpPlayerAppSettings {
         Intent intent = new Intent(PLAYERSETTINGS_REQUEST);
         intent.putExtra(COMMAND, CMDGET);
         intent.putExtra(EXTRA_GET_COMMAND, AvrcpConstants_ext.GET_ATTRIBUTE_IDS);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mContext.sendBroadcast(intent, BLUETOOTH_PERM);
         mPendingCmds.add(new Integer(AvrcpConstants_ext.GET_ATTRIBUTE_IDS));
     }
@@ -399,6 +400,7 @@ public class AvrcpPlayerAppSettings {
         intent.putExtra(COMMAND, CMDGET);
         intent.putExtra(EXTRA_GET_COMMAND, AvrcpConstants_ext.GET_VALUE_IDS);
         intent.putExtra(EXTRA_ATTRIBUTE_ID, attr);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mContext.sendBroadcast(intent, BLUETOOTH_PERM);
         mPlayerSettingCmds.add(attr);
         mPendingCmds.add(new Integer(AvrcpConstants_ext.GET_VALUE_IDS));
@@ -417,6 +419,7 @@ public class AvrcpPlayerAppSettings {
         intent.putExtra(COMMAND, CMDGET);
         intent.putExtra(EXTRA_GET_COMMAND, AvrcpConstants_ext.GET_ATTRIBUTE_VALUES);
         intent.putExtra(EXTRA_ATTIBUTE_ID_ARRAY, barray);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mContext.sendBroadcast(intent, BLUETOOTH_PERM);
         mPendingCmds.add(new Integer(AvrcpConstants_ext.GET_ATTRIBUTE_VALUES));
     }
@@ -433,6 +436,7 @@ public class AvrcpPlayerAppSettings {
         Intent intent = new Intent(PLAYERSETTINGS_REQUEST);
         intent.putExtra(COMMAND, CMDSET);
         intent.putExtra(EXTRA_ATTRIB_VALUE_PAIRS, array);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mContext.sendBroadcast(intent, BLUETOOTH_PERM);
         mPendingCmds.add(new Integer(AvrcpConstants_ext.SET_ATTRIBUTE_VALUES));
     }
@@ -443,6 +447,7 @@ public class AvrcpPlayerAppSettings {
         intent.putExtra(COMMAND, CMDGET);
         intent.putExtra(EXTRA_GET_COMMAND, AvrcpConstants_ext.GET_ATTRIBUTE_TEXT);
         intent.putExtra(EXTRA_ATTIBUTE_ID_ARRAY, attrIds);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mPlayerSettings.attrIds = new byte [attr];
         for (int i = 0; i < attr; i++)
             mPlayerSettings.attrIds[i] = attrIds[i];
@@ -457,6 +462,7 @@ public class AvrcpPlayerAppSettings {
         intent.putExtra(EXTRA_GET_COMMAND, AvrcpConstants_ext.GET_VALUE_TEXT);
         intent.putExtra(EXTRA_ATTRIBUTE_ID, attr_id);
         intent.putExtra(EXTRA_VALUE_ID_ARRAY, value);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mPlayerSettings.attrIds = new byte [num_value];
         for (int i = 0; i < num_value; i++)
             mPlayerSettings.attrIds[i] = value[i];
