@@ -161,7 +161,7 @@ public final class Avrcp_ext {
     private int mLastUsedPlayerID;
     private AvrcpMediaRsp mAvrcpMediaRsp;
     private AvrcpPlayerAppSettingsRsp mAvrcpPlayerAppSettingsRsp;
-    private int maxAvrcpConnections = 1; // Max Avrcp connections at any time
+    private int maxAvrcpConnections = 2; // Max Avrcp connections at any time
     private static final int INVALID_DEVICE_INDEX = 0xFF;
     private boolean pts_test = false;
     private boolean avrcp_playstatus_blacklist = false;
@@ -3820,11 +3820,23 @@ public final class Avrcp_ext {
                                        PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f);
                         deviceFeatures[i].mCurrentPlayState = playState.build();
                     }
-                } else if (isPlayingState(mCurrentPlayerState) &&
-                           !mA2dpService.isA2dpPlaying(device) && !rc_only_device) {
+                } else if (isPlayingState(mCurrentPlayerState) && !rc_only_device) {
+                       boolean playing = false;
+
+                       for (int j = 0; j < maxAvrcpConnections; j++) {
+                           if (deviceFeatures[j].mCurrentDevice != null &&
+                               mA2dpService.isA2dpPlaying(deviceFeatures[j].mCurrentDevice)) {
+                               playing = true;
+                           }
+                       }
                        PlaybackState.Builder playState = new PlaybackState.Builder();
-                       playState.setState(PlaybackState.STATE_PAUSED,
-                                     PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f);
+                       if (playing) {
+                           playState.setState(PlaybackState.STATE_PLAYING,
+                                           PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f);
+                       } else {
+                           playState.setState(PlaybackState.STATE_PAUSED,
+                                           PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f);
+                       }
                        deviceFeatures[i].mCurrentPlayState = playState.build();
                 }
                 Log.i(TAG,"play status updated on Avrcp connection as: " +
