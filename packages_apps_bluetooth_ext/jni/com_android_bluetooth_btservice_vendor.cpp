@@ -972,8 +972,8 @@ static jboolean setAfhChannelMapNative(JNIEnv* env, jclass clazz, jint transport
     jniThrowIOException(env, EINVAL);
     return JNI_FALSE;
   }
-  env->ReleaseByteArrayElements(afhMap, afh, 0);
   bool ret = sBluetoothVendorInterface->set_afh_map((afh_map*)afh, transport);
+  env->ReleaseByteArrayElements(afhMap, afh, 0);
 
   return (ret == true) ? JNI_TRUE : JNI_FALSE;
 }
