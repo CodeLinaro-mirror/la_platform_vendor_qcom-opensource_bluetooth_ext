@@ -294,7 +294,7 @@ final class Vendor {
     }
 
     private void bqrDeliver(byte[] remoteAddr,
-            int lmpVer, int lmpSubVer, int manufacturerId, byte[] bqrRawData) {
+            int lmpVer, int lmpSubVer, int manufacturerId, byte[] bqrRawData, boolean isBqr5Supported) {
         BluetoothClass remoteBtClass = null;
         BluetoothDevice device = null;
         String remoteName = null;
@@ -330,6 +330,7 @@ final class Vendor {
                             .setManufacturerId(manufacturerId)
                             .setRemoteName(remoteName)
                             .setBluetoothClass(remoteBtClass)
+                            .setVendorBqr5(isBqr5Supported)
                             .build();
             Log.i(TAG, bqr.toString());
         } catch (Exception e) {
@@ -350,6 +351,7 @@ final class Vendor {
             Log.e(TAG, "bqrDeliver failed: bluetoothQualityReportReadyCallback error", e);
             return;
         }
+
     }
 
     void ssr_cleanup_callback() {

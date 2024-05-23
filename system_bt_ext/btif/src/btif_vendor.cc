@@ -88,6 +88,7 @@
 #include "stack/btm/btm_int_types.h"
 #include "stack/btm/btm_int.h"
 #include "hardware/vendor.h"
+#include "btif/include/btif_bqr.h"
 
 #if TEST_APP_INTERFACE == TRUE
 #include <bt_testapp.h>
@@ -143,6 +144,7 @@ btvendor_callbacks_t *bt_vendor_callbacks = NULL;
 static alarm_t *broadcast_cb_timer = NULL;
 static void btif_broadcast_timer_cb(UNUSED_ATTR void *data);
 BTIF_VND_IOT_INFO_CB_DATA broadcast_cb_data;
+static bool is_qc_bqr5_supported = false;
 
 #if TEST_APP_INTERFACE == TRUE
 extern const btl2cap_interface_t *btif_l2cap_get_interface(void);
@@ -224,6 +226,7 @@ void btif_vendor_update_add_on_features() {
         const bt_device_host_add_on_features_t* host_add_on_features =
             controller->get_host_add_on_features(&host_add_on_features_len);
 
+        is_qc_bqr5_supported = HCI_VENDOR_BQR5_SUPPORTED(soc_add_on_features->as_array);
         if (soc_add_on_features && soc_add_on_features_len > 0) {
             vnd_prop.len = soc_add_on_features_len;
             vnd_prop.type = BT_VENDOR_PROPERTY_SOC_ADD_ON_FEATURES;
@@ -244,6 +247,9 @@ void btif_vendor_update_add_on_features() {
     }
 }
 
+bool btif_vendor_is_qc_bqr5_supported() {
+    return is_qc_bqr5_supported;
+}
 
 void btif_vendor_update_whitelisted_media_players() {
     uint8_t num_wlplayers = 0;
@@ -416,11 +422,11 @@ void btif_vendor_bqr_delivery_event(const RawAddress* bd_addr, const uint8_t* bq
         FROM_HERE,
         base::Bind(
             [](RawAddress addr, uint8_t lmp_ver, uint16_t lmp_subver, uint16_t manufacturer_id,
-                std::vector<uint8_t> raw_data) {
+                std::vector<uint8_t> raw_data, bool is_qc_bqr5_supported) {
                 HAL_CBACK(bt_vendor_callbacks, bqr_delivery_cb, &addr,
-                    lmp_ver, lmp_subver, manufacturer_id, std::move(raw_data));
+                    lmp_ver, lmp_subver, manufacturer_id, std::move(raw_data), is_qc_bqr5_supported);
             },
-            *bd_addr, lmp_ver, lmp_subver, manufacturer_id, std::move(raw_data)));
+            *bd_addr, lmp_ver, lmp_subver, manufacturer_id, std::move(raw_data), is_qc_bqr5_supported));
 }
 
 static void bredrstartup(void)
