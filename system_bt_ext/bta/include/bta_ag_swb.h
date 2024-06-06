@@ -25,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef _BTA_AG_SWB_H_
@@ -45,7 +49,7 @@
 #define  BTA_AG_LOCAL_RES_QAC 0x108
 #define  BTA_AG_LOCAL_RES_QCS 0x109
 
-#define LEGACY_CODECS 2
+#define LEGACY_CODECS 4
 #define SWB_ESCO_NUM_CODECS 4
 
 void bta_ag_swb_handle_vs_at_events(tBTA_AG_SCB* p_scb, uint16_t cmd, int16_t int_arg, tBTA_AG_VAL val);
