@@ -226,7 +226,8 @@ void btif_vendor_update_add_on_features() {
         const bt_device_host_add_on_features_t* host_add_on_features =
             controller->get_host_add_on_features(&host_add_on_features_len);
 
-        is_qc_bqr5_supported = HCI_VENDOR_BQR5_SUPPORTED(soc_add_on_features->as_array);
+        if (soc_add_on_features && soc_add_on_features_len > 0)
+            is_qc_bqr5_supported = HCI_VENDOR_BQR5_SUPPORTED(soc_add_on_features->as_array);
         if (soc_add_on_features && soc_add_on_features_len > 0) {
             vnd_prop.len = soc_add_on_features_len;
             vnd_prop.type = BT_VENDOR_PROPERTY_SOC_ADD_ON_FEATURES;
