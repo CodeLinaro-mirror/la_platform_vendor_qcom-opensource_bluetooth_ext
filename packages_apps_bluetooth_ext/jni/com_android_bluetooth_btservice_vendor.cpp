@@ -173,7 +173,7 @@ static void iot_device_broadcast_callback(RawAddress* bd_addr, uint16_t error,
 }
 
 static void bqr_delivery_callback(RawAddress* bd_addr, uint8_t lmp_ver, uint16_t lmp_subver,
-        uint16_t manufacturer_id, std::vector<uint8_t> bqr_raw_data) {
+        uint16_t manufacturer_id, std::vector<uint8_t> bqr_raw_data, bool is_qc_bqr5_supported) {
   ALOGI("%s", __func__);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
@@ -197,7 +197,7 @@ static void bqr_delivery_callback(RawAddress* bd_addr, uint8_t lmp_ver, uint16_t
       (jbyte*)bqr_raw_data.data());
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_bqrDeliver, addr.get(),
-      (jint)lmp_ver, (jint)lmp_subver, (jint)manufacturer_id, raw_data.get());
+      (jint)lmp_ver, (jint)lmp_subver, (jint)manufacturer_id, raw_data.get(),(jboolean)is_qc_bqr5_supported);
 }
 
 static void adapter_vendor_properties_callback(bt_status_t status,
@@ -405,7 +405,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
     method_onBredrCleanup = env->GetMethodID(clazz, "onBredrCleanup", "(Z)V");
     method_iotDeviceBroadcast = env->GetMethodID(clazz, "iotDeviceBroadcast", "([BIIIIIIIIII)V");
-    method_bqrDeliver = env->GetMethodID(clazz, "bqrDeliver", "([BIII[B)V");
+    method_bqrDeliver = env->GetMethodID(clazz, "bqrDeliver", "([BIII[BZ)V");
     method_devicePropertyChangedCallback = env->GetMethodID(
       clazz, "devicePropertyChangedCallback", "([B[I[[B)V");
     method_adapterPropertyChangedCallback = env->GetMethodID(
@@ -972,8 +972,8 @@ static jboolean setAfhChannelMapNative(JNIEnv* env, jclass clazz, jint transport
     jniThrowIOException(env, EINVAL);
     return JNI_FALSE;
   }
-  env->ReleaseByteArrayElements(afhMap, afh, 0);
   bool ret = sBluetoothVendorInterface->set_afh_map((afh_map*)afh, transport);
+  env->ReleaseByteArrayElements(afhMap, afh, 0);
 
   return (ret == true) ? JNI_TRUE : JNI_FALSE;
 }

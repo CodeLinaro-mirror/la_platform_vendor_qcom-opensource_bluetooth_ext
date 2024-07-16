@@ -124,7 +124,8 @@ public class AddressedMediaPlayer_ext {
             }
         }
         mediaId = ByteBuffer.wrap(itemAttr.mUid).getLong();
-        if (mediaId == mLastTrackIdSent) {
+        if ((Arrays.equals(itemAttr.mUid, AvrcpConstants_ext.TRACK_IS_SELECTED) ||
+             mediaId == mLastTrackIdSent) && mediaController != null) {
             MediaMetadata metadata = mediaController.getMetadata();
             if (metadata != null) {
                  Log.d(TAG, "Send current playing metadata");
@@ -479,7 +480,9 @@ public class AddressedMediaPlayer_ext {
                 if (DEBUG) {
                     Log.d(TAG, "getAttrValue: item is active, using current data");
                 }
-                data = mediaController.getMetadata();
+                if (mediaController != null) {
+                    data = mediaController.getMetadata();
+                }
                 if (data == null) {
                     Log.e(TAG, "getMetadata didn't give us any metadata for the current track");
                 }
