@@ -164,6 +164,7 @@ public final class Avrcp_ext {
     private int maxAvrcpConnections = 2; // Max Avrcp connections at any time
     private static final int INVALID_DEVICE_INDEX = 0xFF;
     private boolean pts_test = false;
+    private boolean pts = false;
     private boolean avrcp_playstatus_blacklist = false;
     private static final String [] BlacklistDeviceAddrToMediaAttr = {"00:17:53"/*Toyota Etios*/};
     private boolean ignore_play;
@@ -5940,7 +5941,9 @@ public final class Avrcp_ext {
             Log.d(TAG, "Ignore passthrough, Broadcast is active");
             return;
         }
-        if ((mA2dpService != null) && !Objects.equals(a2dp_active_device, device)) {
+
+        pts = SystemProperties.getBoolean("vendor.bluetooth.avrcpct-passthrough.pts", false);
+        if (!pts && (mA2dpService != null) && !Objects.equals(a2dp_active_device, device)) {
             Log.d(TAG, "Ignore passthrough from inactive device");
             return;
         }
