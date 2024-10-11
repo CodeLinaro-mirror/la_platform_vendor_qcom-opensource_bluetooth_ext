@@ -221,9 +221,15 @@ static bool getVendorProperties(uint32_t vPropType, std::vector<vendor_property_
 static bool setVendorProperty(uint32_t type, const char * value)
 {
   bool status = false;
-  std::string vPropValue(value);
 
   LOG_INFO(LOG_TAG, "%s ", __func__);
+
+  if (value == NULL) {
+    LOG_ERROR(LOG_TAG, "%s value is NULL, Returning from here", __func__);
+    return status;
+  }
+
+  std::string vPropValue(value);
 
   btConfigStoreHal_2_0 = IBTConfigStore_V2_0::getService();
 
