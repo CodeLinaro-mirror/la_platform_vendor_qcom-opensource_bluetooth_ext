@@ -232,6 +232,11 @@ void btif_vendor_update_whitelisted_media_players() {
     uint8_t i = 0, buf_len = 0;
     bt_vendor_property_t wlplayers_prop;
     list_t *wl_players = list_new(osi_free);
+    if (!wl_players) {
+       LOG_ERROR(LOG_TAG, "%s: unable to allocate space for whitelist players",
+                 __func__);
+       return;
+    }
     LOG_DEBUG(LOG_TAG,"btif_vendor_update_whitelisted_media_players");
 
     wlplayers_prop.len = 0;
