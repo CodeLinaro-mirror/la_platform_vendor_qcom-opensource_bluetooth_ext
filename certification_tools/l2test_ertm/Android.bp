@@ -20,6 +20,8 @@ cc_binary {
         "libcutils",
         "libchrome",
         "libutils",
-        "libbluetooth-types",
     ],
+
+    static_libs: ["libbluetooth-types"],
+
 }
