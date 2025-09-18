@@ -103,6 +103,7 @@
 #define HCI_LE_SET_HOST_CHANNEL 0x2014
 #define HCI_LE_READ_AFH_CHANNEL_MAP 0x2015
 #define BR_EDR_MIN_GOOD_CHANNEL 20
+#define BQR_CONNECT_FAIL_VERSION 258
 
 typedef struct {
   RawAddress bd_addr; /* BD address peer device. */
@@ -228,6 +229,14 @@ void btif_vendor_update_add_on_features() {
 
         if (soc_add_on_features && soc_add_on_features_len > 0)
             is_qc_bqr5_supported = HCI_VENDOR_BQR5_SUPPORTED(soc_add_on_features->as_array);
+            tBTM_BLE_VSC_CB cmn_vsc_cb;
+            BTM_BleGetVendorCapabilities(&cmn_vsc_cb);
+            uint16_t vendor_cap_supported_version;
+            vendor_cap_supported_version = cmn_vsc_cb.version_supported;
+            if(is_qc_bqr5_supported == false &&
+                  (vendor_cap_supported_version >= BQR_CONNECT_FAIL_VERSION)) {
+                is_qc_bqr5_supported = true;
+            }
         if (soc_add_on_features && soc_add_on_features_len > 0) {
             vnd_prop.len = soc_add_on_features_len;
             vnd_prop.type = BT_VENDOR_PROPERTY_SOC_ADD_ON_FEATURES;
