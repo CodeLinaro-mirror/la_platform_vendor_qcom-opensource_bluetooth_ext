@@ -50,12 +50,15 @@ typedef void (*btav_audio_split_sink_suspend_ind_callback)(const RawAddress *bd_
 /** Callback to know suspend can be issued to the remote device.*/
 typedef bool (*btav_audio_split_sink_is_suspend_needed_callback)(const RawAddress *bd_addr);
 
+typedef void (* btav_audio_sink_audioserver_restarted_callback)(const RawAddress *bd_addr);
+
 typedef struct {
     /** set to sizeof(btav_sink_vendor_callbacks_t) */
     size_t      size;
     btav_audio_split_sink_start_ind_callback start_ind_cb;
     btav_audio_split_sink_suspend_ind_callback suspend_ind_cb;
     btav_audio_split_sink_is_suspend_needed_callback is_suspend_needed_cb;
+    btav_audio_sink_audioserver_restarted_callback audioserver_cb;
 } btav_sink_vendor_callbacks_t;
 
 
