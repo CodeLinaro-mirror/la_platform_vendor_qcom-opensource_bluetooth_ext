@@ -106,6 +106,15 @@ final class A2dpSinkVendorService {
         return false;
     }
 
+    private void onAudioServerRestartedCallback(byte[] address) {
+        A2dpSinkService service = A2dpSinkService.getA2dpSinkService();
+        if (service != null) {
+            service.onAudioServerRestartedCallback(address);
+        } else {
+            Log.d(TAG,"FATAL: Stack sent event while service is not available: ");
+        }
+    }
+
     private native void initNative();
     private native static void classInitNative();
     private native void cleanupNative();
